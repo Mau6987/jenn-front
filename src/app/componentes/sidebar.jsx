@@ -56,7 +56,7 @@ export default function AppSidebar({ ...props }) {
           { icon: Users, label: "Jugadores", href: "/jugadores" },
           { icon: Trophy, label: "Ranking Semanal", href: "/rankinsemanal" },
           { icon: Calendar, label: "Horarios", href: "/horarios" },
-          { icon: ClipboardList, label: "Prueba", href: "/prueba" },
+          { icon: ClipboardList, label: "Pruebas", href: "/pruebas" },
           { icon: FileText, label: "Resultados", href: "/resultados" },
           { icon: User, label: "Perfil", href: "/perfil" },
         ]
