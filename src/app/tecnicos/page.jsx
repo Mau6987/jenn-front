@@ -17,7 +17,7 @@ import {
   Filter,
   Users,
 } from "lucide-react"
-import { useAuth } from "../hooks/use-auth"
+import { useAuth } from "../../contexts/auth-context"
 
 export default function TecnicosPage() {
   const router = useRouter()
