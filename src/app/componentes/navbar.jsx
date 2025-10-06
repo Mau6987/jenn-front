@@ -3,12 +3,12 @@
 import { useState } from "react"
 import Link from "next/link"
 import { useRouter, usePathname } from "next/navigation"
-import { SidebarTrigger } from "@/components/ui/sidebar"
-import { Separator } from "@/components/ui/separator"
-import { useSidebar } from "@/components/ui/sidebar"
-import { ChevronDown, ArrowLeft, Facebook, Instagram, Twitter, MessageCircle, Youtube, Menu, X } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { useAuth } from "@/contexts/auth-context"
+import { SidebarTrigger } from "../../components/ui/sidebar"
+import { Separator } from "../../components/ui/separator"
+import { useSidebar } from "../../components/ui/sidebar"
+import { ArrowLeft, Facebook, Instagram, MessageCircle, Menu, X } from "lucide-react"
+import { Button } from "../../components/ui/button"
+import { useAuth } from "../../contexts/auth-context"
 
 export default function Navbar() {
   const router = useRouter()
@@ -57,7 +57,7 @@ export default function Navbar() {
             <Link href="/categorias/damas" className="text-gray-700 hover:text-[#800020]">
               Equipo
             </Link>
-          
+
             <Link href="/campeonatos" className="text-gray-700 hover:text-[#800020]">
               Campeonatos
             </Link>
@@ -113,7 +113,7 @@ export default function Navbar() {
               </Link>
               <Link href="/categorias/damas" className="text-gray-700 hover:text-[#800020]">
                 Equipo
-                </Link>
+              </Link>
               <Link
                 href="/campeonatos"
                 className="block text-gray-700 hover:text-[#800020] py-2"

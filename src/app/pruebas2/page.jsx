@@ -8,7 +8,22 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { Input } from "../../components/ui/input"
 import { Label } from "../../components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs"
-import { Activity, Play, Square, Trash2, Clock, Shuffle, Hand } from "lucide-react"
+import {
+  Activity,
+  Play,
+  Square,
+  Clock,
+  Shuffle,
+  Hand,
+  Mail,
+  Phone,
+  MapPin,
+  Ruler,
+  Calendar,
+  Trophy,
+  User,
+  GraduationCap,
+} from "lucide-react"
 
 const BACKEND_URL = "https://voley-backend-nhyl.onrender.com"
 
@@ -172,6 +187,7 @@ export default function PruebasCompleto() {
       }
     }
   }
+  const jugadorSeleccionado = cuentas.find((c) => c.id === Number(cuentaSeleccionada))
 
   const loadPusher = async () => {
     if (typeof window === "undefined") return
@@ -466,6 +482,8 @@ export default function PruebasCompleto() {
       console.log("[v0] Sequential test start response:", data)
 
       if (data.success) {
+        localStorage.setItem("prueba_secuencial_id", data.data.id.toString())
+
         setPruebaActualSequential(data.data)
         setTestActiveSequential(true)
         setModoActual("secuencial")
@@ -626,6 +644,8 @@ export default function PruebasCompleto() {
       console.log("[v0] Random test start response:", data)
 
       if (data.success) {
+        localStorage.setItem("prueba_aleatoria_id", data.data.id.toString())
+
         setPruebaActualRandom(data.data)
         setTestActiveRandom(true)
         setModoActual("aleatorio")
@@ -748,18 +768,21 @@ export default function PruebasCompleto() {
   }
 
   const finalizarPruebaSecuencial = async () => {
-    if (pruebaActualSequential) {
-      try {
-        console.log("[v0] Finalizing sequential test:", pruebaActualSequential.id)
+    const pruebaId = localStorage.getItem("prueba_secuencial_id")
 
-        const response = await fetch(`${BACKEND_URL}/api/pruebas/${pruebaActualSequential.id}`, {
+    if (pruebaId) {
+      try {
+        console.log("[v0] Finalizing sequential test:", pruebaId)
+
+        const response = await fetch(`${BACKEND_URL}/api/pruebas/finalizar/${pruebaId}`, {
           method: "PUT",
           headers: {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            tiempo_fin: new Date(),
-            estado: "finalizada",
+            cantidad_intentos: estadisticasSequential.intentos,
+            cantidad_aciertos: estadisticasSequential.aciertos,
+            cantidad_errores: estadisticasSequential.errores,
           }),
         })
 
@@ -772,6 +795,7 @@ export default function PruebasCompleto() {
 
         if (data.success) {
           addMessage("SISTEMA", "info", "Prueba secuencial finalizada correctamente", "success")
+          localStorage.removeItem("prueba_secuencial_id")
         } else {
           addMessage("SISTEMA", "error", "Error finalizando prueba: " + data.message, "error")
         }
@@ -790,18 +814,21 @@ export default function PruebasCompleto() {
       setTimerInterval(null)
     }
 
-    if (pruebaActualRandom) {
-      try {
-        console.log("[v0] Finalizing random test:", pruebaActualRandom.id)
+    const pruebaId = localStorage.getItem("prueba_aleatoria_id")
 
-        const response = await fetch(`${BACKEND_URL}/api/pruebas/${pruebaActualRandom.id}`, {
+    if (pruebaId) {
+      try {
+        console.log("[v0] Finalizing random test:", pruebaId)
+
+        const response = await fetch(`${BACKEND_URL}/api/pruebas/finalizar/${pruebaId}`, {
           method: "PUT",
           headers: {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            tiempo_fin: new Date(),
-            estado: "finalizada",
+            cantidad_intentos: estadisticasRandom.intentos,
+            cantidad_aciertos: estadisticasRandom.aciertos,
+            cantidad_errores: estadisticasRandom.errores,
           }),
         })
 
@@ -814,6 +841,7 @@ export default function PruebasCompleto() {
 
         if (data.success) {
           addMessage("SISTEMA", "info", "Prueba aleatoria finalizada correctamente", "success")
+          localStorage.removeItem("prueba_aleatoria_id")
         } else {
           addMessage("SISTEMA", "error", "Error finalizando prueba: " + data.message, "error")
         }
@@ -935,6 +963,8 @@ export default function PruebasCompleto() {
       console.log("[v0] Manual test start response:", data)
 
       if (data.success) {
+        localStorage.setItem("prueba_manual_id", data.data.id.toString())
+
         setPruebaActualManual(data.data)
         setTestActiveManual(true)
         setModoActual("manual")
@@ -1032,18 +1062,21 @@ export default function PruebasCompleto() {
   }
 
   const finalizarPruebaManual = async () => {
-    if (pruebaActualManual) {
-      try {
-        console.log("[v0] Finalizing manual test:", pruebaActualManual.id)
+    const pruebaId = localStorage.getItem("prueba_manual_id")
 
-        const response = await fetch(`${BACKEND_URL}/api/pruebas/${pruebaActualManual.id}`, {
+    if (pruebaId) {
+      try {
+        console.log("[v0] Finalizing manual test:", pruebaId)
+
+        const response = await fetch(`${BACKEND_URL}/api/pruebas/finalizar/${pruebaId}`, {
           method: "PUT",
           headers: {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            estado: "finalizada",
-            estadisticas: estadisticasManual,
+            cantidad_intentos: estadisticasManual.intentos,
+            cantidad_aciertos: estadisticasManual.aciertos,
+            cantidad_errores: estadisticasManual.errores,
           }),
         })
 
@@ -1054,7 +1087,12 @@ export default function PruebasCompleto() {
         const data = await response.json()
         console.log("[v0] Manual test finalization response:", data)
 
-        addMessage("SISTEMA", "info", "Prueba manual finalizada correctamente", "success")
+        if (data.success) {
+          addMessage("SISTEMA", "info", "Prueba manual finalizada correctamente", "success")
+          localStorage.removeItem("prueba_manual_id")
+        } else {
+          addMessage("SISTEMA", "error", "Error finalizando prueba: " + data.message, "error")
+        }
       } catch (error) {
         console.error("[v0] Error finalizing manual test:", error)
         addMessage("SISTEMA", "error", `Error finalizando prueba: ${error.message}`, "error")
@@ -1109,6 +1147,178 @@ export default function PruebasCompleto() {
 
   return (
     <div className="space-y-6 p-6">
+      {jugadorSeleccionado && jugadorSeleccionado.jugador && (
+        <Card className="rounded-xl shadow-lg border border-slate-200/60 overflow-hidden">
+          <div className="bg-gradient-to-r from-red-900 to-red-800 px-4 py-3">
+            <div className="flex items-center space-x-3">
+              <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
+                <User className="h-5 w-5 text-white" />
+              </div>
+              <div>
+                <h2 className="text-lg font-bold text-white">
+                  {jugadorSeleccionado.jugador.nombres} {jugadorSeleccionado.jugador.apellidos} 
+                </h2>
+                <div className="flex items-center space-x-2">
+                  <Trophy className="h-3 w-3 text-red-100" />
+                  <span className="text-red-100 text-xs font-medium">Jugador</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <CardContent className="p-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Información de Contacto */}
+              <div className="space-y-3">
+                <h3 className="text-sm font-semibold text-gray-900 border-b border-gray-200 pb-1">
+                  Información de Contacto
+                </h3>
+
+                <div className="space-y-2">
+                  
+                  {jugadorSeleccionado.jugador.fecha_nacimiento && (
+                    <div className="bg-gray-50 px-3 py-2 rounded-lg border border-gray-200/50">
+                      <div className="flex items-center space-x-2">
+                        <Calendar className="h-4 w-4 text-gray-600 flex-shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-medium text-gray-800">Edad</p>
+                          <p className="text-xs text-gray-700">
+                            {(() => {
+                              const birthDate = new Date(jugadorSeleccionado.jugador.fecha_nacimiento)
+                              const today = new Date()
+                              let age = today.getFullYear() - birthDate.getFullYear()
+                              const monthDiff = today.getMonth() - birthDate.getMonth()
+                              if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+                                age--
+                              }
+                              return `${age} años`
+                            })()}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {jugadorSeleccionado.jugador.carrera && (
+                    <div className="bg-gray-50 px-3 py-2 rounded-lg border border-gray-200/50">
+                      <div className="flex items-center space-x-2">
+                        <GraduationCap className="h-4 w-4 text-gray-600 flex-shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-medium text-gray-800">Carrera</p>
+                          <p className="text-xs text-gray-700">{jugadorSeleccionado.jugador.carrera}</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Información del Jugador */}
+              <div className="space-y-3">
+                <h3 className="text-sm font-semibold text-gray-900 border-b border-gray-200 pb-1">
+                  Información del Jugador
+                </h3>
+
+                <div className="space-y-2">
+                  {jugadorSeleccionado.jugador.posicion_principal && (
+                    <div className="bg-red-50/80 px-3 py-2 rounded-lg border border-red-200/50">
+                      <div className="flex items-center space-x-2">
+                        <MapPin className="h-4 w-4 text-red-600 flex-shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-medium text-red-800">Posición Principal</p>
+                          <p className="text-xs text-red-700 capitalize">
+                            {jugadorSeleccionado.jugador.posicion_principal}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {jugadorSeleccionado.jugador.altura && (
+                    <div className="bg-red-50/80 px-3 py-2 rounded-lg border border-red-200/50">
+                      <div className="flex items-center space-x-2">
+                        <Ruler className="h-4 w-4 text-red-600 flex-shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-medium text-red-800">Altura</p>
+                          <p className="text-xs text-red-700">{jugadorSeleccionado.jugador.altura} m</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {testActive && (
+        <Card className="border-2 border-blue-500 bg-gradient-to-r from-blue-50 to-indigo-50 shadow-lg">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-blue-900">
+              <Activity className="h-5 w-5" />
+              Progreso de la prueba
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div className="bg-white rounded-lg p-4 shadow-sm border border-blue-200">
+                <p className="text-xs text-gray-600 mb-1">Tipo de Prueba</p>
+                <p className="text-lg font-bold text-blue-900 capitalize">{modoActual}</p>
+              </div>
+
+              <div className="bg-white rounded-lg p-4 shadow-sm border border-blue-200">
+                <p className="text-xs text-gray-600 mb-1">Intentos</p>
+                <p className="text-2xl font-bold text-blue-600">{estadisticas.intentos}</p>
+              </div>
+
+              <div className="bg-white rounded-lg p-4 shadow-sm border border-green-200">
+                <p className="text-xs text-gray-600 mb-1">Aciertos</p>
+                <p className="text-2xl font-bold text-green-600">{estadisticas.aciertos}</p>
+              </div>
+
+              <div className="bg-white rounded-lg p-4 shadow-sm border border-red-200">
+                <p className="text-xs text-gray-600 mb-1">Errores</p>
+                <p className="text-2xl font-bold text-red-600">{estadisticas.errores}</p>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3 p-3 bg-white/60 rounded-lg border border-blue-200">
+              {modoActual === "secuencial" ? (
+                <>
+                  <Badge variant="outline" className="bg-white">
+                    Ronda {currentRound}/{totalRounds}
+                  </Badge>
+                  <Badge variant="outline" className="bg-white">
+                    Secuencia {currentSequence}/5
+                  </Badge>
+                </>
+              ) : modoActual === "aleatorio" ? (
+                <>
+                  <Badge variant="outline" className="flex items-center gap-1 bg-white">
+                    <Clock className="h-3 w-3" />
+                    {formatTime(tiempoRestante)}
+                  </Badge>
+                </>
+              ) : (
+                <>
+                  {waitingForResponseManual && (
+                    <Badge className="bg-orange-100 text-orange-800">Esperando respuesta...</Badge>
+                  )}
+                </>
+              )}
+              {currentActiveESP && <Badge className="bg-green-100 text-green-800">ESP-{currentActiveESP} Activo</Badge>}
+              {estadisticas.intentos > 0 && (
+                <Badge variant="outline" className="bg-purple-100 text-purple-800">
+                  Precisión: {Math.round((estadisticas.aciertos / estadisticas.intentos) * 100)}%
+                </Badge>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -1309,103 +1519,6 @@ export default function PruebasCompleto() {
               )}
             </TabsContent>
           </Tabs>
-
-          {testActive && (
-            <div className="space-y-3 mt-4">
-              <div className="flex items-center gap-4 p-3 bg-blue-50 rounded-lg">
-                {modoActual === "secuencial" ? (
-                  <>
-                    <Badge variant="outline">
-                      Ronda {currentRound}/{totalRounds}
-                    </Badge>
-                    <Badge variant="outline">Secuencia {currentSequence}/5</Badge>
-                  </>
-                ) : modoActual === "aleatorio" ? (
-                  <>
-                    <Badge variant="outline" className="flex items-center gap-1">
-                      <Clock className="h-3 w-3" />
-                      {formatTime(tiempoRestante)}
-                    </Badge>
-                    <Badge variant="outline">Modo Aleatorio</Badge>
-                  </>
-                ) : (
-                  <>
-                    <Badge variant="outline">Modo Manual</Badge>
-                    {waitingForResponseManual && (
-                      <Badge className="bg-orange-100 text-orange-800">Esperando respuesta...</Badge>
-                    )}
-                  </>
-                )}
-                {currentActiveESP && (
-                  <Badge className="bg-green-100 text-green-800">ESP-{currentActiveESP} Activo</Badge>
-                )}
-              </div>
-
-              <div className="flex items-center gap-4 p-3 bg-gray-50 rounded-lg">
-                <Badge variant="outline" className="bg-blue-100 text-blue-800">
-                  Intentos: {estadisticas.intentos}
-                </Badge>
-                <Badge variant="outline" className="bg-green-100 text-green-800">
-                  Aciertos: {estadisticas.aciertos}
-                </Badge>
-                <Badge variant="outline" className="bg-red-100 text-red-800">
-                  Errores: {estadisticas.errores}
-                </Badge>
-                {estadisticas.intentos > 0 && (
-                  <Badge variant="outline" className="bg-purple-100 text-purple-800">
-                    Precisión: {Math.round((estadisticas.aciertos / estadisticas.intentos) * 100)}%
-                  </Badge>
-                )}
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Activity className="h-5 w-5" />
-            Monitor de Comunicación ESP32
-            {!pusherConnected && <Badge className="bg-red-100 text-red-800 ml-2">{pusherStatus}</Badge>}
-          </CardTitle>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={() => setEspResponses([])}>
-              <Trash2 className="h-4 w-4 mr-2" />
-              Limpiar Monitor
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="bg-gray-900 rounded-lg p-4 h-64 overflow-y-auto">
-            {espResponses.length === 0 ? (
-              <div className="text-gray-400 text-center py-8">
-                {pusherConnected ? "Esperando mensajes del ESP32..." : "Conectando a Pusher..."}
-              </div>
-            ) : (
-              <div className="space-y-1">
-                {espResponses.map((response, index) => (
-                  <div key={index} className="text-sm font-mono">
-                    <span className="text-green-400">[{new Date(response.timestamp).toLocaleTimeString()}]</span>
-                    <span
-                      className={`ml-2 ${
-                        response.device === "SISTEMA"
-                          ? "text-cyan-400"
-                          : response.type === "command"
-                            ? "text-yellow-400"
-                            : response.type === "result"
-                              ? "text-purple-400"
-                              : "text-blue-400"
-                      }`}
-                    >
-                      {response.device}:
-                    </span>
-                    <span className="text-white ml-2">{response.message}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
         </CardContent>
       </Card>
 

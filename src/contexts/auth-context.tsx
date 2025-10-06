@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 
 const initialAuthState = {
   idUser: "",
@@ -9,13 +9,13 @@ const initialAuthState = {
   isAuthenticated: false,
 }
 
-// Custom event for auth changes
 const AUTH_CHANGE_EVENT = "authStateChange"
+const INACTIVITY_TIMEOUT = 5 * 60 * 1000 // 5 minutos
 
 export function useAuth() {
   const [authState, setAuthState] = useState(initialAuthState)
+  const inactivityTimer = useRef<NodeJS.Timeout | null>(null)
 
-  // Function to update auth state from localStorage
   const updateAuthState = useCallback(() => {
     if (typeof window !== "undefined") {
       const idUser = localStorage.getItem("idUser") || ""
@@ -32,18 +32,15 @@ export function useAuth() {
     }
   }, [])
 
-  // Function to trigger auth state change
   const triggerAuthChange = useCallback(() => {
     updateAuthState()
-    // Dispatch custom event to notify other components
     if (typeof window !== "undefined") {
       window.dispatchEvent(new CustomEvent(AUTH_CHANGE_EVENT))
     }
   }, [updateAuthState])
 
-  // Function to login
   const login = useCallback(
-    (idUser, rol, token) => {
+    (idUser: string, rol: string, token: string) => {
       if (typeof window !== "undefined") {
         localStorage.setItem("idUser", idUser)
         localStorage.setItem("rol", rol)
@@ -54,16 +51,13 @@ export function useAuth() {
     [triggerAuthChange],
   )
 
-  // Function to logout
   const logout = useCallback(async () => {
     const token = localStorage.getItem("token")
     try {
       if (token) {
         await fetch("https://voley-backend-nhyl.onrender.com/api/auth/logout", {
           method: "POST",
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
+          headers: { Authorization: `Bearer ${token}` },
         })
       }
     } catch (error) {
@@ -76,17 +70,50 @@ export function useAuth() {
     }
   }, [triggerAuthChange])
 
-  // Initialize auth state on mount
+  // 🔥 Timer de inactividad
+  const resetInactivityTimer = useCallback(() => {
+    if (inactivityTimer.current) {
+      clearTimeout(inactivityTimer.current)
+    }
+    inactivityTimer.current = setTimeout(() => {
+      console.warn("Sesión cerrada por inactividad")
+      logout()
+    }, INACTIVITY_TIMEOUT)
+  }, [logout])
+
   useEffect(() => {
     updateAuthState()
-  }, [updateAuthState])
 
-  // Listen for auth changes from other components
+    if (typeof window !== "undefined") {
+      // ⚡ Si está en el HOME "/" → limpiar auth
+      if (window.location.pathname === "/") {
+        console.log("En Home, limpiando datos de sesión...")
+        logout()
+      }
+
+      const events = ["mousemove", "keydown", "click", "scroll"]
+      events.forEach((event) => {
+        window.addEventListener(event, resetInactivityTimer)
+      })
+
+      resetInactivityTimer()
+
+      return () => {
+        events.forEach((event) => {
+          window.removeEventListener(event, resetInactivityTimer)
+        })
+        if (inactivityTimer.current) {
+          clearTimeout(inactivityTimer.current)
+        }
+      }
+    }
+  }, [updateAuthState, resetInactivityTimer, logout])
+
+  // sincronizar entre tabs
   useEffect(() => {
     const handleAuthChange = () => {
       updateAuthState()
     }
-
     if (typeof window !== "undefined") {
       window.addEventListener(AUTH_CHANGE_EVENT, handleAuthChange)
       return () => {

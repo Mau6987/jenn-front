@@ -1,6 +1,6 @@
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import { SidebarProvider } from "@/components/ui/sidebar"
+import { SidebarProvider } from "../components/ui/sidebar"
 import Navbar from "./componentes/navbar"  // <-- Importa tu componente Navbar aquí
 import AppSidebar from "./componentes/sidebar"  // <-- Importa tu componente Navbar aquí
 

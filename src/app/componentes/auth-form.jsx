@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { Instagram, Facebook } from "lucide-react"
 import Image from "next/image"
-import { useAuth } from "@/contexts/auth-context"
+import { useAuth } from "../../contexts/auth-context"
 
 export default function LoginPage() {
   const [formData, setFormData] = useState({

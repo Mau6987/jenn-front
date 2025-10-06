@@ -28,9 +28,8 @@ import {
   SidebarMenuItem,
   SidebarRail,
   useSidebar,
-} from "@/components/ui/sidebar"
-import { useAuth } from "@/contexts/auth-context"
-
+} from "../../components/ui/sidebar"
+import { useAuth } from "../../contexts/auth-context"
 
 export default function AppSidebar({ ...props }) {
   const router = useRouter()
@@ -120,11 +119,11 @@ export default function AppSidebar({ ...props }) {
                     <SidebarMenuButton
                       asChild
                       isActive={isActive}
-                      className={`${isActive ? "bg-[#800020] text-white hover:bg-[#800020] hover:text-white" : "text-black hover:bg-[#800020] hover:text-white"}`}
+                      className={`${isActive ? "bg-[#800020] text-white hover:bg-[#800020] hover:text-white" : "text-black hover:bg-[#800020] hover:text-white"} ${collapsed ? "h-16 w-16 p-4" : ""}`}
                     >
-                      <Link href={item.href}>
-                        <Icon className="h-4 w-4" />
-                        <span>{item.label}</span>
+                      <Link href={item.href} className="flex items-center gap-2">
+                        <Icon className={collapsed ? "h-48 w-48" : "h-8 w-8"} />
+                        {!collapsed && <span>{item.label}</span>}
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
@@ -138,9 +137,12 @@ export default function AppSidebar({ ...props }) {
       <SidebarFooter>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton onClick={handleLogout} className="text-[#800020] hover:bg-[#800020] hover:text-white">
-              <LogOut className="h-4 w-4" />
-              <span>Cerrar Sesión</span>
+            <SidebarMenuButton
+              onClick={handleLogout}
+              className={`text-[#800020] hover:bg-[#800020] hover:text-white ${collapsed ? "h-32 w-32 p-8" : ""}`}
+            >
+              <LogOut className={collapsed ? "h-48 w-48" : "h-8 w-8"} />
+              {!collapsed && <span>Cerrar Sesión</span>}
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
