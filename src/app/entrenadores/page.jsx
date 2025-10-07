@@ -17,6 +17,7 @@ import {
   AlertCircle,
   Filter,
   Users,
+  Camera,
 } from "lucide-react"
 
 export default function EntrenadoresPage() {
@@ -49,9 +50,12 @@ export default function EntrenadoresPage() {
     correo_electronico: "",
     usuario: "",
     contraseña: "",
+    imagen: "", // Added imagen field
   })
 
   const [validationErrors, setValidationErrors] = useState({})
+
+  const [uploadingImage, setUploadingImage] = useState(false)
 
   useEffect(() => {
     fetchEntrenadores()
@@ -113,6 +117,7 @@ export default function EntrenadoresPage() {
             id: cuenta.entrenador.id,
             usuario: cuenta.usuario,
             cuentaId: cuenta.id,
+            imagen: cuenta.entrenador.imagen || "", // Added imagen field
           }))
 
         setEntrenadores(entrenadores)
@@ -150,6 +155,7 @@ export default function EntrenadoresPage() {
       correo_electronico: "",
       usuario: "",
       contraseña: "",
+      imagen: "", // Added imagen field
     })
     setFormMode("create")
     setShowForm(true)
@@ -166,6 +172,7 @@ export default function EntrenadoresPage() {
       correo_electronico: entrenador.correo_electronico || "",
       usuario: entrenador.usuario || "",
       contraseña: "",
+      imagen: entrenador.imagen || "", // Added imagen field
     })
     setFormMode("view")
     setShowForm(true)
@@ -182,6 +189,7 @@ export default function EntrenadoresPage() {
       correo_electronico: entrenador.correo_electronico || "",
       usuario: entrenador.usuario || "",
       contraseña: "",
+      imagen: entrenador.imagen || "", // Added imagen field
     })
     setFormMode("update")
     setShowForm(true)
@@ -260,7 +268,52 @@ export default function EntrenadoresPage() {
       errors.contraseña = "La contraseña debe tener al menos 6 caracteres"
     }
 
+    // Validate imagen URL (optional, but good practice)
+    if (formData.imagen && !/^(https?:\/\/)?([\da-z.-]+)\.([a-z.]{2,6})([/\w .-]*)*\/?$/.test(formData.imagen)) {
+      errors.imagen = "La URL de la imagen no es válida"
+    }
+
     return errors
+  }
+
+  const convertToBase64 = (file) => {
+    return new Promise((resolve, reject) => {
+      // Validate file size (max 2MB)
+      if (file.size > 2 * 1024 * 1024) {
+        reject(new Error("La imagen debe ser menor a 2MB"))
+        return
+      }
+
+      // Validate file type
+      if (!file.type.startsWith("image/")) {
+        reject(new Error("El archivo debe ser una imagen"))
+        return
+      }
+
+      const reader = new FileReader()
+      reader.readAsDataURL(file)
+      reader.onload = () => resolve(reader.result)
+      reader.onerror = (error) => reject(error)
+    })
+  }
+
+  const handleImageChange = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    try {
+      setUploadingImage(true)
+      const base64 = await convertToBase64(file)
+      setFormData({
+        ...formData,
+        imagen: base64,
+      })
+      showNotification("success", "Imagen cargada correctamente")
+    } catch (error) {
+      showNotification("error", error.message || "Error al cargar la imagen")
+    } finally {
+      setUploadingImage(false)
+    }
   }
 
   const handleSubmit = async (e) => {
@@ -348,13 +401,16 @@ export default function EntrenadoresPage() {
         return
       }
 
-      const response = await fetch(`https://voley-backend-nhyl.onrender.com/api/cuentas/${selectedEntrenador.cuentaId}`, {
-        method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
+      const response = await fetch(
+        `https://voley-backend-nhyl.onrender.com/api/cuentas/${selectedEntrenador.cuentaId}`,
+        {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
         },
-      })
+      )
 
       const data = await response.json()
 
@@ -515,7 +571,7 @@ export default function EntrenadoresPage() {
                         <div className="w-1 h-6 bg-white rounded-full"></div>
                         <span>Contacto</span>
                       </div>
-                      
+
                       <div className="col-span-2 flex items-center space-x-2">
                         <div className="w-1 h-6 bg-white rounded-full"></div>
                         <span>Experiencia</span>
@@ -537,13 +593,32 @@ export default function EntrenadoresPage() {
                       >
                         <div className="grid grid-cols-12 gap-6 items-center">
                           <div className="col-span-3">
-                            <div>
-                              <p className="text-sm font-bold text-slate-900 group-hover:text-slate-700 transition-colors">
-                                {entrenador.nombres} {entrenador.apellidos}
-                              </p>
-                              <p className="text-xs text-slate-500 bg-slate-100 px-2 py-1 rounded-md mt-1 font-medium">
-                                {entrenador.edad} años
-                              </p>
+                            <div className="flex items-center space-x-3">
+                              <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden flex-shrink-0">
+                                {entrenador.imagen ? (
+                                  <img
+                                    src={entrenador.imagen || "/placeholder.svg"}
+                                    alt={`${entrenador.nombres} ${entrenador.apellidos}`}
+                                    className="w-full h-full object-cover"
+                                    onError={(e) => {
+                                      e.target.style.display = "none"
+                                      e.target.nextSibling.style.display = "flex"
+                                    }}
+                                  />
+                                ) : null}
+                                <Users
+                                  className="h-5 w-5 text-gray-400"
+                                  style={{ display: entrenador.imagen ? "none" : "block" }}
+                                />
+                              </div>
+                              <div>
+                                <p className="text-sm font-bold text-slate-900 group-hover:text-slate-700 transition-colors">
+                                  {entrenador.nombres} {entrenador.apellidos}
+                                </p>
+                                <p className="text-xs text-slate-500 bg-slate-100 px-2 py-1 rounded-md mt-1 font-medium">
+                                  {entrenador.edad} años
+                                </p>
+                              </div>
                             </div>
                           </div>
 
@@ -558,8 +633,6 @@ export default function EntrenadoresPage() {
                               <p className="text-sm font-bold text-slate-800">{entrenador.numero_celular}</p>
                             </div>
                           </div>
-
-                          
 
                           <div className="col-span-2">
                             <div className="bg-red-50/80 px-3 py-2 rounded-lg border border-red-200/50 text-center">
@@ -709,6 +782,26 @@ export default function EntrenadoresPage() {
                 {formMode === "view" ? (
                   // Vista de detalles (solo lectura)
                   <div className="space-y-8">
+                    <div className="flex justify-center mb-6">
+                      <div className="w-32 h-32 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden border-4 border-gray-300 shadow-lg">
+                        {formData.imagen ? (
+                          <img
+                            src={formData.imagen || "/placeholder.svg"}
+                            alt="Foto de perfil"
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              e.target.style.display = "none"
+                              e.target.nextSibling.style.display = "flex"
+                            }}
+                          />
+                        ) : null}
+                        <Users
+                          className="h-16 w-16 text-gray-400"
+                          style={{ display: formData.imagen ? "none" : "block" }}
+                        />
+                      </div>
+                    </div>
+
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                       <div className="space-y-2">
                         <label className="block text-sm font-semibold text-gray-700 uppercase tracking-wide">
@@ -786,6 +879,62 @@ export default function EntrenadoresPage() {
                 ) : (
                   // Formulario para crear o editar
                   <form onSubmit={handleSubmit} className="space-y-8">
+                    <div className="p-6 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border border-blue-200">
+                      <div className="flex items-start space-x-4">
+                        <div className="flex-shrink-0">
+                          <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center overflow-hidden border-4 border-white shadow-lg">
+                            {formData.imagen ? (
+                              <img
+                                src={formData.imagen || "/placeholder.svg"}
+                                alt="Vista previa"
+                                className="w-full h-full object-cover"
+                                onError={(e) => {
+                                  e.target.style.display = "none"
+                                  e.target.nextSibling.style.display = "flex"
+                                }}
+                              />
+                            ) : null}
+                            <Camera
+                              className="h-10 w-10 text-gray-400"
+                              style={{ display: formData.imagen ? "none" : "block" }}
+                            />
+                          </div>
+                        </div>
+                        <div className="flex-1">
+                          <label className="block text-sm font-semibold text-gray-700 mb-2">
+                            <Camera className="h-4 w-4 inline mr-2" />
+                            Imagen de perfil (opcional)
+                          </label>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={handleImageChange}
+                            disabled={uploadingImage}
+                            className="w-full px-4 py-2 border border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-100 file:text-blue-700 hover:file:bg-blue-200 disabled:opacity-50"
+                          />
+                          <p className="text-xs text-gray-600 mt-2">
+                            {uploadingImage
+                              ? "Cargando imagen..."
+                              : "Selecciona una imagen (JPG, PNG, GIF). Máximo 2MB."}
+                          </p>
+                          {formData.imagen && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setFormData({
+                                  ...formData,
+                                  imagen: "",
+                                })
+                              }
+                              className="mt-2 text-xs text-red-600 hover:text-red-800 font-medium"
+                            >
+                              Eliminar imagen
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                       <div className="space-y-2">
                         <label className="block text-sm font-semibold text-gray-700 uppercase tracking-wide">

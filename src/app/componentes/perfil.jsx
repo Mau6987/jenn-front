@@ -1,1614 +1,667 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
-import { Button } from "../../components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card"
-import { Badge } from "../../components/ui/badge"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select"
-import { Input } from "../../components/ui/input"
-import { Label } from "../../components/ui/label"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs"
+import { useState, useEffect } from "react"
+import { useAuth } from "../../contexts/auth-context"
 import {
-  Activity,
-  Play,
-  Square,
-  Clock,
-  Shuffle,
-  Hand,
+  User,
   Mail,
   Phone,
-  MapPin,
-  Ruler,
   Calendar,
-  Trophy,
-  User,
   GraduationCap,
+  Shield,
+  Loader2,
+  AlertCircle,
+  CheckCircle,
+  X,
+  Edit,
+  Save,
+  Camera,
 } from "lucide-react"
 
-const BACKEND_URL = "https://voley-backend-nhyl.onrender.com"
-
-export default function PruebasCompleto() {
-  // Sequential mode variables
-  const [testActiveSequential, setTestActiveSequential] = useState(false)
-  const [currentActiveESPSequential, setCurrentActiveESPSequential] = useState(null)
-  const [waitingForResponseSequential, setWaitingForResponseSequential] = useState(false)
-  const [currentRound, setCurrentRound] = useState(0)
-  const [totalRounds, setTotalRounds] = useState(1)
-  const [currentSequence, setCurrentSequence] = useState(0)
-  const [pruebaActualSequential, setPruebaActualSequential] = useState(null)
-  const [estadisticasSequential, setEstadisticasSequential] = useState({
-    intentos: 0,
-    aciertos: 0,
-    errores: 0,
-  })
-
-  // Random mode variables
-  const [testActiveRandom, setTestActiveRandom] = useState(false)
-  const [currentActiveESPRandom, setCurrentActiveESPRandom] = useState(null)
-  const [waitingForResponseRandom, setWaitingForResponseRandom] = useState(false)
-  const [tiempoPrueba, setTiempoPrueba] = useState(60)
-  const [tiempoRestante, setTiempoRestante] = useState(0)
-  const [timerInterval, setTimerInterval] = useState(null)
-  const [pruebaActualRandom, setPruebaActualRandom] = useState(null)
-  const [estadisticasRandom, setEstadisticasRandom] = useState({
-    intentos: 0,
-    aciertos: 0,
-    errores: 0,
-  })
-
-  const [testActiveManual, setTestActiveManual] = useState(false)
-  const [currentActiveESPManual, setCurrentActiveESPManual] = useState(null)
-  const [waitingForResponseManual, setWaitingForResponseManual] = useState(false)
-  const [pruebaActualManual, setPruebaActualManual] = useState(null)
-  const [estadisticasManual, setEstadisticasManual] = useState({
-    intentos: 0,
-    aciertos: 0,
-    errores: 0,
-  })
-
-  // Shared variables
-  const [modoActual, setModoActual] = useState("secuencial")
-
-  const [microControllers, setMicroControllers] = useState([
-    { id: 1, label: "A", active: false, connected: false, lastSeen: null, lastResponse: null },
-    { id: 2, label: "B", active: false, connected: false, lastSeen: null, lastResponse: null },
-    { id: 3, label: "C", active: false, connected: false, lastSeen: null, lastResponse: null },
-    { id: 4, label: "D", active: false, connected: false, lastSeen: null, lastResponse: null },
-    { id: 5, label: "E", active: false, connected: false, lastSeen: null, lastResponse: null },
-  ])
-
-  const [pusherConnected, setPusherConnected] = useState(false)
-  const [pusherStatus, setPusherStatus] = useState("Desconectado")
-  const [espResponses, setEspResponses] = useState([])
-
-  const [cuentas, setCuentas] = useState([])
-  const [cuentaSeleccionada, setCuentaSeleccionada] = useState("")
-  const [jugadoresDisponibles, setJugadoresDisponibles] = useState([])
-
-  const testActiveSequentialRef = useRef(false)
-  const currentActiveESPSequentialRef = useRef(null)
-  const waitingForResponseSequentialRef = useRef(false)
-  const processingResponseSequentialRef = useRef(false)
-  const responseTimeoutSequentialRef = useRef(null)
-
-  const testActiveRandomRef = useRef(false)
-  const currentActiveESPRandomRef = useRef(null)
-  const waitingForResponseRandomRef = useRef(false)
-  const processingResponseRandomRef = useRef(false)
-  const responseTimeoutRandomRef = useRef(null)
-
-  const testActiveManualRef = useRef(false)
-  const currentActiveESPManualRef = useRef(null)
-  const waitingForResponseManualRef = useRef(false)
-  const processingResponseManualRef = useRef(false)
-  const responseTimeoutManualRef = useRef(null)
+export default function Perfil() {
+  const { idUser, token, isAuthenticated } = useAuth()
+  const [perfil, setPerfil] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState("")
+  const [notification, setNotification] = useState(null)
+  const [isEditing, setIsEditing] = useState(false)
+  const [formData, setFormData] = useState({})
+  const [updating, setUpdating] = useState(false)
+  const [uploadingImage, setUploadingImage] = useState(false)
 
   useEffect(() => {
-    testActiveSequentialRef.current = testActiveSequential
-    currentActiveESPSequentialRef.current = currentActiveESPSequential
-    waitingForResponseSequentialRef.current = waitingForResponseSequential
-
-    testActiveRandomRef.current = testActiveRandom
-    currentActiveESPRandomRef.current = currentActiveESPRandom
-    waitingForResponseRandomRef.current = waitingForResponseRandom
-
-    testActiveManualRef.current = testActiveManual
-    currentActiveESPManualRef.current = currentActiveESPManual
-    waitingForResponseManualRef.current = waitingForResponseManual
-  }, [
-    testActiveSequential,
-    currentActiveESPSequential,
-    waitingForResponseSequential,
-    testActiveRandom,
-    currentActiveESPRandom,
-    waitingForResponseRandom,
-    testActiveManual,
-    currentActiveESPManual,
-    waitingForResponseManual,
-  ])
-
-  useEffect(() => {
-    console.log("[v0] Connecting to backend:", BACKEND_URL)
-    cargarCuentas()
-    loadPusher()
-  }, [])
-
-  useEffect(() => {
-    return () => {
-      if (timerInterval) {
-        clearInterval(timerInterval)
-      }
+    if (isAuthenticated && idUser) {
+      obtenerPerfil()
+    } else {
+      setError("Usuario no autenticado")
+      setLoading(false)
     }
-  }, [timerInterval])
+  }, [idUser, isAuthenticated])
 
-  const cargarCuentas = async () => {
-    console.log("[v0] Loading accounts from:", `${BACKEND_URL}/api/cuentas`)
-
+  const obtenerPerfil = async () => {
     try {
-      const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), 10000)
+      setLoading(true)
+      setError("")
 
-      const response = await fetch(`${BACKEND_URL}/api/cuentas`, {
+      const response = await fetch(`https://voley-backend-nhyl.onrender.com/api/cuentas/perfil/${idUser}`, {
         method: "GET",
         headers: {
+          Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
-        signal: controller.signal,
       })
 
-      clearTimeout(timeoutId)
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`)
-      }
-
       const data = await response.json()
-      console.log("[v0] Accounts loaded:", data)
 
       if (data.success) {
-        setCuentas(data.data)
-        const jugadores = data.data.filter((cuenta) => cuenta.rol === "jugador")
-        setJugadoresDisponibles(jugadores)
-        console.log("[v0] Players filtered:", jugadores.length)
-
-        if (jugadores.length === 0) {
-          addMessage("SISTEMA", "warning", "No se encontraron jugadores disponibles", "warning")
-        }
-      } else {
-        throw new Error(data.message || "Error en respuesta del servidor")
-      }
-    } catch (error) {
-      console.error("[v0] Error loading accounts:", error)
-
-      if (error.name === "AbortError") {
-        setPusherStatus("Timeout cargando cuentas")
-      } else {
-        setPusherStatus(`Error cargando cuentas: ${error.message}`)
-      }
-    }
-  }
-  const jugadorSeleccionado = cuentas.find((c) => c.id === Number(cuentaSeleccionada))
-
-  const loadPusher = async () => {
-    if (typeof window === "undefined") return
-
-    try {
-      const script = document.createElement("script")
-      script.src = "https://js.pusher.com/8.2.0/pusher.min.js"
-      script.async = true
-      document.head.appendChild(script)
-
-      script.onload = () => {
-        initializePusher()
-      }
-    } catch (error) {
-      console.error("Error loading Pusher:", error)
-      setPusherStatus("Error cargando Pusher")
-    }
-  }
-
-  const initializePusher = () => {
-    const pusherKey = "4f85ef5c792df94cebc9"
-    const pusherCluster = "us2"
-
-    const pusher = new window.Pusher(pusherKey, {
-      cluster: pusherCluster,
-      encrypted: true,
-      authEndpoint: `${BACKEND_URL}/api/pusher/pusher/auth`,
-      forceTLS: true,
-    })
-
-    console.log("Pusher instance created")
-
-    pusher.connection.bind("connecting", () => {
-      console.log("Pusher connecting...")
-      setPusherStatus("Conectando...")
-    })
-
-    pusher.connection.bind("connected", () => {
-      console.log("Pusher connected successfully!")
-      console.log("Socket ID:", pusher.connection.socket_id)
-      setPusherStatus("Conectado")
-      setPusherConnected(true)
-
-      subscribeToMicrocontrollerChannels(pusher)
-    })
-
-    pusher.connection.bind("disconnected", () => {
-      console.log("Pusher disconnected")
-      setPusherStatus("Desconectado")
-      setPusherConnected(false)
-    })
-
-    pusher.connection.bind("failed", () => {
-      console.log("Pusher connection failed")
-      setPusherStatus("Error de conexión")
-      setPusherConnected(false)
-    })
-
-    pusher.connection.bind("error", (error) => {
-      console.log("Pusher connection error:", error)
-      setPusherStatus("Error: " + error.message)
-      setPusherConnected(false)
-    })
-  }
-
-  const subscribeToMicrocontrollerChannels = (pusher) => {
-    console.log("Subscribing to microcontroller channels...")
-
-    for (let i = 1; i <= 5; i++) {
-      const channelName = `private-device-ESP-${i}`
-      console.log("Subscribing to channel:", channelName)
-
-      const channel = pusher.subscribe(channelName)
-
-      channel.bind("pusher:subscription_succeeded", () => {
-        console.log("Successfully subscribed to", channelName)
-        setMicroControllers((prev) =>
-          prev.map((mc) => (mc.id === i ? { ...mc, connected: true, lastSeen: new Date() } : mc)),
-        )
-      })
-
-      channel.bind("pusher:subscription_error", (error) => {
-        console.log("Subscription error for", channelName, ":", error)
-        setMicroControllers((prev) => prev.map((mc) => (mc.id === i ? { ...mc, connected: false } : mc)))
-      })
-
-      channel.bind("client-response", (data) => {
-        const espId = Number.parseInt(channelName.split("-").pop())
-        const responseMessage = data.message?.toLowerCase() || ""
-
-        setMicroControllers((prev) =>
-          prev.map((mc) => (mc.id === espId ? { ...mc, connected: true, lastSeen: new Date() } : mc)),
-        )
-
-        console.log(
-          `[v0] Sequential state: testActive=${testActiveSequentialRef.current}, currentActiveESP=${currentActiveESPSequentialRef.current}, waitingForResponse=${waitingForResponseSequentialRef.current}`,
-        )
-        console.log(
-          `[v0] Random state: testActive=${testActiveRandomRef.current}, currentActiveESP=${currentActiveESPRandomRef.current}, waitingForResponse=${waitingForResponseRandomRef.current}`,
-        )
-
-        if (
-          testActiveSequentialRef.current &&
-          waitingForResponseSequentialRef.current &&
-          currentActiveESPSequentialRef.current === espId
-        ) {
-          if (processingResponseSequentialRef.current) {
-            console.log(`[v0] Already processing sequential response, ignoring duplicate from ESP-${espId}`)
-            return
-          }
-
-          console.log(`[v0] Sequential test is active and waiting for response from ESP-${espId}, processing message`)
-          processingResponseSequentialRef.current = true
-
-          if (responseMessage.includes("acierto") || responseMessage.includes("success")) {
-            console.log(`[v0] *** SEQUENTIAL ACIERTO detected from ESP-${espId} ***`)
-            handleSequentialResponse(espId, "acierto")
-          } else if (
-            responseMessage.includes("error") ||
-            responseMessage.includes("fallo") ||
-            responseMessage.includes("timeout") ||
-            responseMessage.includes("fail")
-          ) {
-            console.log(`[v0] *** SEQUENTIAL ERROR detected from ESP-${espId} ***`)
-            handleSequentialResponse(espId, "error")
-          } else {
-            console.log(
-              `[v0] Unknown sequential message type from ESP-${espId}: "${responseMessage}" - treating as error`,
-            )
-            handleSequentialResponse(espId, "error")
-          }
-        } else if (
-          testActiveRandomRef.current &&
-          waitingForResponseRandomRef.current &&
-          currentActiveESPRandomRef.current === espId
-        ) {
-          if (processingResponseRandomRef.current) {
-            console.log(`[v0] Already processing random response, ignoring duplicate from ESP-${espId}`)
-            return
-          }
-
-          console.log(`[v0] Random test is active and waiting for response from ESP-${espId}, processing message`)
-          processingResponseRandomRef.current = true
-
-          if (responseMessage.includes("acierto") || responseMessage.includes("success")) {
-            console.log(`[v0] *** RANDOM ACIERTO detected from ESP-${espId} ***`)
-            handleRandomResponse(espId, "acierto")
-          } else if (
-            responseMessage.includes("error") ||
-            responseMessage.includes("fallo") ||
-            responseMessage.includes("timeout") ||
-            responseMessage.includes("fail")
-          ) {
-            console.log(`[v0] *** RANDOM ERROR detected from ESP-${espId} ***`)
-            handleRandomResponse(espId, "error")
-          } else {
-            console.log(`[v0] Unknown random message type from ESP-${espId}: "${responseMessage}" - treating as error`)
-            handleRandomResponse(espId, "error")
-          }
-        } else if (
-          testActiveManualRef.current &&
-          waitingForResponseManualRef.current &&
-          currentActiveESPManualRef.current === espId
-        ) {
-          if (processingResponseManualRef.current) {
-            console.log(`[v0] Already processing manual response, ignoring duplicate from ESP-${espId}`)
-            return
-          }
-
-          console.log(`[v0] Manual test is active and waiting for response from ESP-${espId}, processing message`)
-          processingResponseManualRef.current = true
-
-          if (responseMessage.includes("acierto") || responseMessage.includes("success")) {
-            console.log(`[v0] *** MANUAL ACIERTO detected from ESP-${espId} ***`)
-            handleManualResponse(espId, "acierto")
-          } else if (
-            responseMessage.includes("error") ||
-            responseMessage.includes("fallo") ||
-            responseMessage.includes("timeout") ||
-            responseMessage.includes("fail")
-          ) {
-            console.log(`[v0] *** MANUAL ERROR detected from ESP-${espId} ***`)
-            handleManualResponse(espId, "error")
-          } else {
-            console.log(`[v0] Unknown manual message type from ESP-${espId}: "${responseMessage}" - treating as error`)
-            handleManualResponse(espId, "error")
-          }
-        } else {
-          console.log(`[v0] Ignoring message from ESP-${espId}: no active test waiting for this ESP`)
-        }
-      })
-
-      channel.bind("client-heartbeat", (data) => {
-        console.log("Heartbeat received from", channelName, ":", data)
-        addMessage(`ESP-${i}`, "heartbeat", data, "info")
-
-        setMicroControllers((prev) =>
-          prev.map((mc) => (mc.id === i ? { ...mc, connected: true, lastSeen: new Date() } : mc)),
-        )
-      })
-
-      channel.bind("client-sensor_change", (data) => {
-        console.log("Sensor change received from", channelName, ":", data)
-        addMessage(`ESP-${i}`, "sensor_change", data, "warning")
-      })
-
-      channel.bind("client-status", (data) => {
-        console.log("Status update from", channelName, ":", data)
-        addMessage(`ESP-${i}`, "status", data, "info")
-
-        if (typeof data === "object" && data.status === "connected") {
-          setMicroControllers((prev) =>
-            prev.map((mc) => (mc.id === i ? { ...mc, connected: true, lastSeen: new Date() } : mc)),
-          )
-        }
-      })
-
-      channel.bind_global((eventName, data) => {
-        if (eventName.startsWith("client-")) {
-          console.log("Global event received:", eventName, "from", channelName, "data:", data)
-          addMessage(`ESP-${i}`, eventName, data, "info")
-        }
-      })
-    }
-  }
-
-  const addMessage = (device, type, data, status) => {
-    const message = {
-      device: device,
-      message: typeof data === "string" ? data : JSON.stringify(data),
-      timestamp: Date.now(),
-      type: type,
-      status: status,
-    }
-    setEspResponses((prev) => [...prev.slice(-9), message])
-  }
-
-  const sendCommandToESP = async (espId, command) => {
-    try {
-      const deviceId = `ESP-${espId}`
-      const response = await fetch(`${BACKEND_URL}/api/pusher/send-command`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          deviceId: deviceId,
-          command: command?.command || "ON",
-          channel: `private-device-${deviceId}`,
-        }),
-      })
-
-      const data = await response.json()
-
-      if (!response.ok) {
-        throw new Error(data.message || "Error al enviar comando")
-      }
-
-      console.log(`Command sent to ${deviceId}:`, data)
-      addMessage(`ESP-${espId}`, "info", JSON.stringify({ command: command?.command || "ON", from: "server" }), "info")
-    } catch (error) {
-      console.error(`Error sending command to ESP-${espId}:`, error)
-      addMessage(`ESP-${espId}`, "error", `Error enviando comando: ${error.message}`, "error")
-    }
-  }
-
-  const iniciarPruebaSecuencial = async () => {
-    if (!cuentaSeleccionada) {
-      addMessage("SISTEMA", "error", "Debe seleccionar un jugador", "error")
-      return
-    }
-
-    try {
-      console.log("[v0] Starting sequential test for account:", cuentaSeleccionada)
-
-      const response = await fetch(`${BACKEND_URL}/api/pruebas/iniciar`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          tipo: "secuencial",
-          cuentaId: cuentaSeleccionada,
-        }),
-      })
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`)
-      }
-
-      const data = await response.json()
-      console.log("[v0] Sequential test start response:", data)
-
-      if (data.success) {
-        localStorage.setItem("prueba_secuencial_id", data.data.id.toString())
-
-        setPruebaActualSequential(data.data)
-        setTestActiveSequential(true)
-        setModoActual("secuencial")
-        setCurrentRound(1)
-        setCurrentSequence(1)
-        setEstadisticasSequential({ intentos: 0, aciertos: 0, errores: 0 })
-
-        addMessage("SISTEMA", "info", `Prueba secuencial iniciada - ${totalRounds} rondas`, "info")
-
-        setTimeout(() => {
-          activateNextMicrocontrollerSequential(1)
-        }, 1000)
-      } else {
-        addMessage("SISTEMA", "error", "Error iniciando prueba: " + data.message, "error")
-      }
-    } catch (error) {
-      console.error("[v0] Error starting sequential test:", error)
-      addMessage("SISTEMA", "error", `Error iniciando prueba: ${error.message}`, "error")
-    }
-  }
-
-  const activateNextMicrocontrollerSequential = (espId) => {
-    console.log(`[v0] Activating sequential ESP-${espId}`)
-
-    if (responseTimeoutSequentialRef.current) {
-      clearTimeout(responseTimeoutSequentialRef.current)
-      responseTimeoutSequentialRef.current = null
-    }
-
-    setCurrentActiveESPSequential(espId)
-    setWaitingForResponseSequential(true)
-
-    setMicroControllers((prev) =>
-      prev.map((mc) => ({
-        ...mc,
-        active: mc.id === espId,
-        status: mc.id === espId ? "Esperando respuesta" : mc.status,
-      })),
-    )
-
-    const command = { command: "ON", from: "server" }
-    sendCommandToESP(espId, command)
-
-    addMessage(`ESP-${espId}`, "command", JSON.stringify(command), "info")
-
-    responseTimeoutSequentialRef.current = setTimeout(() => {
-      console.log(`[v0] Sequential timeout for ESP-${espId}`)
-      addMessage(`ESP-${espId}`, "timeout", "Timeout - sin respuesta", "warning")
-      handleSequentialResponse(espId, "error")
-    }, 10000)
-  }
-
-  const handleSequentialResponse = (espId, responseType) => {
-    console.log(`[v0] Processing sequential response from ESP-${espId}: ${responseType}`)
-
-    if (
-      !testActiveSequentialRef.current ||
-      !waitingForResponseSequentialRef.current ||
-      currentActiveESPSequentialRef.current !== espId
-    ) {
-      console.log(`[v0] Ignoring sequential response from ESP-${espId} - test not active or not waiting`)
-      processingResponseSequentialRef.current = false
-      return
-    }
-
-    if (responseTimeoutSequentialRef.current) {
-      clearTimeout(responseTimeoutSequentialRef.current)
-      responseTimeoutSequentialRef.current = null
-    }
-
-    setEstadisticasSequential((prev) => ({
-      intentos: prev.intentos + 1,
-      aciertos: responseType === "acierto" ? prev.aciertos + 1 : prev.aciertos,
-      errores: responseType === "error" ? prev.errores + 1 : prev.errores,
-    }))
-
-    setWaitingForResponseSequential(false)
-    setMicroControllers((prev) =>
-      prev.map((mc) => ({
-        ...mc,
-        active: false,
-        lastResponse: mc.id === espId ? responseType : mc.lastResponse,
-        status: mc.id === espId ? (responseType === "acierto" ? "Acierto" : "Error") : mc.status,
-      })),
-    )
-
-    addMessage(
-      `ESP-${espId}`,
-      "result",
-      responseType === "acierto" ? "ACIERTO" : "ERROR",
-      responseType === "acierto" ? "success" : "error",
-    )
-
-    setTimeout(() => {
-      const nextEspId = espId + 1
-
-      if (nextEspId <= 5) {
-        console.log(`[v0] Sequential mode: moving to next ESP: ${nextEspId}`)
-        setCurrentSequence(nextEspId)
-        activateNextMicrocontrollerSequential(nextEspId)
-      } else {
-        // Completed all 5 ESPs, check if more rounds needed
-        setCurrentRound((prevRound) => {
-          console.log(
-            `[v0] Sequential mode: completed sequence, current round: ${prevRound}, total rounds: ${totalRounds}`,
-          )
-
-          if (prevRound < totalRounds) {
-            console.log(`[v0] Sequential mode: starting next round: ${prevRound + 1}`)
-            limpiarEntreRondasSequential()
-            addMessage("SISTEMA", "info", `Iniciando ronda ${prevRound + 1}`, "info")
-
-            setTimeout(() => {
-              setCurrentSequence(1)
-              activateNextMicrocontrollerSequential(1)
-            }, 2000)
-            return prevRound + 1
-          } else {
-            console.log(`[v0] Sequential mode: all rounds completed, finalizing test`)
-            addMessage("SISTEMA", "info", "Todas las rondas completadas - Finalizando prueba", "success")
-            setTimeout(() => {
-              finalizarPruebaSecuencial()
-            }, 1000)
-            return prevRound
-          }
+        setPerfil(data.data)
+        initializeFormData(data.data)
+        setNotification({
+          type: "success",
+          message: "Perfil cargado correctamente",
         })
+      } else {
+        setError(data.message || "Error al cargar el perfil")
       }
-      processingResponseSequentialRef.current = false
-    }, 1500)
+    } catch (error) {
+      setError("Error de conexión. Intenta nuevamente.")
+      console.error("Error al obtener perfil:", error)
+    } finally {
+      setLoading(false)
+    }
   }
 
-  const iniciarPruebaAleatoria = async () => {
-    if (!cuentaSeleccionada) {
-      addMessage("SISTEMA", "error", "Debe seleccionar un jugador", "error")
-      return
-    }
+  const initializeFormData = (perfilData) => {
+    const datosEspecificos = perfilData.jugador || perfilData.entrenador || perfilData.tecnico
+    setFormData({
+      usuario: perfilData.usuario || "",
+      nombres: datosEspecificos?.nombres || "",
+      apellidos: datosEspecificos?.apellidos || "",
+      correo_electronico: datosEspecificos?.correo_electronico || "",
+      correo_institucional: datosEspecificos?.correo_institucional || "",
+      numero_celular: datosEspecificos?.numero_celular || "",
+      fecha_nacimiento: datosEspecificos?.fecha_nacimiento ? datosEspecificos.fecha_nacimiento.split("T")[0] : "",
+      carrera: datosEspecificos?.carrera || "",
+      posicion_principal: datosEspecificos?.posicion_principal || "",
+      altura: datosEspecificos?.altura || "",
+      anos_experiencia_voley:
+        datosEspecificos?.anos_experiencia_voley !== undefined
+          ? datosEspecificos.anos_experiencia_voley.toString()
+          : "",
+      imagen: datosEspecificos?.imagen || "",
+    })
+  }
 
-    try {
-      console.log("[v0] Starting random test for account:", cuentaSeleccionada)
+  const handleInputChange = (field, value) => {
+    setFormData((prev) => ({
+      ...prev,
+      [field]: value,
+    }))
+  }
 
-      const response = await fetch(`${BACKEND_URL}/api/pruebas/iniciar`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          tipo: "aleatorio",
-          cuentaId: cuentaSeleccionada,
-          duracion: tiempoPrueba,
-        }),
-      })
+  const handleActualizarPerfil = async () => {
+    if (!isEditing) {
+      setIsEditing(true)
+    } else {
+      try {
+        setUpdating(true)
+        setError("")
 
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`)
-      }
+        const response = await fetch(`https://voley-backend-nhyl.onrender.com/api/cuentas/perfil/${idUser}`, {
+          method: "PUT",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(formData),
+        })
 
-      const data = await response.json()
-      console.log("[v0] Random test start response:", data)
+        const data = await response.json()
 
-      if (data.success) {
-        localStorage.setItem("prueba_aleatoria_id", data.data.id.toString())
-
-        setPruebaActualRandom(data.data)
-        setTestActiveRandom(true)
-        setModoActual("aleatorio")
-        setTiempoRestante(tiempoPrueba)
-        setEstadisticasRandom({ intentos: 0, aciertos: 0, errores: 0 })
-
-        addMessage("SISTEMA", "info", `Prueba aleatoria iniciada - ${tiempoPrueba} segundos`, "info")
-
-        // Start timer
-        const interval = setInterval(() => {
-          setTiempoRestante((prev) => {
-            if (prev <= 1) {
-              clearInterval(interval)
-              addMessage("SISTEMA", "info", "Tiempo agotado - Finalizando prueba", "warning")
-              setTimeout(() => {
-                finalizarPruebaAleatoria()
-              }, 1000)
-              return 0
-            }
-            return prev - 1
+        if (data.success) {
+          setPerfil(data.data)
+          setIsEditing(false)
+          setNotification({
+            type: "success",
+            message: "Perfil actualizado exitosamente",
           })
-        }, 1000)
-        setTimerInterval(interval)
-
-        // Start first random ESP
-        setTimeout(() => {
-          activateRandomMicrocontroller()
-        }, 1000)
-      } else {
-        addMessage("SISTEMA", "error", "Error iniciando prueba: " + data.message, "error")
-      }
-    } catch (error) {
-      console.error("[v0] Error starting random test:", error)
-      addMessage("SISTEMA", "error", `Error iniciando prueba: ${error.message}`, "error")
-    }
-  }
-
-  const activateRandomMicrocontroller = () => {
-    const randomEspId = Math.floor(Math.random() * 5) + 1
-    console.log(`[v0] Activating random ESP-${randomEspId}`)
-
-    if (responseTimeoutRandomRef.current) {
-      clearTimeout(responseTimeoutRandomRef.current)
-      responseTimeoutRandomRef.current = null
-    }
-
-    setCurrentActiveESPRandom(randomEspId)
-    setWaitingForResponseRandom(true)
-
-    setMicroControllers((prev) =>
-      prev.map((mc) => ({
-        ...mc,
-        active: mc.id === randomEspId,
-        status: mc.id === randomEspId ? "Esperando respuesta" : mc.status,
-      })),
-    )
-
-    const command = { command: "ON", from: "server" }
-    sendCommandToESP(randomEspId, command)
-
-    addMessage(`ESP-${randomEspId}`, "command", JSON.stringify(command), "info")
-
-    responseTimeoutRandomRef.current = setTimeout(() => {
-      console.log(`[v0] Random timeout for ESP-${randomEspId}`)
-      addMessage(`ESP-${randomEspId}`, "timeout", "Timeout - sin respuesta", "warning")
-      handleRandomResponse(randomEspId, "error") // Fixed: used randomEspId instead of espId
-    }, 10000)
-  }
-
-  const handleRandomResponse = (espId, responseType) => {
-    console.log(`[v0] Processing random response from ESP-${espId}: ${responseType}`)
-
-    if (
-      !testActiveRandomRef.current ||
-      !waitingForResponseRandomRef.current ||
-      currentActiveESPRandomRef.current !== espId
-    ) {
-      console.log(`[v0] Ignoring random response from ESP-${espId} - test not active or not waiting`)
-      processingResponseRandomRef.current = false
-      return
-    }
-
-    if (responseTimeoutRandomRef.current) {
-      clearTimeout(responseTimeoutRandomRef.current)
-      responseTimeoutRandomRef.current = null
-    }
-
-    setEstadisticasRandom((prev) => ({
-      intentos: prev.intentos + 1,
-      aciertos: responseType === "acierto" ? prev.aciertos + 1 : prev.aciertos,
-      errores: responseType === "error" ? prev.errores + 1 : prev.errores,
-    }))
-
-    setWaitingForResponseRandom(false)
-    setMicroControllers((prev) =>
-      prev.map((mc) => ({
-        ...mc,
-        active: false,
-        lastResponse: mc.id === espId ? responseType : mc.lastResponse,
-        status: mc.id === espId ? (responseType === "acierto" ? "Acierto" : "Error") : mc.status,
-      })),
-    )
-
-    addMessage(
-      `ESP-${espId}`,
-      "result",
-      responseType === "acierto" ? "ACIERTO" : "ERROR",
-      responseType === "acierto" ? "success" : "error",
-    )
-
-    setTimeout(() => {
-      if (testActiveRandomRef.current) {
-        console.log(`[v0] Random mode: continuing with another random ESP`)
-        activateRandomMicrocontroller()
-      } else {
-        console.log(`[v0] Random mode: test stopped`)
-      }
-      processingResponseRandomRef.current = false
-    }, 1000)
-  }
-
-  const finalizarPruebaSecuencial = async () => {
-    const pruebaId = localStorage.getItem("prueba_secuencial_id")
-
-    if (pruebaId) {
-      try {
-        console.log("[v0] Finalizing sequential test:", pruebaId)
-
-        const response = await fetch(`${BACKEND_URL}/api/pruebas/finalizar/${pruebaId}`, {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            cantidad_intentos: estadisticasSequential.intentos,
-            cantidad_aciertos: estadisticasSequential.aciertos,
-            cantidad_errores: estadisticasSequential.errores,
-          }),
-        })
-
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}: ${response.statusText}`)
-        }
-
-        const data = await response.json()
-        console.log("[v0] Sequential test finalization response:", data)
-
-        if (data.success) {
-          addMessage("SISTEMA", "info", "Prueba secuencial finalizada correctamente", "success")
-          localStorage.removeItem("prueba_secuencial_id")
         } else {
-          addMessage("SISTEMA", "error", "Error finalizando prueba: " + data.message, "error")
+          setError(data.message || "Error al actualizar el perfil")
+          setNotification({
+            type: "error",
+            message: data.message || "Error al actualizar el perfil",
+          })
         }
       } catch (error) {
-        console.error("[v0] Error finalizing sequential test:", error)
-        addMessage("SISTEMA", "error", `Error finalizando prueba: ${error.message}`, "error")
-      }
-    }
-
-    limpiarPruebaSecuencial()
-  }
-
-  const finalizarPruebaAleatoria = async () => {
-    if (timerInterval) {
-      clearInterval(timerInterval)
-      setTimerInterval(null)
-    }
-
-    const pruebaId = localStorage.getItem("prueba_aleatoria_id")
-
-    if (pruebaId) {
-      try {
-        console.log("[v0] Finalizing random test:", pruebaId)
-
-        const response = await fetch(`${BACKEND_URL}/api/pruebas/finalizar/${pruebaId}`, {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            cantidad_intentos: estadisticasRandom.intentos,
-            cantidad_aciertos: estadisticasRandom.aciertos,
-            cantidad_errores: estadisticasRandom.errores,
-          }),
+        setError("Error de conexión. Intenta nuevamente.")
+        setNotification({
+          type: "error",
+          message: "Error de conexión. Intenta nuevamente.",
         })
-
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}: ${response.statusText}`)
-        }
-
-        const data = await response.json()
-        console.log("[v0] Random test finalization response:", data)
-
-        if (data.success) {
-          addMessage("SISTEMA", "info", "Prueba aleatoria finalizada correctamente", "success")
-          localStorage.removeItem("prueba_aleatoria_id")
-        } else {
-          addMessage("SISTEMA", "error", "Error finalizando prueba: " + data.message, "error")
-        }
-      } catch (error) {
-        console.error("[v0] Error finalizing random test:", error)
-        addMessage("SISTEMA", "error", `Error finalizando prueba: ${error.message}`, "error")
+        console.error("Error al actualizar perfil:", error)
+      } finally {
+        setUpdating(false)
       }
     }
-
-    limpiarPruebaAleatoria()
   }
 
-  const limpiarPruebaSecuencial = () => {
-    setTestActiveSequential(false)
-    setCurrentActiveESPSequential(null)
-    setWaitingForResponseSequential(false)
-    setCurrentRound(0)
-    setCurrentSequence(0)
-    setPruebaActualSequential(null)
-    setEstadisticasSequential({ intentos: 0, aciertos: 0, errores: 0 })
-
-    if (responseTimeoutSequentialRef.current) {
-      clearTimeout(responseTimeoutSequentialRef.current)
-      responseTimeoutSequentialRef.current = null
-    }
-
-    setMicroControllers((prev) =>
-      prev.map((mc) => ({
-        ...mc,
-        active: false,
-        status: "",
-        lastResponse: null,
-      })),
-    )
-
-    processingResponseSequentialRef.current = false
-    addMessage("SISTEMA", "info", "Sistema limpio para nueva prueba secuencial", "info")
+  const cancelarEdicion = () => {
+    setIsEditing(false)
+    initializeFormData(perfil)
+    setError("")
   }
 
-  const limpiarPruebaAleatoria = () => {
-    setTestActiveRandom(false)
-    setCurrentActiveESPRandom(null)
-    setWaitingForResponseRandom(false)
-    setPruebaActualRandom(null)
-    setEstadisticasRandom({ intentos: 0, aciertos: 0, errores: 0 })
+  const convertToBase64 = (file) => {
+    return new Promise((resolve, reject) => {
+      // Validate file size (max 2MB)
+      if (file.size > 2 * 1024 * 1024) {
+        reject(new Error("La imagen debe ser menor a 2MB"))
+        return
+      }
 
-    setTiempoRestante(0)
-    if (timerInterval) {
-      clearInterval(timerInterval)
-      setTimerInterval(null)
-    }
+      // Validate file type
+      if (!file.type.startsWith("image/")) {
+        reject(new Error("El archivo debe ser una imagen"))
+        return
+      }
 
-    if (responseTimeoutRandomRef.current) {
-      clearTimeout(responseTimeoutRandomRef.current)
-      responseTimeoutRandomRef.current = null
-    }
-
-    setMicroControllers((prev) =>
-      prev.map((mc) => ({
-        ...mc,
-        active: false,
-        status: "",
-        lastResponse: null,
-      })),
-    )
-
-    processingResponseRandomRef.current = false
-    addMessage("SISTEMA", "info", "Sistema limpio para nueva prueba aleatoria", "info")
+      const reader = new FileReader()
+      reader.readAsDataURL(file)
+      reader.onload = () => resolve(reader.result)
+      reader.onerror = (error) => reject(error)
+    })
   }
 
-  const limpiarEntreRondasSequential = () => {
-    setCurrentActiveESPSequential(null)
-    setWaitingForResponseSequential(false)
-    setCurrentSequence(0)
-
-    if (responseTimeoutSequentialRef.current) {
-      clearTimeout(responseTimeoutSequentialRef.current)
-      responseTimeoutSequentialRef.current = null
-    }
-
-    setMicroControllers((prev) =>
-      prev.map((mc) => ({
-        ...mc,
-        active: false,
-        status: "",
-        lastResponse: null,
-      })),
-    )
-
-    processingResponseSequentialRef.current = false
-    addMessage("SISTEMA", "info", `Limpieza entre rondas completada`, "info")
-  }
-
-  const iniciarPruebaManual = async () => {
-    if (!cuentaSeleccionada) {
-      addMessage("SISTEMA", "error", "Debe seleccionar un jugador", "error")
-      return
-    }
+  const handleImageChange = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
 
     try {
-      console.log("[v0] Starting manual test")
-
-      const response = await fetch(`${BACKEND_URL}/api/pruebas/iniciar`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          cuentaId: Number.parseInt(cuentaSeleccionada),
-          tipo: "manual",
-        }),
+      setUploadingImage(true)
+      const base64 = await convertToBase64(file)
+      handleInputChange("imagen", base64)
+      setNotification({
+        type: "success",
+        message: "Imagen cargada correctamente",
       })
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`)
-      }
-
-      const data = await response.json()
-      console.log("[v0] Manual test start response:", data)
-
-      if (data.success) {
-        localStorage.setItem("prueba_manual_id", data.data.id.toString())
-
-        setPruebaActualManual(data.data)
-        setTestActiveManual(true)
-        setModoActual("manual")
-        setEstadisticasManual({ intentos: 0, aciertos: 0, errores: 0 })
-
-        addMessage("SISTEMA", "info", "Prueba manual iniciada - Presiona cualquier ESP para enviar comando", "info")
-      } else {
-        addMessage("SISTEMA", "error", "Error iniciando prueba: " + data.message, "error")
-      }
     } catch (error) {
-      console.error("[v0] Error starting manual test:", error)
-      addMessage("SISTEMA", "error", `Error iniciando prueba: ${error.message}`, "error")
+      setNotification({
+        type: "error",
+        message: error.message || "Error al cargar la imagen",
+      })
+    } finally {
+      setUploadingImage(false)
     }
   }
 
-  const activateManualMicrocontroller = (espId) => {
-    if (!testActiveManualRef.current || waitingForResponseManualRef.current) {
-      console.log(`[v0] Cannot activate ESP-${espId} - test not active or waiting for response`)
-      return
+  // Auto-hide notification after 3 seconds
+  useEffect(() => {
+    if (notification) {
+      const timer = setTimeout(() => {
+        setNotification(null)
+      }, 3000)
+      return () => clearTimeout(timer)
     }
+  }, [notification])
 
-    console.log(`[v0] Activating manual ESP-${espId}`)
-
-    if (responseTimeoutManualRef.current) {
-      clearTimeout(responseTimeoutManualRef.current)
-      responseTimeoutManualRef.current = null
-    }
-
-    setCurrentActiveESPManual(espId)
-    setWaitingForResponseManual(true)
-
-    setMicroControllers((prev) =>
-      prev.map((mc) => ({
-        ...mc,
-        active: mc.id === espId,
-        status: mc.id === espId ? "Esperando respuesta" : mc.status,
-      })),
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="h-12 w-12 animate-spin text-red-900 mx-auto mb-4" />
+          <p className="text-slate-600 font-medium text-lg">Cargando perfil...</p>
+        </div>
+      </div>
     )
-
-    const command = { command: "ON", from: "server" }
-    sendCommandToESP(espId, command)
-
-    addMessage(`ESP-${espId}`, "command", JSON.stringify(command), "info")
-
-    responseTimeoutManualRef.current = setTimeout(() => {
-      console.log(`[v0] Manual timeout for ESP-${espId}`)
-      addMessage(`ESP-${espId}`, "timeout", "Timeout - sin respuesta", "warning")
-      handleManualResponse(espId, "error")
-    }, 10000)
   }
 
-  const handleManualResponse = (espId, responseType) => {
-    console.log(`[v0] Processing manual response from ESP-${espId}: ${responseType}`)
-
-    if (
-      !testActiveManualRef.current ||
-      !waitingForResponseManualRef.current ||
-      currentActiveESPManualRef.current !== espId
-    ) {
-      console.log(`[v0] Ignoring manual response from ESP-${espId} - test not active or not waiting`)
-      processingResponseManualRef.current = false
-      return
-    }
-
-    if (responseTimeoutManualRef.current) {
-      clearTimeout(responseTimeoutManualRef.current)
-      responseTimeoutManualRef.current = null
-    }
-
-    setEstadisticasManual((prev) => ({
-      intentos: prev.intentos + 1,
-      aciertos: responseType === "acierto" ? prev.aciertos + 1 : prev.aciertos,
-      errores: responseType === "error" ? prev.errores + 1 : prev.errores,
-    }))
-
-    setWaitingForResponseManual(false)
-    setCurrentActiveESPManual(null)
-    setMicroControllers((prev) =>
-      prev.map((mc) => ({
-        ...mc,
-        active: false,
-        lastResponse: mc.id === espId ? responseType : mc.lastResponse,
-        status: mc.id === espId ? (responseType === "acierto" ? "Acierto" : "Error") : mc.status,
-      })),
+  if (error && !perfil) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <div className="bg-red-50 border border-red-200 text-red-700 px-6 py-4 rounded-xl flex items-center max-w-md">
+          <AlertCircle className="h-6 w-6 mr-3 flex-shrink-0" />
+          <div>
+            <h3 className="font-semibold">Error al cargar perfil</h3>
+            <p className="text-sm">{error}</p>
+          </div>
+        </div>
+      </div>
     )
+  }
 
-    addMessage(
-      `ESP-${espId}`,
-      "result",
-      responseType === "acierto" ? "ACIERTO" : "ERROR",
-      responseType === "acierto" ? "success" : "error",
+  if (!perfil) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <div className="text-center">
+          <User className="h-16 w-16 text-slate-400 mx-auto mb-4" />
+          <h3 className="text-lg font-medium text-slate-900 mb-2">No se encontró el perfil</h3>
+          <p className="text-slate-500">No se pudo cargar la información del usuario.</p>
+        </div>
+      </div>
     )
-
-    processingResponseManualRef.current = false
   }
 
-  const finalizarPruebaManual = async () => {
-    const pruebaId = localStorage.getItem("prueba_manual_id")
-
-    if (pruebaId) {
-      try {
-        console.log("[v0] Finalizing manual test:", pruebaId)
-
-        const response = await fetch(`${BACKEND_URL}/api/pruebas/finalizar/${pruebaId}`, {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            cantidad_intentos: estadisticasManual.intentos,
-            cantidad_aciertos: estadisticasManual.aciertos,
-            cantidad_errores: estadisticasManual.errores,
-          }),
-        })
-
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}: ${response.statusText}`)
-        }
-
-        const data = await response.json()
-        console.log("[v0] Manual test finalization response:", data)
-
-        if (data.success) {
-          addMessage("SISTEMA", "info", "Prueba manual finalizada correctamente", "success")
-          localStorage.removeItem("prueba_manual_id")
-        } else {
-          addMessage("SISTEMA", "error", "Error finalizando prueba: " + data.message, "error")
-        }
-      } catch (error) {
-        console.error("[v0] Error finalizing manual test:", error)
-        addMessage("SISTEMA", "error", `Error finalizando prueba: ${error.message}`, "error")
-      }
-    }
-
-    limpiarSistemaManual()
-  }
-
-  const limpiarSistemaManual = () => {
-    setTestActiveManual(false)
-    setCurrentActiveESPManual(null)
-    setWaitingForResponseManual(false)
-    setPruebaActualManual(null)
-    setEstadisticasManual({ intentos: 0, aciertos: 0, errores: 0 })
-
-    if (responseTimeoutManualRef.current) {
-      clearTimeout(responseTimeoutManualRef.current)
-      responseTimeoutManualRef.current = null
-    }
-
-    setMicroControllers((prev) =>
-      prev.map((mc) => ({
-        ...mc,
-        active: false,
-        status: "",
-        lastResponse: null,
-      })),
-    )
-
-    processingResponseManualRef.current = false
-    addMessage("SISTEMA", "info", "Sistema limpio para nueva prueba manual", "info")
-  }
-
-  const formatTime = (seconds) => {
-    const mins = Math.floor(seconds / 60)
-    const secs = seconds % 60
-    return `${mins}:${secs.toString().padStart(2, "0")}`
-  }
-
-  const testActive = testActiveSequential || testActiveRandom || testActiveManual
-  const currentActiveESP = testActiveSequential
-    ? currentActiveESPSequential
-    : testActiveRandom
-      ? currentActiveESPRandom
-      : currentActiveESPManual
-  const estadisticas = testActiveSequential
-    ? estadisticasSequential
-    : testActiveRandom
-      ? estadisticasRandom
-      : estadisticasManual
+  // Determinar qué tipo de usuario es y obtener los datos específicos
+  const tipoUsuario = perfil.rol
+  const datosEspecificos = perfil.jugador || perfil.entrenador || perfil.tecnico
 
   return (
-    <div className="space-y-6 p-6">
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Activity className="h-5 w-5" />
-            Configuración de Pruebas
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Tabs defaultValue="secuencial" className="w-full">
-            <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="secuencial" className="flex items-center gap-2">
-                <Play className="h-4 w-4" />
-                Secuencial
-              </TabsTrigger>
-              <TabsTrigger value="aleatorio" className="flex items-center gap-2">
-                <Shuffle className="h-4 w-4" />
-                Aleatorio
-              </TabsTrigger>
-              <TabsTrigger value="manual" className="flex items-center gap-2">
-                <Hand className="h-4 w-4" />
-                Manual
-              </TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="secuencial" className="space-y-4 mt-4">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <Label htmlFor="jugador">Seleccionar Jugador</Label>
-                  <Select value={cuentaSeleccionada} onValueChange={setCuentaSeleccionada} disabled={testActive}>
-                    <SelectTrigger>
-                      <SelectValue
-                        placeholder={
-                          jugadoresDisponibles.length === 0
-                            ? "No hay jugadores disponibles..."
-                            : "Seleccionar jugador..."
-                        }
-                      />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {jugadoresDisponibles.map((cuenta) => (
-                        <SelectItem key={cuenta.id} value={cuenta.id.toString()}>
-                          {cuenta.jugador ? `${cuenta.jugador.nombres} ${cuenta.jugador.apellidos}` : cuenta.usuario}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <div className="text-sm text-gray-500 mt-1">
-                    {jugadoresDisponibles.length} jugador(es) disponible(s)
-                  </div>
-                </div>
-
-                <div>
-                  <Label htmlFor="rondas">Número de Rondas</Label>
-                  <Input
-                    id="rondas"
-                    type="number"
-                    min="1"
-                    max="10"
-                    value={totalRounds}
-                    onChange={(e) => setTotalRounds(Number.parseInt(e.target.value) || 1)}
-                    disabled={testActive}
-                  />
-                </div>
-
-                <div className="flex items-end">
-                  {!testActiveSequential ? (
-                    <Button
-                      onClick={iniciarPruebaSecuencial}
-                      disabled={!cuentaSeleccionada || testActiveRandom || testActiveManual}
-                      className="w-full"
-                    >
-                      <Play className="h-4 w-4 mr-2" />
-                      Iniciar Prueba Secuencial
-                    </Button>
-                  ) : (
-                    <Button onClick={finalizarPruebaSecuencial} variant="destructive" className="w-full">
-                      <Square className="h-4 w-4 mr-2" />
-                      Finalizar Prueba
-                    </Button>
-                  )}
-                </div>
-              </div>
-            </TabsContent>
-
-            <TabsContent value="aleatorio" className="space-y-4 mt-4">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <Label htmlFor="jugador-aleatorio">Seleccionar Jugador</Label>
-                  <Select value={cuentaSeleccionada} onValueChange={setCuentaSeleccionada} disabled={testActive}>
-                    <SelectTrigger>
-                      <SelectValue
-                        placeholder={
-                          jugadoresDisponibles.length === 0
-                            ? "No hay jugadores disponibles..."
-                            : "Seleccionar jugador..."
-                        }
-                      />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {jugadoresDisponibles.map((cuenta) => (
-                        <SelectItem key={cuenta.id} value={cuenta.id.toString()}>
-                          {cuenta.jugador ? `${cuenta.jugador.nombres} ${cuenta.jugador.apellidos}` : cuenta.usuario}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <div className="text-sm text-gray-500 mt-1">
-                    {jugadoresDisponibles.length} jugador(es) disponible(s)
-                  </div>
-                </div>
-
-                <div>
-                  <Label htmlFor="tiempo">Tiempo (segundos)</Label>
-                  <Input
-                    id="tiempo"
-                    type="number"
-                    min="30"
-                    max="300"
-                    value={tiempoPrueba}
-                    onChange={(e) => setTiempoPrueba(Number.parseInt(e.target.value) || 60)}
-                    disabled={testActive}
-                  />
-                </div>
-
-                <div className="flex items-end">
-                  {!testActiveRandom ? (
-                    <Button
-                      onClick={iniciarPruebaAleatoria}
-                      disabled={!cuentaSeleccionada || testActiveSequential || testActiveManual}
-                      className="w-full"
-                    >
-                      <Shuffle className="h-4 w-4 mr-2" />
-                      Iniciar Prueba Aleatoria
-                    </Button>
-                  ) : (
-                    <Button onClick={finalizarPruebaAleatoria} variant="destructive" className="w-full">
-                      <Square className="h-4 w-4 mr-2" />
-                      Finalizar Prueba
-                    </Button>
-                  )}
-                </div>
-              </div>
-            </TabsContent>
-
-            <TabsContent value="manual" className="space-y-4 mt-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="jugador-manual">Seleccionar Jugador</Label>
-                  <Select value={cuentaSeleccionada} onValueChange={setCuentaSeleccionada} disabled={testActive}>
-                    <SelectTrigger>
-                      <SelectValue
-                        placeholder={
-                          jugadoresDisponibles.length === 0
-                            ? "No hay jugadores disponibles..."
-                            : "Seleccionar jugador..."
-                        }
-                      />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {jugadoresDisponibles.map((cuenta) => (
-                        <SelectItem key={cuenta.id} value={cuenta.id.toString()}>
-                          {cuenta.jugador ? `${cuenta.jugador.nombres} ${cuenta.jugador.apellidos}` : cuenta.usuario}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <div className="text-sm text-gray-500 mt-1">
-                    {jugadoresDisponibles.length} jugador(es) disponible(s)
-                  </div>
-                </div>
-
-                <div className="flex items-end">
-                  {!testActiveManual ? (
-                    <Button
-                      onClick={iniciarPruebaManual}
-                      disabled={!cuentaSeleccionada || testActiveSequential || testActiveRandom}
-                      className="w-full"
-                    >
-                      <Hand className="h-4 w-4 mr-2" />
-                      Iniciar Prueba Manual
-                    </Button>
-                  ) : (
-                    <Button onClick={finalizarPruebaManual} variant="destructive" className="w-full">
-                      <Square className="h-4 w-4 mr-2" />
-                      Finalizar Prueba
-                    </Button>
-                  )}
-                </div>
-              </div>
-
-              {testActiveManual && (
-                <div className="p-3 bg-yellow-50 rounded-lg border border-yellow-200">
-                  <p className="text-sm text-yellow-800">
-                    <strong>Modo Manual:</strong> Presiona cualquier ESP para enviar comando. Debes esperar la respuesta
-                    antes de poder enviar otro comando.
-                  </p>
-                </div>
-              )}
-            </TabsContent>
-          </Tabs>
-
-          {testActive && (
-            <div className="space-y-3 mt-4">
-              <div className="flex items-center gap-4 p-3 bg-blue-50 rounded-lg">
-                {modoActual === "secuencial" ? (
-                  <>
-                    <Badge variant="outline">
-                      Ronda {currentRound}/{totalRounds}
-                    </Badge>
-                    <Badge variant="outline">Secuencia {currentSequence}/5</Badge>
-                  </>
-                ) : modoActual === "aleatorio" ? (
-                  <>
-                    <Badge variant="outline" className="flex items-center gap-1">
-                      <Clock className="h-3 w-3" />
-                      {formatTime(tiempoRestante)}
-                    </Badge>
-                    <Badge variant="outline">Modo Aleatorio</Badge>
-                  </>
-                ) : (
-                  <>
-                    <Badge variant="outline">Modo Manual</Badge>
-                    {waitingForResponseManual && (
-                      <Badge className="bg-orange-100 text-orange-800">Esperando respuesta...</Badge>
-                    )}
-                  </>
-                )}
-                {currentActiveESP && (
-                  <Badge className="bg-green-100 text-green-800">ESP-{currentActiveESP} Activo</Badge>
-                )}
-              </div>
-
-              <div className="flex items-center gap-4 p-3 bg-gray-50 rounded-lg">
-                <Badge variant="outline" className="bg-blue-100 text-blue-800">
-                  Intentos: {estadisticas.intentos}
-                </Badge>
-                <Badge variant="outline" className="bg-green-100 text-green-800">
-                  Aciertos: {estadisticas.aciertos}
-                </Badge>
-                <Badge variant="outline" className="bg-red-100 text-red-800">
-                  Errores: {estadisticas.errores}
-                </Badge>
-                {estadisticas.intentos > 0 && (
-                  <Badge variant="outline" className="bg-purple-100 text-purple-800">
-                    Precisión: {Math.round((estadisticas.aciertos / estadisticas.intentos) * 100)}%
-                  </Badge>
-                )}
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {jugadorSeleccionado && jugadorSeleccionado.jugador && (
-        <Card className="rounded-2xl shadow-xl border border-slate-200/60 overflow-hidden backdrop-blur-sm">
-          <div className="bg-gradient-to-r from-red-900 to-red-800 px-8 py-6">
-            <div className="flex items-center space-x-4">
-              <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center">
-                <User className="h-8 w-8 text-white" />
-              </div>
-              <div>
-                <h2 className="text-2xl font-bold text-white">
-                  {jugadorSeleccionado.jugador.nombres} {jugadorSeleccionado.jugador.apellidos}
-                </h2>
-                <div className="flex items-center space-x-2 mt-1">
-                  <Trophy className="h-4 w-4 text-red-100" />
-                  <span className="text-red-100 text-sm font-medium">Jugador</span>
-                </div>
-              </div>
-            </div>
+    <div className="min-h-screen bg-gray-50">
+      {/* Notificación emergente */}
+      {notification && (
+        <div className="fixed top-20 right-6 z-50 animate-fade-in">
+          <div
+            className={`rounded-xl shadow-lg p-4 flex items-center min-w-80 ${
+              notification.type === "success"
+                ? "bg-green-50 border border-green-200"
+                : "bg-red-50 border border-red-200"
+            }`}
+          >
+            {notification.type === "success" ? (
+              <CheckCircle className="h-5 w-5 text-green-600 mr-3 flex-shrink-0" />
+            ) : (
+              <AlertCircle className="h-5 w-5 text-red-600 mr-3 flex-shrink-0" />
+            )}
+            <span
+              className={`font-medium text-sm ${notification.type === "success" ? "text-green-800" : "text-red-800"}`}
+            >
+              {notification.message}
+            </span>
+            <button
+              onClick={() => setNotification(null)}
+              className={`ml-4 ${notification.type === "success" ? "text-green-600 hover:text-green-800" : "text-red-600 hover:text-red-800"}`}
+            >
+              <X className="h-4 w-4" />
+            </button>
           </div>
-
-          <CardContent className="p-8">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              {/* Información de Contacto */}
-              <div className="space-y-6">
-                <h3 className="text-lg font-semibold text-gray-900 border-b border-gray-200 pb-2">
-                  Información de Contacto
-                </h3>
-
-                <div className="space-y-4">
-                  {jugadorSeleccionado.jugador.correo_institucional && (
-                    <div className="bg-blue-50/50 px-4 py-3 rounded-lg border border-blue-200/30">
-                      <div className="flex items-center space-x-3">
-                        <Mail className="h-5 w-5 text-blue-600" />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-blue-800">Correo Institucional</p>
-                          <p className="text-sm text-blue-700 truncate">
-                            {jugadorSeleccionado.jugador.correo_institucional}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {jugadorSeleccionado.jugador.numero_celular && (
-                    <div className="bg-gray-50 px-4 py-3 rounded-lg border border-gray-200/50">
-                      <div className="flex items-center space-x-3">
-                        <Phone className="h-5 w-5 text-gray-600" />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-gray-800">Teléfono</p>
-                          <p className="text-sm text-gray-700">{jugadorSeleccionado.jugador.numero_celular}</p>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {jugadorSeleccionado.jugador.fecha_nacimiento && (
-                    <div className="bg-gray-50 px-4 py-3 rounded-lg border border-gray-200/50">
-                      <div className="flex items-center space-x-3">
-                        <Calendar className="h-5 w-5 text-gray-600" />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-gray-800">Fecha de Nacimiento</p>
-                          <p className="text-sm text-gray-700">
-                            {new Date(jugadorSeleccionado.jugador.fecha_nacimiento).toLocaleDateString("es-ES", {
-                              year: "numeric",
-                              month: "long",
-                              day: "numeric",
-                            })}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {jugadorSeleccionado.jugador.carrera && (
-                    <div className="bg-gray-50 px-4 py-3 rounded-lg border border-gray-200/50">
-                      <div className="flex items-center space-x-3">
-                        <GraduationCap className="h-5 w-5 text-gray-600" />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-gray-800">Carrera</p>
-                          <p className="text-sm text-gray-700">{jugadorSeleccionado.jugador.carrera}</p>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Información del Jugador */}
-              <div className="space-y-6">
-                <h3 className="text-lg font-semibold text-gray-900 border-b border-gray-200 pb-2">
-                  Información del Jugador
-                </h3>
-
-                <div className="space-y-4">
-                  {jugadorSeleccionado.jugador.posicion_principal && (
-                    <div className="bg-red-50/80 px-4 py-3 rounded-lg border border-red-200/50">
-                      <div className="flex items-center space-x-3">
-                        <MapPin className="h-5 w-5 text-red-600" />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-red-800">Posición Principal</p>
-                          <p className="text-sm text-red-700 capitalize">
-                            {jugadorSeleccionado.jugador.posicion_principal}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {jugadorSeleccionado.jugador.altura && (
-                    <div className="bg-red-50/80 px-4 py-3 rounded-lg border border-red-200/50">
-                      <div className="flex items-center space-x-3">
-                        <Ruler className="h-5 w-5 text-red-600" />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-red-800">Altura</p>
-                          <p className="text-sm text-red-700">{jugadorSeleccionado.jugador.altura} m</p>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {jugadorSeleccionado.jugador.anos_experiencia_voley != null && (
-                    <div className="bg-gray-50 px-4 py-3 rounded-lg border border-gray-200/50">
-                      <div className="flex items-center space-x-3">
-                        <Trophy className="h-5 w-5 text-gray-600" />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-gray-800">Años de Experiencia en Voleibol</p>
-                          <p className="text-sm text-gray-700">
-                            {jugadorSeleccionado.jugador.anos_experiencia_voley}{" "}
-                            {jugadorSeleccionado.jugador.anos_experiencia_voley === 1 ? "año" : "años"}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        </div>
       )}
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Activity className="h-5 w-5" />
-            Estado de Microcontroladores
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-            {microControllers.map((mc) => (
-              <Card
-                key={mc.id}
-                className={`transition-all duration-200 ${
-                  mc.connected
-                    ? mc.active
-                      ? "border-blue-500 bg-blue-50"
-                      : "border-green-500 bg-green-50"
-                    : "border-gray-300 bg-gray-50"
-                } ${
-                  testActiveManual && mc.connected && !waitingForResponseManual
-                    ? "cursor-pointer hover:shadow-md hover:scale-105"
-                    : ""
-                }`}
-                onClick={() => {
-                  if (testActiveManual && mc.connected && !waitingForResponseManual) {
-                    activateManualMicrocontroller(mc.id)
-                  }
-                }}
-              >
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm flex items-center justify-between">
-                    ESP-{mc.id}
-                    <div className="flex items-center gap-1">
-                      {mc.connected && <div className="w-2 h-2 bg-green-500 rounded-full" />}
-                      {mc.active && <Badge className="bg-green-100 text-green-800">ESP-{mc.id} Activo</Badge>}
-                    </div>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="pt-0">
-                  <div className="space-y-1 text-xs">
-                    <div>Estado: {mc.connected ? "Conectado" : "Desconectado"}</div>
-                    {mc.status && (
-                      <div>
-                        Status:{" "}
-                        <span
-                          className={
-                            mc.status === "Acierto"
-                              ? "text-green-600 font-medium"
-                              : mc.status === "Error"
-                                ? "text-red-600 font-medium"
-                                : "text-gray-600"
-                          }
-                        >
-                          {mc.status}
-                        </span>
-                      </div>
-                    )}
-                    {testActiveManual && mc.connected && (
-                      <div className="text-blue-600 font-medium">
-                        {waitingForResponseManual ? "Esperando..." : "Clic para enviar"}
-                      </div>
-                    )}
+      {/* Main Content */}
+      <div className="w-full">
+        <div className="p-4 lg:p-6 max-w-full">
+          <div className="max-w-4xl mx-auto">
+            {/* Header */}
+            <div className="mb-6 flex justify-between items-center">
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900">Mi Perfil</h1>
+                <p className="text-gray-600 text-sm">Información personal y datos de la cuenta</p>
+              </div>
+              <div className="flex gap-2">
+                {isEditing && (
+                  <button
+                    onClick={cancelarEdicion}
+                    className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors flex items-center gap-2"
+                  >
+                    <X className="h-4 w-4" />
+                    Cancelar
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Profile Card */}
+            <div className="bg-white rounded-2xl shadow-xl border border-slate-200/60 overflow-hidden backdrop-blur-sm">
+              {/* Header del perfil */}
+              <div className="bg-gradient-to-r from-red-900 to-red-800 px-8 py-6">
+                <div className="flex items-center space-x-4">
+                  <div className="relative w-16 h-16 bg-white/20 rounded-full flex items-center justify-center overflow-hidden">
+                    {datosEspecificos?.imagen ? (
+                      <img
+                        src={datosEspecificos.imagen || "/placeholder.svg"}
+                        alt="Foto de perfil"
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          e.target.style.display = "none"
+                          e.target.nextSibling.style.display = "flex"
+                        }}
+                      />
+                    ) : null}
+                    <User
+                      className="h-8 w-8 text-white"
+                      style={{ display: datosEspecificos?.imagen ? "none" : "block" }}
+                    />
                   </div>
-                </CardContent>
-              </Card>
-            ))}
+                  <div>
+                    <h2 className="text-2xl font-bold text-white">
+                      {isEditing ? (
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            value={formData.nombres}
+                            onChange={(e) => handleInputChange("nombres", e.target.value)}
+                            className="bg-white/20 text-white placeholder-white/70 border border-white/30 rounded px-2 py-1 text-xl"
+                            placeholder="Nombres"
+                          />
+                          <input
+                            type="text"
+                            value={formData.apellidos}
+                            onChange={(e) => handleInputChange("apellidos", e.target.value)}
+                            className="bg-white/20 text-white placeholder-white/70 border border-white/30 rounded px-2 py-1 text-xl"
+                            placeholder="Apellidos"
+                          />
+                        </div>
+                      ) : (
+                        `${datosEspecificos?.nombres} ${datosEspecificos?.apellidos}`
+                      )}
+                    </h2>
+                    <div className="flex items-center space-x-2 mt-1">
+                      <Shield className="h-4 w-4 text-red-100" />
+                      <span className="text-red-100 text-sm font-medium capitalize">{tipoUsuario}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Contenido del perfil */}
+              <div className="p-8">
+                {error && isEditing && (
+                  <div className="mb-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-center">
+                    <AlertCircle className="h-5 w-5 mr-2 flex-shrink-0" />
+                    <span className="text-sm">{error}</span>
+                  </div>
+                )}
+
+                {isEditing && (
+                  <div className="mb-8 p-6 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border border-blue-200">
+                    <div className="flex items-start space-x-4">
+                      <div className="flex-shrink-0">
+                        <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center overflow-hidden border-4 border-white shadow-lg">
+                          {formData.imagen ? (
+                            <img
+                              src={formData.imagen || "/placeholder.svg"}
+                              alt="Vista previa"
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                e.target.style.display = "none"
+                                e.target.nextSibling.style.display = "flex"
+                              }}
+                            />
+                          ) : null}
+                          <Camera
+                            className="h-10 w-10 text-gray-400"
+                            style={{ display: formData.imagen ? "none" : "block" }}
+                          />
+                        </div>
+                      </div>
+                      <div className="flex-1">
+                        <label className="block text-sm font-semibold text-gray-700 mb-2">
+                          <Camera className="h-4 w-4 inline mr-2" />
+                          Imagen de perfil (opcional)
+                        </label>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={handleImageChange}
+                          disabled={uploadingImage}
+                          className="w-full px-4 py-2 border border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-100 file:text-blue-700 hover:file:bg-blue-200 disabled:opacity-50"
+                        />
+                        <p className="text-xs text-gray-600 mt-2">
+                          {uploadingImage ? "Cargando imagen..." : "Selecciona una imagen (JPG, PNG, GIF). Máximo 2MB."}
+                        </p>
+                        {formData.imagen && (
+                          <button
+                            type="button"
+                            onClick={() => handleInputChange("imagen", "")}
+                            className="mt-2 text-xs text-red-600 hover:text-red-800 font-medium"
+                          >
+                            Eliminar imagen
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  {/* Información de la cuenta */}
+                  <div className="space-y-6">
+                    <h3 className="text-lg font-semibold text-gray-900 border-b border-gray-200 pb-2">
+                      Información de la Cuenta
+                    </h3>
+
+                    <div className="space-y-4">
+                      <div className="bg-blue-50/50 px-4 py-3 rounded-lg border border-blue-200/30">
+                        <div className="flex items-center space-x-3">
+                          <User className="h-5 w-5 text-blue-600" />
+                          <div className="flex-1">
+                            <p className="text-sm font-medium text-blue-800">Usuario</p>
+                            {isEditing ? (
+                              <input
+                                type="text"
+                                value={formData.usuario}
+                                onChange={(e) => handleInputChange("usuario", e.target.value)}
+                                className="w-full mt-1 px-2 py-1 border border-blue-300 rounded text-sm text-blue-700"
+                              />
+                            ) : (
+                              <p className="text-sm text-blue-700">{perfil.usuario}</p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="bg-slate-50 px-4 py-3 rounded-lg border border-slate-200/50">
+                        <div className="flex items-center space-x-3">
+                          <Shield className="h-5 w-5 text-slate-600" />
+                          <div>
+                            <p className="text-sm font-medium text-slate-800">Rol</p>
+                            <p className="text-sm text-slate-700 capitalize">{perfil.rol}</p>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="bg-slate-50 px-4 py-3 rounded-lg border border-slate-200/50">
+                        <div className="flex items-center space-x-3">
+                          <Shield className="h-5 w-5 text-slate-600" />
+                          <div>
+                            <p className="text-sm font-medium text-slate-800">Estado</p>
+                            <p className="text-sm text-slate-700">{perfil.activo ? "Activo" : "Inactivo"}</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Información personal */}
+                  <div className="space-y-6">
+                    <h3 className="text-lg font-semibold text-gray-900 border-b border-gray-200 pb-2">
+                      Información Personal
+                    </h3>
+
+                    <div className="space-y-4">
+                      <div className="bg-gray-50 px-4 py-3 rounded-lg border border-gray-200/50">
+                        <div className="flex items-center space-x-3">
+                          <Mail className="h-5 w-5 text-gray-600" />
+                          <div className="flex-1">
+                            <p className="text-sm font-medium text-gray-800">
+                              {tipoUsuario === "entrenador" ? "Correo Electrónico" : "Correo Institucional"}
+                            </p>
+                            {isEditing ? (
+                              <input
+                                type="email"
+                                value={
+                                  tipoUsuario === "entrenador"
+                                    ? formData.correo_electronico
+                                    : formData.correo_institucional
+                                }
+                                onChange={(e) =>
+                                  handleInputChange(
+                                    tipoUsuario === "entrenador" ? "correo_electronico" : "correo_institucional",
+                                    e.target.value,
+                                  )
+                                }
+                                className="w-full mt-1 px-2 py-1 border border-gray-300 rounded text-sm text-gray-700"
+                              />
+                            ) : (
+                              <p className="text-sm text-gray-700">
+                                {tipoUsuario === "entrenador"
+                                  ? datosEspecificos?.correo_electronico
+                                  : datosEspecificos?.correo_institucional}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="bg-gray-50 px-4 py-3 rounded-lg border border-gray-200/50">
+                        <div className="flex items-center space-x-3">
+                          <Phone className="h-5 w-5 text-gray-600" />
+                          <div className="flex-1">
+                            <p className="text-sm font-medium text-gray-800">Teléfono</p>
+                            {isEditing ? (
+                              <input
+                                type="tel"
+                                value={formData.numero_celular}
+                                onChange={(e) => handleInputChange("numero_celular", e.target.value)}
+                                className="w-full mt-1 px-2 py-1 border border-gray-300 rounded text-sm text-gray-700"
+                              />
+                            ) : (
+                              <p className="text-sm text-gray-700">{datosEspecificos?.numero_celular}</p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="bg-gray-50 px-4 py-3 rounded-lg border border-gray-200/50">
+                        <div className="flex items-center space-x-3">
+                          <Calendar className="h-5 w-5 text-gray-600" />
+                          <div className="flex-1">
+                            <p className="text-sm font-medium text-gray-800">Fecha de Nacimiento</p>
+                            {isEditing ? (
+                              <input
+                                type="date"
+                                value={formData.fecha_nacimiento}
+                                onChange={(e) => handleInputChange("fecha_nacimiento", e.target.value)}
+                                className="w-full mt-1 px-2 py-1 border border-gray-300 rounded text-sm text-gray-700"
+                              />
+                            ) : (
+                              <p className="text-sm text-gray-700">
+                                {datosEspecificos?.fecha_nacimiento &&
+                                  new Date(datosEspecificos.fecha_nacimiento).toLocaleDateString("es-ES")}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {tipoUsuario === "jugador" && (
+                        <div className="bg-gray-50 px-4 py-3 rounded-lg border border-gray-200/50">
+                          <div className="flex items-center space-x-3">
+                            <GraduationCap className="h-5 w-5 text-gray-600" />
+                            <div className="flex-1">
+                              <p className="text-sm font-medium text-gray-800">Carrera</p>
+                              {isEditing ? (
+                                <input
+                                  type="text"
+                                  value={formData.carrera}
+                                  onChange={(e) => handleInputChange("carrera", e.target.value)}
+                                  className="w-full mt-1 px-2 py-1 border border-gray-300 rounded text-sm text-gray-700"
+                                />
+                              ) : (
+                                <p className="text-sm text-gray-700">{datosEspecificos?.carrera}</p>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {(tipoUsuario === "entrenador" || tipoUsuario === "jugador") && (
+                        <div className="bg-gray-50 px-4 py-3 rounded-lg border border-gray-200/50">
+                          <div className="flex items-center space-x-3">
+                            <Shield className="h-5 w-5 text-gray-600" />
+                            <div className="flex-1">
+                              <p className="text-sm font-medium text-gray-800">Años de Experiencia en Voleibol</p>
+                              {isEditing ? (
+                                <input
+                                  type="number"
+                                  value={formData.anos_experiencia_voley}
+                                  onChange={(e) => handleInputChange("anos_experiencia_voley", e.target.value)}
+                                  className="w-full mt-1 px-2 py-1 border border-gray-300 rounded text-sm text-gray-700"
+                                />
+                              ) : (
+                                <p className="text-sm text-gray-700">{datosEspecificos?.anos_experiencia_voley} años</p>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Información específica del rol */}
+                {tipoUsuario === "jugador" && datosEspecificos && (
+                  <div className="mt-8 pt-6 border-t border-gray-200">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Información del Jugador</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="bg-red-50/80 px-4 py-3 rounded-lg border border-red-200/50">
+                        <p className="text-sm font-medium text-red-800">Posición Principal</p>
+                        {isEditing ? (
+                          <select
+                            value={formData.posicion_principal}
+                            onChange={(e) => handleInputChange("posicion_principal", e.target.value)}
+                            className="w-full mt-1 px-2 py-1 border border-red-300 rounded text-sm text-red-700"
+                          >
+                            <option value="">Seleccionar posición</option>
+                            <option value="armador">Armador</option>
+                            <option value="opuesto">Opuesto</option>
+                            <option value="central">Central</option>
+                            <option value="receptor">Receptor</option>
+                            <option value="libero">Líbero</option>
+                          </select>
+                        ) : (
+                          <p className="text-sm text-red-700 capitalize">{datosEspecificos.posicion_principal}</p>
+                        )}
+                      </div>
+
+                      <div className="bg-red-50/80 px-4 py-3 rounded-lg border border-red-200/50">
+                        <p className="text-sm font-medium text-red-800">Altura</p>
+                        {isEditing ? (
+                          <input
+                            type="text"
+                            value={formData.altura}
+                            onChange={(e) => handleInputChange("altura", e.target.value)}
+                            className="w-full mt-1 px-2 py-1 border border-red-300 rounded text-sm text-red-700"
+                            placeholder="1.85"
+                          />
+                        ) : (
+                          <p className="text-sm text-red-700">{datosEspecificos.altura} m</p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Botón de actualizar */}
+                <div className="mt-8 pt-6 border-t border-gray-200 text-center">
+                  <button
+                    onClick={handleActualizarPerfil}
+                    disabled={updating}
+                    className="px-6 py-3 bg-gradient-to-r from-red-900 to-red-800 text-white rounded-xl hover:from-red-800 hover:to-red-900 transition-all duration-300 font-medium shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 mx-auto"
+                  >
+                    {updating ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Guardando...
+                      </>
+                    ) : isEditing ? (
+                      <>
+                        <Save className="h-4 w-4" />
+                        Guardar Cambios
+                      </>
+                    ) : (
+                      <>
+                        <Edit className="h-4 w-4" />
+                        Actualizar Perfil
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </div>
   )
 }

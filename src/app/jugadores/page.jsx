@@ -16,6 +16,7 @@ import {
   AlertCircle,
   Filter,
   Users,
+  Camera,
 } from "lucide-react"
 
 export default function JugadoresPage() {
@@ -53,9 +54,12 @@ export default function JugadoresPage() {
     correo_institucional: "",
     usuario: "",
     contraseña: "",
+    imagen: "",
   })
 
   const [validationErrors, setValidationErrors] = useState({})
+
+  const [uploadingImage, setUploadingImage] = useState(false)
 
   useEffect(() => {
     fetchJugadores()
@@ -119,6 +123,7 @@ export default function JugadoresPage() {
             id: cuenta.jugador.id,
             usuario: cuenta.usuario,
             cuentaId: cuenta.id,
+            imagen: cuenta.jugador.imagen || "", // Asegurarse de que imagen exista
           }))
 
         setJugadores(jugadores)
@@ -244,6 +249,7 @@ export default function JugadoresPage() {
       correo_institucional: "",
       usuario: "",
       contraseña: "",
+      imagen: "",
     })
     setFormMode("create")
     setIsModalOpen(true)
@@ -263,6 +269,7 @@ export default function JugadoresPage() {
       correo_institucional: jugador.correo_institucional || "",
       usuario: jugador.cuenta?.usuario || "",
       contraseña: "",
+      imagen: jugador.imagen || "",
     })
     setFormMode("view")
     setIsModalOpen(true)
@@ -282,6 +289,7 @@ export default function JugadoresPage() {
       correo_institucional: jugador.correo_institucional || "",
       usuario: jugador.cuenta?.usuario || "",
       contraseña: "",
+      imagen: jugador.imagen || "",
     })
     setFormMode("update")
     setIsModalOpen(true)
@@ -516,6 +524,46 @@ export default function JugadoresPage() {
     }
   }
 
+  const convertToBase64 = (file) => {
+    return new Promise((resolve, reject) => {
+      // Validate file size (max 2MB)
+      if (file.size > 2 * 1024 * 1024) {
+        reject(new Error("La imagen debe ser menor a 2MB"))
+        return
+      }
+
+      // Validate file type
+      if (!file.type.startsWith("image/")) {
+        reject(new Error("El archivo debe ser una imagen"))
+        return
+      }
+
+      const reader = new FileReader()
+      reader.readAsDataURL(file)
+      reader.onload = () => resolve(reader.result)
+      reader.onerror = (error) => reject(error)
+    })
+  }
+
+  const handleImageChange = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    try {
+      setUploadingImage(true)
+      const base64 = await convertToBase64(file)
+      setFormData({
+        ...formData,
+        imagen: base64,
+      })
+      showNotification("success", "Imagen cargada correctamente")
+    } catch (error) {
+      showNotification("error", error.message || "Error al cargar la imagen")
+    } finally {
+      setUploadingImage(false)
+    }
+  }
+
   // Lógica de paginación
   const indexOfLastItem = currentPage * itemsPerPage
   const indexOfFirstItem = indexOfLastItem - itemsPerPage
@@ -654,7 +702,7 @@ export default function JugadoresPage() {
                         <div className="w-1 h-6 bg-white rounded-full"></div>
                         <span>Carrera</span>
                       </div>
-                      
+
                       <div className="col-span-3 flex items-center space-x-2">
                         <div className="w-1 h-6 bg-white rounded-full"></div>
                         <span>Contacto</span>
@@ -676,13 +724,32 @@ export default function JugadoresPage() {
                       >
                         <div className="grid grid-cols-12 gap-6 items-center">
                           <div className="col-span-3">
-                            <div>
-                              <p className="text-sm font-bold text-slate-900 group-hover:text-slate-700 transition-colors">
-                                {jugador.nombres} {jugador.apellidos}
-                              </p>
-                              <p className="text-xs text-red-800 capitalize bg-red-50/80 px-2 py-1 rounded-md mt-1 font-medium border border-red-200/50">
-                                {jugador.posicion_principal}
-                              </p>
+                            <div className="flex items-center space-x-3">
+                              <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden flex-shrink-0">
+                                {jugador.imagen ? (
+                                  <img
+                                    src={jugador.imagen || "/placeholder.svg"}
+                                    alt={`${jugador.nombres} ${jugador.apellidos}`}
+                                    className="w-full h-full object-cover"
+                                    onError={(e) => {
+                                      e.target.style.display = "none"
+                                      e.target.nextSibling.style.display = "flex"
+                                    }}
+                                  />
+                                ) : null}
+                                <Users
+                                  className="h-5 w-5 text-gray-400"
+                                  style={{ display: jugador.imagen ? "none" : "block" }}
+                                />
+                              </div>
+                              <div>
+                                <p className="text-sm font-bold text-slate-900 group-hover:text-slate-700 transition-colors">
+                                  {jugador.nombres} {jugador.apellidos}
+                                </p>
+                                <p className="text-xs text-red-800 capitalize bg-red-50/80 px-2 py-1 rounded-md mt-1 font-medium border border-red-200/50">
+                                  {jugador.posicion_principal}
+                                </p>
+                              </div>
                             </div>
                           </div>
 
@@ -697,8 +764,6 @@ export default function JugadoresPage() {
                               <p className="text-sm text-slate-700 font-medium">{jugador.carrera}</p>
                             </div>
                           </div>
-
-                          
 
                           <div className="col-span-3">
                             <div className="bg-gray-50 px-3 py-2 rounded-lg border border-gray-200/50">
@@ -840,6 +905,70 @@ export default function JugadoresPage() {
 
             <div className="overflow-y-auto max-h-[calc(95vh-120px)]">
               <form onSubmit={handleSubmit} className="p-8">
+                <div className="mb-8 p-6 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border border-blue-200">
+                  <div className="flex items-start space-x-4">
+                    <div className="flex-shrink-0">
+                      <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center overflow-hidden border-4 border-white shadow-lg">
+                        {formData.imagen ? (
+                          <img
+                            src={formData.imagen || "/placeholder.svg"}
+                            alt="Vista previa"
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              e.target.style.display = "none"
+                              e.target.nextSibling.style.display = "flex"
+                            }}
+                          />
+                        ) : null}
+                        <Camera
+                          className="h-10 w-10 text-gray-400"
+                          style={{ display: formData.imagen ? "none" : "block" }}
+                        />
+                      </div>
+                    </div>
+                    <div className="flex-1">
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        <Camera className="h-4 w-4 inline mr-2" />
+                        Imagen de perfil (opcional)
+                      </label>
+                      {formMode === "view" ? (
+                        <div className="bg-white px-4 py-2 rounded-lg border border-blue-300">
+                          <p className="text-sm text-gray-700">{formData.imagen ? "Imagen cargada" : "Sin imagen"}</p>
+                        </div>
+                      ) : (
+                        <>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={handleImageChange}
+                            disabled={uploadingImage}
+                            className="w-full px-4 py-2 border border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-100 file:text-blue-700 hover:file:bg-blue-200 disabled:opacity-50"
+                          />
+                          <p className="text-xs text-gray-600 mt-2">
+                            {uploadingImage
+                              ? "Cargando imagen..."
+                              : "Selecciona una imagen (JPG, PNG, GIF). Máximo 2MB."}
+                          </p>
+                          {formData.imagen && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setFormData({
+                                  ...formData,
+                                  imagen: "",
+                                })
+                              }
+                              className="mt-2 text-xs text-red-600 hover:text-red-800 font-medium"
+                            >
+                              Eliminar imagen
+                            </button>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                   {/* Nombres */}
                   <div className="space-y-2">
