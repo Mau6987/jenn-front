@@ -44,8 +44,7 @@ export default function LoginPage() {
       if (data.success) {
         login(data.data.id, data.data.rol, data.data.token)
 
-        // Redirigir a /jugadores
-        router.push("/jugadores")
+        router.push("/perfil")
       } else {
         setError(data.message || "Error al iniciar sesión")
       }
@@ -57,22 +56,20 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen w-screen flex flex-col bg-gray-50 dark:bg-gray-900 font-sans relative overflow-hidden">
+    <div className="min-h-screen w-screen flex flex-col bg-gray-900 font-sans relative overflow-hidden">
       <div
-        className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-15"
+        className="absolute inset-0 bg-center bg-no-repeat opacity-60"
         style={{
-          backgroundImage: `url('/volleyball-bg.jpg')`,
-          backgroundPosition: "center bottom",
-          backgroundSize: "60%",
-          filter: "blur(0.8px)",
+          backgroundImage: `url('https://hebbkx1anhila5yf.public.blob.vercel-storage.com/image-AVC5jR8RoXCc2itFhawLOexSK6CvGW.png')`,
+          backgroundPosition: "center center",
+          backgroundSize: "80%",
         }}
       />
-      <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-red-900/10" />
 
       <div className="flex justify-center items-center flex-grow relative z-10">
         <div className="grid gap-8">
           <div className="bg-gradient-to-r from-red-900 to-red-700 rounded-[26px] m-4 shadow-2xl">
-            <div className="border-[20px] border-transparent rounded-[20px] dark:bg-gray-900/95 bg-white/95 backdrop-blur-sm shadow-lg xl:p-10 2xl:p-10 lg:p-10 md:p-10 sm:p-2 m-2">
+            <div className="border-[20px] border-transparent rounded-[20px] dark:bg-gray-900/90 bg-white/90 backdrop-blur-sm shadow-lg xl:p-10 2xl:p-10 lg:p-10 md:p-10 sm:p-2 m-2">
               {/* Logo y título */}
               <div className="flex flex-col items-center pt-8 pb-6">
                 <Link

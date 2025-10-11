@@ -1,20 +1,17 @@
-"use client";
-import "swiper/css"; // asegúrate de haber instalado swiper con `npm install swiper`
-import "swiper/css/navigation";
-import "swiper/css/pagination";
-import { Swiper, SwiperSlide } from "swiper/react";
-import { Navigation, Pagination } from "swiper/modules";
+"use client"
+import "swiper/css"
+import "swiper/css/navigation"
+import "swiper/css/pagination"
+import { Swiper, SwiperSlide } from "swiper/react"
+import { Navigation, Pagination, Autoplay } from "swiper/modules"
 
-import { Button } from "../../components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/ui/card";
-import Link from "next/link";
-import { Users, Trophy, Calendar, Target, MessageCircle } from "lucide-react";
+import { Button } from "../../components/ui/button"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/ui/card"
+import Link from "next/link"
+import { Trophy, Calendar } from "lucide-react"
 
 export default function Page() {
-  const images = [
-    "/F2.jpeg",
-    "/F1.jpeg",
-  ];
+  const images = ["/F2.jpeg", "/F1.jpeg"]
 
   return (
     <div className="min-h-screen bg-white relative overflow-hidden">
@@ -33,17 +30,16 @@ export default function Page() {
             {/* Texto e información */}
             <div className="space-y-8">
               <h1 className="text-5xl lg:text-6xl font-bold text-black leading-tight">
-                SELECCIÓN DE VOLEY<br />
+                SELECCIÓN DE VOLEY
+                <br />
                 <span className="text-[#800020]">UNIVALLE</span>
               </h1>
               <p className="text-xl text-gray-700 mt-6 leading-relaxed">
-                Nuestra selección universitaria se enorgullece de representar a la Universidad del Valle,
-                fomentando la excelencia deportiva y el espíritu competitivo. ¡Únete a nosotros y forma parte de la tradición deportiva universitaria!
+                Nuestra selección universitaria se enorgullece de representar a la Universidad del Valle, fomentando la
+                excelencia deportiva y el espíritu competitivo. ¡Únete a nosotros y forma parte de la tradición
+                deportiva universitaria!
               </p>
               <div className="flex flex-col sm:flex-row gap-4">
-                <Button size="lg" className="bg-[#800020] hover:bg-[#a64d66] text-white px-8 py-3 text-lg">
-                  <MessageCircle className="w-5 h-5 mr-2" /> Escríbenos para más info
-                </Button>
                 <Button
                   size="lg"
                   variant="outline"
@@ -54,37 +50,31 @@ export default function Page() {
                 </Button>
               </div>
 
-              {/* Quick Stats */}
-              <div className="grid grid-cols-3 gap-6 pt-8">
-                <div className="text-center">
-                  <div className="text-3xl font-bold text-[#800020]">10+</div>
-                  <div className="text-gray-600 text-sm">Años representando</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-3xl font-bold text-[#800020]">80+</div>
-                  <div className="text-gray-600 text-sm">Estudiantes seleccionados</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-3xl font-bold text-[#800020]">25+</div>
-                  <div className="text-gray-600 text-sm">Torneos universitarios</div>
-                </div>
-              </div>
+             
             </div>
 
             {/* Carousel Section */}
             <div className="relative">
               <Swiper
-                modules={[Navigation, Pagination]}
+                modules={[Navigation, Pagination, Autoplay]}
                 spaceBetween={20}
                 slidesPerView={1}
                 loop
+                autoplay={{
+                  delay: 3000,
+                  disableOnInteraction: false,
+                }}
                 pagination={{ clickable: true }}
                 navigation
                 className="rounded-lg shadow-2xl"
               >
                 {images.map((src, idx) => (
                   <SwiperSlide key={idx}>
-                    <img src={src} alt={`Vóley acción ${idx + 1}`} className="w-full h-auto rounded-lg" />
+                    <img
+                      src={src || "/placeholder.svg"}
+                      alt={`Vóley acción ${idx + 1}`}
+                      className="w-full h-auto rounded-lg"
+                    />
                   </SwiperSlide>
                 ))}
               </Swiper>
@@ -98,37 +88,24 @@ export default function Page() {
         </div>
       </main>
 
-      {/* Quick Access Cards */}
-      <section className="relative z-10 px-6 py-12 bg-gray-50">
+      <section className="relative z-10 px-6 py-8 bg-gray-50">
         <div className="max-w-7xl mx-auto">
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <Card className="bg-white border-gray-200 hover:shadow-lg hover:border-[#800020] transition-all duration-300">
-              <CardHeader className="text-center">
-                <Users className="w-12 h-12 text-[#800020] mx-auto mb-2" />
-                <CardTitle className="text-black">Sobre Nosotros</CardTitle>
-                <CardDescription className="text-gray-600">Conoce nuestra selección universitaria</CardDescription>
+          <div className="grid md:grid-cols-2 gap-4 max-w-2xl mx-auto">
+            <Card className="bg-white border-gray-200 hover:shadow-md hover:border-[#800020] transition-all duration-300">
+              <CardHeader className="pb-3 pt-4">
+                <div className="flex items-center gap-3">
+                  <Calendar className="w-8 h-8 text-[#800020]" />
+                  <div>
+                    <CardTitle className="text-lg text-black">Horarios</CardTitle>
+                    <CardDescription className="text-sm text-gray-600">Entrenamientos</CardDescription>
+                  </div>
+                </div>
               </CardHeader>
-              <CardContent>
+              <CardContent className="pb-4">
                 <Button
                   asChild
                   variant="outline"
-                  className="w-full border-[#800020] text-[#800020] hover:bg-[#800020] hover:text-white bg-transparent"
-                >
-                  <Link href="/sobre-nosotros">Ver más</Link>
-                </Button>
-              </CardContent>
-            </Card>
-
-            <Card className="bg-white border-gray-200 hover:shadow-lg hover:border-[#800020] transition-all duration-300">
-              <CardHeader className="text-center">
-                <Calendar className="w-12 h-12 text-[#800020] mx-auto mb-2" />
-                <CardTitle className="text-black">Horarios</CardTitle>
-                <CardDescription className="text-gray-600">Entrenamientos universitarios</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Button
-                  asChild
-                  variant="outline"
+                  size="sm"
                   className="w-full border-[#800020] text-[#800020] hover:bg-[#800020] hover:text-white bg-transparent"
                 >
                   <Link href="/horarios-entrenamiento">Ver horarios</Link>
@@ -136,43 +113,22 @@ export default function Page() {
               </CardContent>
             </Card>
 
-            <Card className="bg-white border-gray-200 hover:shadow-lg hover:border-[#800020] transition-all duration-300">
-              <CardHeader className="text-center">
-                <Target className="w-12 h-12 text-[#800020] mx-auto mb-2" />
-                <CardTitle className="text-black">Categorías</CardTitle>
-                <CardDescription className="text-gray-600">Equipos masculino y femenino</CardDescription>
+            <Card className="bg-white border-gray-200 hover:shadow-md hover:border-[#800020] transition-all duration-300">
+              <CardHeader className="pb-3 pt-4">
+                <div className="flex items-center gap-3">
+                  <Trophy className="w-8 h-8 text-[#800020]" />
+                  <div>
+                    <CardTitle className="text-lg text-black">Logros</CardTitle>
+                    <CardDescription className="text-sm text-gray-600">Competencias</CardDescription>
+                  </div>
+                </div>
               </CardHeader>
-              <CardContent className="space-y-2">
+              <CardContent className="pb-4">
                 <Button
                   asChild
                   variant="outline"
                   size="sm"
                   className="w-full border-[#800020] text-[#800020] hover:bg-[#800020] hover:text-white bg-transparent"
-                >
-                  <Link href="/categorias/varones">Varones</Link>
-                </Button>
-                <Button
-                  asChild
-                  variant="outline"
-                  size="sm"
-                  className="w-full border-[#800020] text-[#800020] hover:bg-[#800020] hover=text-white bg-transparent"
-                >
-                  <Link href="/categorias/damas">Damas</Link>
-                </Button>
-              </CardContent>
-            </Card>
-
-            <Card className="bg-white border-gray-200 hover:shadow-lg hover:border-[#800020] transition-all duration-300">
-              <CardHeader className="text-center">
-                <Trophy className="w-12 h-12 text-[#800020] mx-auto mb-2" />
-                <CardTitle className="text-black">Logros</CardTitle>
-                <CardDescription className="text-gray-600">Torneos y competencias universitarias</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Button
-                  asChild
-                  variant="outline"
-                  className="w-full border-[#800020] text-[#800020] hover:bg-[#800020] hover=text-white bg-transparent"
                 >
                   <Link href="/campeonatos">Ver logros</Link>
                 </Button>
@@ -182,5 +138,5 @@ export default function Page() {
         </div>
       </section>
     </div>
-  );
+  )
 }

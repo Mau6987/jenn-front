@@ -61,13 +61,13 @@ export default function JugadoresPage() {
 
   const [uploadingImage, setUploadingImage] = useState(false)
 
+  const [filterCarrera, setFilterCarrera] = useState("")
+  const [filterPosicion, setFilterPosicion] = useState("")
+  const [showFilterMenu, setShowFilterMenu] = useState(false)
+
   useEffect(() => {
     fetchJugadores()
   }, [])
-
-  useEffect(() => {
-    filtrarJugadores()
-  }, [searchTerm, jugadores])
 
   const showNotification = (type, message) => {
     setNotification({ type, message })
@@ -88,13 +88,25 @@ export default function JugadoresPage() {
           `${jugador.nombres} ${jugador.apellidos}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
           jugador.correo_institucional?.toLowerCase().includes(searchTerm.toLowerCase()) ||
           jugador.carrera?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          jugador.cuenta?.usuario?.toLowerCase().includes(searchTerm.toLowerCase()),
+          jugador.usuario?.toLowerCase().includes(searchTerm.toLowerCase()),
       )
+    }
+
+    if (filterCarrera.trim() !== "") {
+      filtrados = filtrados.filter((jugador) => jugador.carrera?.toLowerCase().includes(filterCarrera.toLowerCase()))
+    }
+
+    if (filterPosicion !== "") {
+      filtrados = filtrados.filter((jugador) => jugador.posicion_principal === filterPosicion)
     }
 
     setJugadoresFiltrados(filtrados)
     setCurrentPage(1)
   }
+
+  useEffect(() => {
+    filtrarJugadores()
+  }, [searchTerm, jugadores, filterCarrera, filterPosicion])
 
   const fetchJugadores = async () => {
     try {
@@ -267,7 +279,7 @@ export default function JugadoresPage() {
       anos_experiencia_voley: jugador.anos_experiencia_voley || "",
       numero_celular: jugador.numero_celular || "",
       correo_institucional: jugador.correo_institucional || "",
-      usuario: jugador.cuenta?.usuario || "",
+      usuario: jugador.usuario || "",
       contraseña: "",
       imagen: jugador.imagen || "",
     })
@@ -287,7 +299,7 @@ export default function JugadoresPage() {
       anos_experiencia_voley: jugador.anos_experiencia_voley || "",
       numero_celular: jugador.numero_celular || "",
       correo_institucional: jugador.correo_institucional || "",
-      usuario: jugador.cuenta?.usuario || "",
+      usuario: jugador.usuario || "",
       contraseña: "",
       imagen: jugador.imagen || "",
     })
@@ -612,12 +624,12 @@ export default function JugadoresPage() {
       <div className="w-full">
         <div className="p-4 lg:p-6 max-w-full">
           <div className="max-w-7xl mx-auto">
-            {/* Header */}
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6">
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900">Jugadores</h1>
-                <p className="text-gray-600 text-sm">Gestiona los jugadores de la selección de volleyball</p>
-              </div>
+            <div className="mb-8 text-center">
+              <h1 className="text-4xl font-bold bg-gradient-to-r from-red-900 via-red-800 to-red-900 bg-clip-text text-transparent mb-2">
+                Jugadores
+              </h1>
+              <div className="w-24 h-1 bg-gradient-to-r from-transparent via-red-800 to-transparent mx-auto mb-3"></div>
+              <p className="text-gray-600 text-sm">Gestiona los jugadores de la selección de volleyball</p>
             </div>
 
             {/* Search Bar */}
@@ -642,10 +654,64 @@ export default function JugadoresPage() {
                 <UserPlus className="h-4 w-4" />
                 <span>Agregar nuevo</span>
               </button>
-              <button className="flex items-center justify-center space-x-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors font-medium">
-                <Filter className="h-4 w-4" />
-                <span>Filtrar</span>
-              </button>
+              <div className="relative">
+                <button
+                  onClick={() => setShowFilterMenu(!showFilterMenu)}
+                  className="flex items-center justify-center space-x-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors font-medium w-full sm:w-auto"
+                >
+                  <Filter className="h-4 w-4" />
+                  <span>Filtrar</span>
+                </button>
+
+                {showFilterMenu && (
+                  <div className="absolute top-full left-0 mt-2 w-72 bg-white rounded-lg shadow-xl border border-gray-200 p-4 z-10">
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Carrera</label>
+                        <input
+                          type="text"
+                          value={filterCarrera}
+                          onChange={(e) => setFilterCarrera(e.target.value)}
+                          placeholder="Filtrar por carrera..."
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-900 focus:border-transparent text-sm"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Posición</label>
+                        <select
+                          value={filterPosicion}
+                          onChange={(e) => setFilterPosicion(e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-900 focus:border-transparent text-sm"
+                        >
+                          <option value="">Todas las posiciones</option>
+                          <option value="armador">Armador</option>
+                          <option value="opuesto">Opuesto</option>
+                          <option value="central">Central</option>
+                          <option value="receptor">Receptor</option>
+                          <option value="libero">Líbero</option>
+                        </select>
+                      </div>
+                      <div className="flex gap-2 pt-2">
+                        <button
+                          onClick={() => {
+                            setFilterCarrera("")
+                            setFilterPosicion("")
+                          }}
+                          className="flex-1 px-3 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors text-sm font-medium"
+                        >
+                          Limpiar
+                        </button>
+                        <button
+                          onClick={() => setShowFilterMenu(false)}
+                          className="flex-1 px-3 py-2 bg-red-900 text-white rounded-lg hover:bg-red-800 transition-colors text-sm font-medium"
+                        >
+                          Aplicar
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Mensaje de error */}
@@ -656,7 +722,7 @@ export default function JugadoresPage() {
               </div>
             )}
 
-            {/* Table - Professional design with bordó color scheme */}
+            {/* Table - Improved responsive layout */}
             <div className="bg-white rounded-2xl shadow-xl border border-slate-200/60 overflow-hidden backdrop-blur-sm">
               {loading && !isModalOpen && !showDeleteModal ? (
                 <div className="p-12 text-center">
@@ -688,120 +754,94 @@ export default function JugadoresPage() {
                 </div>
               ) : (
                 <>
-                  <div className="bg-slate-600 px-8 py-6 border-2 border-gray-900 relative overflow-hidden">
-                    <div className="relative grid grid-cols-12 gap-6 text-sm font-bold text-white uppercase tracking-wider">
-                      <div className="col-span-3 flex items-center space-x-2">
-                        <div className="w-1 h-6 bg-white rounded-full"></div>
-                        <span>Jugador</span>
-                      </div>
-                      <div className="col-span-2 flex items-center space-x-2">
-                        <div className="w-1 h-6 bg-white rounded-full"></div>
-                        <span>Usuario</span>
-                      </div>
-                      <div className="col-span-2 flex items-center space-x-2">
-                        <div className="w-1 h-6 bg-white rounded-full"></div>
-                        <span>Carrera</span>
-                      </div>
-
-                      <div className="col-span-3 flex items-center space-x-2">
-                        <div className="w-1 h-6 bg-white rounded-full"></div>
-                        <span>Contacto</span>
-                      </div>
-                      <div className="col-span-1 text-center flex items-center justify-center space-x-2">
-                        <div className="w-1 h-6 bg-white rounded-full"></div>
-                        <span>Acciones</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="divide-y divide-slate-100/80">
-                    {currentItems.map((jugador, index) => (
+                  {/* Card Grid Layout */}
+                  <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {currentItems.map((jugador) => (
                       <div
                         key={jugador.id}
-                        className={`px-8 py-6 hover:bg-gradient-to-r hover:from-red-50/30 hover:to-red-50/10 transition-all duration-300 transform hover:scale-[1.002] hover:shadow-sm group ${
-                          index % 2 === 0 ? "bg-white" : "bg-gray-50/50"
-                        } border-l-4 border-transparent hover:border-l-red-400`}
+                        className="bg-white border-2 border-gray-200 rounded-2xl overflow-hidden hover:shadow-xl hover:border-red-300 transition-all duration-300 transform hover:-translate-y-1"
                       >
-                        <div className="grid grid-cols-12 gap-6 items-center">
-                          <div className="col-span-3">
-                            <div className="flex items-center space-x-3">
-                              <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden flex-shrink-0">
-                                {jugador.imagen ? (
-                                  <img
-                                    src={jugador.imagen || "/placeholder.svg"}
-                                    alt={`${jugador.nombres} ${jugador.apellidos}`}
-                                    className="w-full h-full object-cover"
-                                    onError={(e) => {
-                                      e.target.style.display = "none"
-                                      e.target.nextSibling.style.display = "flex"
-                                    }}
-                                  />
-                                ) : null}
-                                <Users
-                                  className="h-5 w-5 text-gray-400"
-                                  style={{ display: jugador.imagen ? "none" : "block" }}
-                                />
+                        {/* Top section: Image and Info side by side */}
+                        <div className="flex p-4 gap-4">
+                          {/* Large Square Image */}
+                          <div className="w-28 h-28 rounded-xl bg-gray-200 flex items-center justify-center overflow-hidden flex-shrink-0 border-2 border-red-200">
+                            {jugador.imagen ? (
+                              <img
+                                src={jugador.imagen || "/placeholder.svg"}
+                                alt={`${jugador.nombres} ${jugador.apellidos}`}
+                                className="w-full h-full object-cover"
+                                onError={(e) => {
+                                  e.target.style.display = "none"
+                                  e.target.nextSibling.style.display = "flex"
+                                }}
+                              />
+                            ) : null}
+                            <Users
+                              className="h-12 w-12 text-gray-400"
+                              style={{ display: jugador.imagen ? "none" : "block" }}
+                            />
+                          </div>
+
+                          {/* Info on the right */}
+                          <div className="flex-1 min-w-0">
+                            <h3 className="text-base font-bold text-gray-900 leading-tight mb-1 truncate">
+                              {jugador.nombres} {jugador.apellidos}
+                            </h3>
+                            <p className="text-sm text-red-700 font-medium capitalize mb-3">
+                              {jugador.posicion_principal}
+                            </p>
+
+                            <div className="space-y-2">
+                              <div className="flex items-center text-xs">
+                                <Users className="h-3 w-3 text-gray-500 mr-1.5 flex-shrink-0" />
+                                <span className="text-gray-600 font-medium truncate">{jugador.usuario}</span>
                               </div>
-                              <div>
-                                <p className="text-sm font-bold text-slate-900 group-hover:text-slate-700 transition-colors">
-                                  {jugador.nombres} {jugador.apellidos}
-                                </p>
-                                <p className="text-xs text-red-800 capitalize bg-red-50/80 px-2 py-1 rounded-md mt-1 font-medium border border-red-200/50">
-                                  {jugador.posicion_principal}
-                                </p>
+                              <div className="flex items-center text-xs">
+                                <span className="text-gray-500 mr-1.5">📚</span>
+                                <span className="text-gray-700 font-medium truncate">{jugador.carrera}</span>
+                              </div>
+                              <div className="flex items-center text-xs">
+                                <span className="text-gray-500 mr-1.5">⭐</span>
+                                <span className="text-gray-700 font-medium">
+                                  {jugador.anos_experiencia_voley} años exp.
+                                </span>
                               </div>
                             </div>
                           </div>
+                        </div>
 
-                          <div className="col-span-2">
-                            <div className="bg-blue-50/50 px-3 py-2 rounded-lg border border-blue-200/30">
-                              <p className="text-sm font-semibold text-blue-800">{jugador.usuario}</p>
-                            </div>
-                          </div>
-
-                          <div className="col-span-2">
-                            <div className="bg-slate-50 px-3 py-2 rounded-lg border border-slate-200/50">
-                              <p className="text-sm text-slate-700 font-medium">{jugador.carrera}</p>
-                            </div>
-                          </div>
-
-                          <div className="col-span-3">
-                            <div className="bg-gray-50 px-3 py-2 rounded-lg border border-gray-200/50">
-                              <p className="text-sm text-gray-800 font-bold">{jugador.numero_celular}</p>
-                              <p className="text-xs text-gray-600 font-medium">{jugador.correo_institucional}</p>
-                            </div>
-                          </div>
-
-                          <div className="col-span-1">
-                            <div className="flex items-center justify-center space-x-1">
-                              <button
-                                onClick={() => handleViewJugador(jugador)}
-                                className="p-2.5 text-blue-500 hover:text-blue-700 hover:bg-blue-50 rounded-xl transition-all duration-300 border border-blue-200 hover:border-blue-300 hover:shadow-sm group/btn"
-                                title="Ver detalles"
-                              >
-                                <Eye className="h-4 w-4" />
-                              </button>
-                              <button
-                                onClick={() => handleEdit(jugador)}
-                                className="p-2.5 text-yellow-500 hover:text-yellow-700 hover:bg-yellow-50 rounded-xl transition-all duration-300 border border-yellow-200 hover:border-yellow-300 hover:shadow-sm group/btn"
-                                title="Editar"
-                              >
-                                <Edit className="h-4 w-4" />
-                              </button>
-                              <button
-                                onClick={() => handleDeleteJugador(jugador)}
-                                className="p-2.5 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-xl transition-all duration-300 border border-red-200 hover:border-red-300 hover:shadow-sm group/btn"
-                                title="Eliminar"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </button>
-                            </div>
-                          </div>
+                        {/* Action Buttons at the bottom */}
+                        <div className="flex items-center justify-around px-4 py-3 bg-gray-50 border-t border-gray-200">
+                          <button
+                            onClick={() => handleViewJugador(jugador)}
+                            className="flex items-center space-x-1 px-3 py-2 text-blue-600 hover:bg-blue-100 rounded-lg transition-colors text-sm font-medium"
+                            title="Ver detalles"
+                          >
+                            <Eye className="h-4 w-4" />
+                            <span>Ver</span>
+                          </button>
+                          <button
+                            onClick={() => handleEdit(jugador)}
+                            className="flex items-center space-x-1 px-3 py-2 text-yellow-600 hover:bg-yellow-100 rounded-lg transition-colors text-sm font-medium"
+                            title="Editar"
+                          >
+                            <Edit className="h-4 w-4" />
+                            <span>Editar</span>
+                          </button>
+                          <button
+                            onClick={() => handleDeleteJugador(jugador)}
+                            className="flex items-center space-x-1 px-3 py-2 text-red-600 hover:bg-red-100 rounded-lg transition-colors text-sm font-medium"
+                            title="Eliminar"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                            <span>Eliminar</span>
+                          </button>
                         </div>
                       </div>
                     ))}
                   </div>
 
+                  {/* Pagination */}
                   {totalPages > 1 && (
                     <div className="bg-gradient-to-r from-slate-50 to-slate-100 px-8 py-6 border-t border-slate-200">
                       <div className="flex items-center justify-between">

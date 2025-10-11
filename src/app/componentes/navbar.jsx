@@ -45,33 +45,21 @@ export default function Navbar() {
             <Link href="/" className="text-[#800020] hover:text-[#a64d66] font-medium">
               Inicio
             </Link>
-            <Link href="/sobre-nosotros" className="text-gray-700 hover:text-[#800020]">
-              Sobre Nosotros
-            </Link>
+           
             <Link href="/horarios-entrenamiento" className="text-gray-700 hover:text-[#800020]">
               Horarios
             </Link>
-            <Link href="/logros" className="text-gray-700 hover:text-[#800020]">
-              Logros
-            </Link>
-            <Link href="/categorias/damas" className="text-gray-700 hover:text-[#800020]">
-              Equipo
-            </Link>
+           
+            
 
             <Link href="/campeonatos" className="text-gray-700 hover:text-[#800020]">
               Campeonatos
             </Link>
-            <Link href="/contacto" className="text-gray-700 hover:text-[#800020]">
-              Contacto
-            </Link>
+            
           </div>
 
           <div className="flex items-center space-x-4">
-            <div className="hidden md:flex items-center space-x-2">
-              <Facebook className="w-5 h-5 text-gray-600 hover:text-[#800020] cursor-pointer" />
-              <Instagram className="w-5 h-5 text-gray-600 hover:text-[#800020] cursor-pointer" />
-              <MessageCircle className="w-5 h-5 text-gray-600 hover:text-[#800020] cursor-pointer" />
-            </div>
+            
             <button
               onClick={toggleMobileMenu}
               className="md:hidden p-2 rounded-lg text-[#800020] hover:bg-[#800020] hover:text-white transition-colors"
@@ -94,13 +82,7 @@ export default function Navbar() {
               >
                 Inicio
               </Link>
-              <Link
-                href="/sobre-nosotros"
-                className="block text-gray-700 hover:text-[#800020] py-2"
-                onClick={closeMobileMenu}
-              >
-                Sobre Nosotros
-              </Link>
+              
               <Link
                 href="/horarios-entrenamiento"
                 className="block text-gray-700 hover:text-[#800020] py-2"
@@ -108,12 +90,7 @@ export default function Navbar() {
               >
                 Horarios
               </Link>
-              <Link href="/logros" className="block text-gray-700 hover:text-[#800020] py-2" onClick={closeMobileMenu}>
-                Logros
-              </Link>
-              <Link href="/categorias/damas" className="text-gray-700 hover:text-[#800020]">
-                Equipo
-              </Link>
+             
               <Link
                 href="/campeonatos"
                 className="block text-gray-700 hover:text-[#800020] py-2"
@@ -121,18 +98,8 @@ export default function Navbar() {
               >
                 Campeonatos
               </Link>
-              <Link
-                href="/contacto"
-                className="block text-gray-700 hover:text-[#800020] py-2"
-                onClick={closeMobileMenu}
-              >
-                Contacto
-              </Link>
-              <div className="flex items-center space-x-4 pt-4 border-t border-gray-200">
-                <Facebook className="w-6 h-6 text-gray-600 hover:text-[#800020] cursor-pointer" />
-                <Instagram className="w-6 h-6 text-gray-600 hover:text-[#800020] cursor-pointer" />
-                <MessageCircle className="w-6 h-6 text-gray-600 hover:text-[#800020] cursor-pointer" />
-              </div>
+              
+              
             </div>
           </div>
         )}

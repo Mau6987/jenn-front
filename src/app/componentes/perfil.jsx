@@ -8,7 +8,6 @@ import {
   Phone,
   Calendar,
   GraduationCap,
-  Shield,
   Loader2,
   AlertCircle,
   CheckCircle,
@@ -16,6 +15,7 @@ import {
   Edit,
   Save,
   Camera,
+  Shield,
 } from "lucide-react"
 
 export default function Perfil() {
@@ -153,13 +153,11 @@ export default function Perfil() {
 
   const convertToBase64 = (file) => {
     return new Promise((resolve, reject) => {
-      // Validate file size (max 2MB)
       if (file.size > 2 * 1024 * 1024) {
-        reject(new Error("La imagen debe ser menor a 2MB"))
+        reject(new Error("El archivo debe ser menor a 2MB"))
         return
       }
 
-      // Validate file type
       if (!file.type.startsWith("image/")) {
         reject(new Error("El archivo debe ser una imagen"))
         return
@@ -194,7 +192,18 @@ export default function Perfil() {
     }
   }
 
-  // Auto-hide notification after 3 seconds
+  const calcularEdad = (fechaNacimiento) => {
+    if (!fechaNacimiento) return null
+    const hoy = new Date()
+    const nacimiento = new Date(fechaNacimiento)
+    let edad = hoy.getFullYear() - nacimiento.getFullYear()
+    const mes = hoy.getMonth() - nacimiento.getMonth()
+    if (mes < 0 || (mes === 0 && hoy.getDate() < nacimiento.getDate())) {
+      edad--
+    }
+    return edad
+  }
+
   useEffect(() => {
     if (notification) {
       const timer = setTimeout(() => {
@@ -241,13 +250,11 @@ export default function Perfil() {
     )
   }
 
-  // Determinar qué tipo de usuario es y obtener los datos específicos
   const tipoUsuario = perfil.rol
   const datosEspecificos = perfil.jugador || perfil.entrenador || perfil.tecnico
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Notificación emergente */}
       {notification && (
         <div className="fixed top-20 right-6 z-50 animate-fade-in">
           <div
@@ -277,67 +284,31 @@ export default function Perfil() {
         </div>
       )}
 
-      {/* Main Content */}
       <div className="w-full">
         <div className="p-4 lg:p-6 max-w-full">
           <div className="max-w-4xl mx-auto">
-            {/* Header */}
-            <div className="mb-6 flex justify-between items-center">
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900">Mi Perfil</h1>
-                <p className="text-gray-600 text-sm">Información personal y datos de la cuenta</p>
-              </div>
-              <div className="flex gap-2">
-                {isEditing && (
-                  <button
-                    onClick={cancelarEdicion}
-                    className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors flex items-center gap-2"
-                  >
-                    <X className="h-4 w-4" />
-                    Cancelar
-                  </button>
-                )}
-              </div>
-            </div>
+           
 
-            {/* Profile Card */}
             <div className="bg-white rounded-2xl shadow-xl border border-slate-200/60 overflow-hidden backdrop-blur-sm">
-              {/* Header del perfil */}
-              <div className="bg-gradient-to-r from-red-900 to-red-800 px-8 py-6">
-                <div className="flex items-center space-x-4">
-                  <div className="relative w-16 h-16 bg-white/20 rounded-full flex items-center justify-center overflow-hidden">
-                    {datosEspecificos?.imagen ? (
-                      <img
-                        src={datosEspecificos.imagen || "/placeholder.svg"}
-                        alt="Foto de perfil"
-                        className="w-full h-full object-cover"
-                        onError={(e) => {
-                          e.target.style.display = "none"
-                          e.target.nextSibling.style.display = "flex"
-                        }}
-                      />
-                    ) : null}
-                    <User
-                      className="h-8 w-8 text-white"
-                      style={{ display: datosEspecificos?.imagen ? "none" : "block" }}
-                    />
-                  </div>
-                  <div>
-                    <h2 className="text-2xl font-bold text-white">
+              <div className="bg-gradient-to-r from-red-900 to-red-800 px-8 py-8">
+                <div className="flex flex-col items-center space-y-4">
+                  
+                  <div className="text-center">
+                    <h2 className="text-3xl font-bold text-white">
                       {isEditing ? (
-                        <div className="flex gap-2">
+                        <div className="flex gap-2 justify-center">
                           <input
                             type="text"
                             value={formData.nombres}
                             onChange={(e) => handleInputChange("nombres", e.target.value)}
-                            className="bg-white/20 text-white placeholder-white/70 border border-white/30 rounded px-2 py-1 text-xl"
+                            className="bg-white/20 text-white placeholder-white/70 border border-white/30 rounded px-3 py-2 text-xl text-center"
                             placeholder="Nombres"
                           />
                           <input
                             type="text"
                             value={formData.apellidos}
                             onChange={(e) => handleInputChange("apellidos", e.target.value)}
-                            className="bg-white/20 text-white placeholder-white/70 border border-white/30 rounded px-2 py-1 text-xl"
+                            className="bg-white/20 text-white placeholder-white/70 border border-white/30 rounded px-3 py-2 text-xl text-center"
                             placeholder="Apellidos"
                           />
                         </div>
@@ -345,15 +316,11 @@ export default function Perfil() {
                         `${datosEspecificos?.nombres} ${datosEspecificos?.apellidos}`
                       )}
                     </h2>
-                    <div className="flex items-center space-x-2 mt-1">
-                      <Shield className="h-4 w-4 text-red-100" />
-                      <span className="text-red-100 text-sm font-medium capitalize">{tipoUsuario}</span>
-                    </div>
+                    <p className="text-red-100 text-lg font-medium capitalize mt-2">{tipoUsuario}</p>
                   </div>
                 </div>
               </div>
 
-              {/* Contenido del perfil */}
               <div className="p-8">
                 {error && isEditing && (
                   <div className="mb-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-center">
@@ -366,7 +333,7 @@ export default function Perfil() {
                   <div className="mb-8 p-6 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border border-blue-200">
                     <div className="flex items-start space-x-4">
                       <div className="flex-shrink-0">
-                        <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center overflow-hidden border-4 border-white shadow-lg">
+                        <div className="w-24 h-24 bg-white rounded-lg flex items-center justify-center overflow-hidden border-4 border-white shadow-lg">
                           {formData.imagen ? (
                             <img
                               src={formData.imagen || "/placeholder.svg"}
@@ -414,13 +381,34 @@ export default function Perfil() {
                 )}
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                  {/* Información de la cuenta */}
                   <div className="space-y-6">
                     <h3 className="text-lg font-semibold text-gray-900 border-b border-gray-200 pb-2">
                       Información de la Cuenta
                     </h3>
 
                     <div className="space-y-4">
+                      {!isEditing && (
+                        <div className="flex justify-center mb-4">
+                          <div className="w-40 h-40 md:w-60 md:h-60 lg:w-72 lg:h-72 bg-gray-200 rounded-lg flex items-center justify-center overflow-hidden border-4 border-gray-300 shadow-lg">
+                            {datosEspecificos?.imagen ? (
+                              <img
+                                src={datosEspecificos.imagen || "/placeholder.svg"}
+                                alt="Foto de perfil"
+                                className="w-full h-full object-cover"
+                                onError={(e) => {
+                                  e.target.style.display = "none"
+                                  e.target.nextSibling.style.display = "flex"
+                                }}
+                              />
+                            ) : null}
+                            <User
+                              className="h-20 w-20 text-gray-400"
+                              style={{ display: datosEspecificos?.imagen ? "none" : "block" }}
+                            />
+                          </div>
+                        </div>
+                      )}
+
                       <div className="bg-blue-50/50 px-4 py-3 rounded-lg border border-blue-200/30">
                         <div className="flex items-center space-x-3">
                           <User className="h-5 w-5 text-blue-600" />
@@ -439,30 +427,9 @@ export default function Perfil() {
                           </div>
                         </div>
                       </div>
-
-                      <div className="bg-slate-50 px-4 py-3 rounded-lg border border-slate-200/50">
-                        <div className="flex items-center space-x-3">
-                          <Shield className="h-5 w-5 text-slate-600" />
-                          <div>
-                            <p className="text-sm font-medium text-slate-800">Rol</p>
-                            <p className="text-sm text-slate-700 capitalize">{perfil.rol}</p>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="bg-slate-50 px-4 py-3 rounded-lg border border-slate-200/50">
-                        <div className="flex items-center space-x-3">
-                          <Shield className="h-5 w-5 text-slate-600" />
-                          <div>
-                            <p className="text-sm font-medium text-slate-800">Estado</p>
-                            <p className="text-sm text-slate-700">{perfil.activo ? "Activo" : "Inactivo"}</p>
-                          </div>
-                        </div>
-                      </div>
                     </div>
                   </div>
 
-                  {/* Información personal */}
                   <div className="space-y-6">
                     <h3 className="text-lg font-semibold text-gray-900 border-b border-gray-200 pb-2">
                       Información Personal
@@ -526,7 +493,7 @@ export default function Perfil() {
                         <div className="flex items-center space-x-3">
                           <Calendar className="h-5 w-5 text-gray-600" />
                           <div className="flex-1">
-                            <p className="text-sm font-medium text-gray-800">Fecha de Nacimiento</p>
+                            <p className="text-sm font-medium text-gray-800">Edad</p>
                             {isEditing ? (
                               <input
                                 type="date"
@@ -536,8 +503,7 @@ export default function Perfil() {
                               />
                             ) : (
                               <p className="text-sm text-gray-700">
-                                {datosEspecificos?.fecha_nacimiento &&
-                                  new Date(datosEspecificos.fecha_nacimiento).toLocaleDateString("es-ES")}
+                                {calcularEdad(datosEspecificos?.fecha_nacimiento)} años
                               </p>
                             )}
                           </div>
@@ -589,50 +555,6 @@ export default function Perfil() {
                   </div>
                 </div>
 
-                {/* Información específica del rol */}
-                {tipoUsuario === "jugador" && datosEspecificos && (
-                  <div className="mt-8 pt-6 border-t border-gray-200">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Información del Jugador</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="bg-red-50/80 px-4 py-3 rounded-lg border border-red-200/50">
-                        <p className="text-sm font-medium text-red-800">Posición Principal</p>
-                        {isEditing ? (
-                          <select
-                            value={formData.posicion_principal}
-                            onChange={(e) => handleInputChange("posicion_principal", e.target.value)}
-                            className="w-full mt-1 px-2 py-1 border border-red-300 rounded text-sm text-red-700"
-                          >
-                            <option value="">Seleccionar posición</option>
-                            <option value="armador">Armador</option>
-                            <option value="opuesto">Opuesto</option>
-                            <option value="central">Central</option>
-                            <option value="receptor">Receptor</option>
-                            <option value="libero">Líbero</option>
-                          </select>
-                        ) : (
-                          <p className="text-sm text-red-700 capitalize">{datosEspecificos.posicion_principal}</p>
-                        )}
-                      </div>
-
-                      <div className="bg-red-50/80 px-4 py-3 rounded-lg border border-red-200/50">
-                        <p className="text-sm font-medium text-red-800">Altura</p>
-                        {isEditing ? (
-                          <input
-                            type="text"
-                            value={formData.altura}
-                            onChange={(e) => handleInputChange("altura", e.target.value)}
-                            className="w-full mt-1 px-2 py-1 border border-red-300 rounded text-sm text-red-700"
-                            placeholder="1.85"
-                          />
-                        ) : (
-                          <p className="text-sm text-red-700">{datosEspecificos.altura} m</p>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Botón de actualizar */}
                 <div className="mt-8 pt-6 border-t border-gray-200 text-center">
                   <button
                     onClick={handleActualizarPerfil}
