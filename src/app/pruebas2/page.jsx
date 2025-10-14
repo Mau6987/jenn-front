@@ -1,33 +1,17 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
-import { Button } from "../../components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card"
-import { Badge } from "../../components/ui/badge"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select"
-import { Input } from "../../components/ui/input"
-import { Label } from "../../components/ui/label"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs"
-import {
-  Activity,
-  Play,
-  Square,
-  Clock,
-  Shuffle,
-  Hand,
-  Mail,
-  Phone,
-  MapPin,
-  Ruler,
-  Calendar,
-  Trophy,
-  User,
-  GraduationCap,
-} from "lucide-react"
+import { useRouter } from "next/navigation"
+import { AlertCircle, CheckCircle, X, Users, Play, Clock, List, Shuffle, Hand } from "lucide-react"
 
 const BACKEND_URL = "https://voley-backend-nhyl.onrender.com"
 
-export default function PruebasCompleto() {
+export default function PruebasPage() {
+  const router = useRouter()
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState("")
+  const [notification, setNotification] = useState(null)
+
   // Sequential mode variables
   const [testActiveSequential, setTestActiveSequential] = useState(false)
   const [currentActiveESPSequential, setCurrentActiveESPSequential] = useState(null)
@@ -56,6 +40,7 @@ export default function PruebasCompleto() {
     errores: 0,
   })
 
+  // Manual mode variables
   const [testActiveManual, setTestActiveManual] = useState(false)
   const [currentActiveESPManual, setCurrentActiveESPManual] = useState(null)
   const [waitingForResponseManual, setWaitingForResponseManual] = useState(false)
@@ -69,21 +54,23 @@ export default function PruebasCompleto() {
   // Shared variables
   const [modoActual, setModoActual] = useState("secuencial")
 
+  const [tiempoTranscurrido, setTiempoTranscurrido] = useState(0)
+  const [timerGeneralInterval, setTimerGeneralInterval] = useState(null)
+
   const [microControllers, setMicroControllers] = useState([
-    { id: 1, label: "A", active: false, connected: false, lastSeen: null, lastResponse: null },
-    { id: 2, label: "B", active: false, connected: false, lastSeen: null, lastResponse: null },
-    { id: 3, label: "C", active: false, connected: false, lastSeen: null, lastResponse: null },
-    { id: 4, label: "D", active: false, connected: false, lastSeen: null, lastResponse: null },
-    { id: 5, label: "E", active: false, connected: false, lastSeen: null, lastResponse: null },
+    { id: 1, label: "A", active: false, connected: false, lastSeen: null, lastResponse: null, status: "" },
+    { id: 2, label: "B", active: false, connected: false, lastSeen: null, lastResponse: null, status: "" },
+    { id: 3, label: "C", active: false, connected: false, lastSeen: null, lastResponse: null, status: "" },
+    { id: 4, label: "D", active: false, connected: false, lastSeen: null, lastResponse: null, status: "" },
+    { id: 5, label: "E", active: false, connected: false, lastSeen: null, lastResponse: null, status: "" },
   ])
 
   const [pusherConnected, setPusherConnected] = useState(false)
   const [pusherStatus, setPusherStatus] = useState("Desconectado")
   const [espResponses, setEspResponses] = useState([])
 
-  const [cuentas, setCuentas] = useState([])
-  const [cuentaSeleccionada, setCuentaSeleccionada] = useState("")
-  const [jugadoresDisponibles, setJugadoresDisponibles] = useState([])
+  const [selectedPlayer, setSelectedPlayer] = useState(null)
+  const [jugadores, setJugadores] = useState([])
 
   const testActiveSequentialRef = useRef(false)
   const currentActiveESPSequentialRef = useRef(null)
@@ -128,8 +115,7 @@ export default function PruebasCompleto() {
   ])
 
   useEffect(() => {
-    console.log("[v0] Connecting to backend:", BACKEND_URL)
-    cargarCuentas()
+    fetchJugadores()
     loadPusher()
   }, [])
 
@@ -138,56 +124,69 @@ export default function PruebasCompleto() {
       if (timerInterval) {
         clearInterval(timerInterval)
       }
+      if (timerGeneralInterval) {
+        clearInterval(timerGeneralInterval)
+      }
     }
-  }, [timerInterval])
+  }, [timerInterval, timerGeneralInterval])
 
-  const cargarCuentas = async () => {
-    console.log("[v0] Loading accounts from:", `${BACKEND_URL}/api/cuentas`)
+  const showNotification = (type, message) => {
+    setNotification({ type, message })
+    setTimeout(() => {
+      setNotification(null)
+    }, 3000)
+  }
 
+  const fetchJugadores = async () => {
     try {
-      const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), 10000)
+      setLoading(true)
+      const token = localStorage.getItem("token")
 
-      const response = await fetch(`${BACKEND_URL}/api/cuentas`, {
+      const response = await fetch("https://voley-backend-nhyl.onrender.com/api/cuentas", {
         method: "GET",
         headers: {
+          Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
-        signal: controller.signal,
       })
 
-      clearTimeout(timeoutId)
+      const data = await response.json()
 
       if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+        throw new Error(data.message || "Error al cargar jugadores")
       }
-
-      const data = await response.json()
-      console.log("[v0] Accounts loaded:", data)
 
       if (data.success) {
-        setCuentas(data.data)
-        const jugadores = data.data.filter((cuenta) => cuenta.rol === "jugador")
-        setJugadoresDisponibles(jugadores)
-        console.log("[v0] Players filtered:", jugadores.length)
+        const jugadores = data.data
+          .filter((cuenta) => cuenta.rol === "jugador" && cuenta.jugador)
+          .map((cuenta) => ({
+            ...cuenta.jugador,
+            id: cuenta.jugador.id,
+            usuario: cuenta.usuario,
+            cuentaId: cuenta.id,
+          }))
 
-        if (jugadores.length === 0) {
-          addMessage("SISTEMA", "warning", "No se encontraron jugadores disponibles", "warning")
-        }
-      } else {
-        throw new Error(data.message || "Error en respuesta del servidor")
+        setJugadores(jugadores)
       }
     } catch (error) {
-      console.error("[v0] Error loading accounts:", error)
-
-      if (error.name === "AbortError") {
-        setPusherStatus("Timeout cargando cuentas")
-      } else {
-        setPusherStatus(`Error cargando cuentas: ${error.message}`)
-      }
+      console.error("Error:", error)
+      showNotification("error", "Error al cargar jugadores")
+    } finally {
+      setLoading(false)
     }
   }
-  const jugadorSeleccionado = cuentas.find((c) => c.id === Number(cuentaSeleccionada))
+
+  const calcularEdad = (fechaNacimiento) => {
+    if (!fechaNacimiento) return null
+    const birthDate = new Date(fechaNacimiento)
+    const today = new Date()
+    let age = today.getFullYear() - birthDate.getFullYear()
+    const monthDiff = today.getMonth() - birthDate.getMonth()
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+      age--
+    }
+    return age
+  }
 
   const loadPusher = async () => {
     if (typeof window === "undefined") return
@@ -218,60 +217,27 @@ export default function PruebasCompleto() {
       forceTLS: true,
     })
 
-    console.log("Pusher instance created")
-
-    pusher.connection.bind("connecting", () => {
-      console.log("Pusher connecting...")
-      setPusherStatus("Conectando...")
-    })
-
     pusher.connection.bind("connected", () => {
-      console.log("Pusher connected successfully!")
-      console.log("Socket ID:", pusher.connection.socket_id)
       setPusherStatus("Conectado")
       setPusherConnected(true)
-
       subscribeToMicrocontrollerChannels(pusher)
     })
 
     pusher.connection.bind("disconnected", () => {
-      console.log("Pusher disconnected")
       setPusherStatus("Desconectado")
-      setPusherConnected(false)
-    })
-
-    pusher.connection.bind("failed", () => {
-      console.log("Pusher connection failed")
-      setPusherStatus("Error de conexión")
-      setPusherConnected(false)
-    })
-
-    pusher.connection.bind("error", (error) => {
-      console.log("Pusher connection error:", error)
-      setPusherStatus("Error: " + error.message)
       setPusherConnected(false)
     })
   }
 
   const subscribeToMicrocontrollerChannels = (pusher) => {
-    console.log("Subscribing to microcontroller channels...")
-
     for (let i = 1; i <= 5; i++) {
       const channelName = `private-device-ESP-${i}`
-      console.log("Subscribing to channel:", channelName)
-
       const channel = pusher.subscribe(channelName)
 
       channel.bind("pusher:subscription_succeeded", () => {
-        console.log("Successfully subscribed to", channelName)
         setMicroControllers((prev) =>
           prev.map((mc) => (mc.id === i ? { ...mc, connected: true, lastSeen: new Date() } : mc)),
         )
-      })
-
-      channel.bind("pusher:subscription_error", (error) => {
-        console.log("Subscription error for", channelName, ":", error)
-        setMicroControllers((prev) => prev.map((mc) => (mc.id === i ? { ...mc, connected: false } : mc)))
       })
 
       channel.bind("client-response", (data) => {
@@ -282,147 +248,56 @@ export default function PruebasCompleto() {
           prev.map((mc) => (mc.id === espId ? { ...mc, connected: true, lastSeen: new Date() } : mc)),
         )
 
-        console.log(
-          `[v0] Sequential state: testActive=${testActiveSequentialRef.current}, currentActiveESP=${currentActiveESPSequentialRef.current}, waitingForResponse=${waitingForResponseSequentialRef.current}`,
-        )
-        console.log(
-          `[v0] Random state: testActive=${testActiveRandomRef.current}, currentActiveESP=${currentActiveESPRandomRef.current}, waitingForResponse=${waitingForResponseRandomRef.current}`,
-        )
-
+        // Sequential mode response handling
         if (
           testActiveSequentialRef.current &&
           waitingForResponseSequentialRef.current &&
           currentActiveESPSequentialRef.current === espId
         ) {
-          if (processingResponseSequentialRef.current) {
-            console.log(`[v0] Already processing sequential response, ignoring duplicate from ESP-${espId}`)
-            return
-          }
+          if (processingResponseSequentialRef.current) return
 
-          console.log(`[v0] Sequential test is active and waiting for response from ESP-${espId}, processing message`)
           processingResponseSequentialRef.current = true
 
           if (responseMessage.includes("acierto") || responseMessage.includes("success")) {
-            console.log(`[v0] *** SEQUENTIAL ACIERTO detected from ESP-${espId} ***`)
             handleSequentialResponse(espId, "acierto")
-          } else if (
-            responseMessage.includes("error") ||
-            responseMessage.includes("fallo") ||
-            responseMessage.includes("timeout") ||
-            responseMessage.includes("fail")
-          ) {
-            console.log(`[v0] *** SEQUENTIAL ERROR detected from ESP-${espId} ***`)
-            handleSequentialResponse(espId, "error")
           } else {
-            console.log(
-              `[v0] Unknown sequential message type from ESP-${espId}: "${responseMessage}" - treating as error`,
-            )
             handleSequentialResponse(espId, "error")
           }
-        } else if (
+        }
+        // Random mode response handling
+        else if (
           testActiveRandomRef.current &&
           waitingForResponseRandomRef.current &&
           currentActiveESPRandomRef.current === espId
         ) {
-          if (processingResponseRandomRef.current) {
-            console.log(`[v0] Already processing random response, ignoring duplicate from ESP-${espId}`)
-            return
-          }
+          if (processingResponseRandomRef.current) return
 
-          console.log(`[v0] Random test is active and waiting for response from ESP-${espId}, processing message`)
           processingResponseRandomRef.current = true
 
           if (responseMessage.includes("acierto") || responseMessage.includes("success")) {
-            console.log(`[v0] *** RANDOM ACIERTO detected from ESP-${espId} ***`)
             handleRandomResponse(espId, "acierto")
-          } else if (
-            responseMessage.includes("error") ||
-            responseMessage.includes("fallo") ||
-            responseMessage.includes("timeout") ||
-            responseMessage.includes("fail")
-          ) {
-            console.log(`[v0] *** RANDOM ERROR detected from ESP-${espId} ***`)
-            handleRandomResponse(espId, "error")
           } else {
-            console.log(`[v0] Unknown random message type from ESP-${espId}: "${responseMessage}" - treating as error`)
             handleRandomResponse(espId, "error")
           }
-        } else if (
+        }
+        // Manual mode response handling
+        else if (
           testActiveManualRef.current &&
           waitingForResponseManualRef.current &&
           currentActiveESPManualRef.current === espId
         ) {
-          if (processingResponseManualRef.current) {
-            console.log(`[v0] Already processing manual response, ignoring duplicate from ESP-${espId}`)
-            return
-          }
+          if (processingResponseManualRef.current) return
 
-          console.log(`[v0] Manual test is active and waiting for response from ESP-${espId}, processing message`)
           processingResponseManualRef.current = true
 
           if (responseMessage.includes("acierto") || responseMessage.includes("success")) {
-            console.log(`[v0] *** MANUAL ACIERTO detected from ESP-${espId} ***`)
             handleManualResponse(espId, "acierto")
-          } else if (
-            responseMessage.includes("error") ||
-            responseMessage.includes("fallo") ||
-            responseMessage.includes("timeout") ||
-            responseMessage.includes("fail")
-          ) {
-            console.log(`[v0] *** MANUAL ERROR detected from ESP-${espId} ***`)
-            handleManualResponse(espId, "error")
           } else {
-            console.log(`[v0] Unknown manual message type from ESP-${espId}: "${responseMessage}" - treating as error`)
             handleManualResponse(espId, "error")
           }
-        } else {
-          console.log(`[v0] Ignoring message from ESP-${espId}: no active test waiting for this ESP`)
-        }
-      })
-
-      channel.bind("client-heartbeat", (data) => {
-        console.log("Heartbeat received from", channelName, ":", data)
-        addMessage(`ESP-${i}`, "heartbeat", data, "info")
-
-        setMicroControllers((prev) =>
-          prev.map((mc) => (mc.id === i ? { ...mc, connected: true, lastSeen: new Date() } : mc)),
-        )
-      })
-
-      channel.bind("client-sensor_change", (data) => {
-        console.log("Sensor change received from", channelName, ":", data)
-        addMessage(`ESP-${i}`, "sensor_change", data, "warning")
-      })
-
-      channel.bind("client-status", (data) => {
-        console.log("Status update from", channelName, ":", data)
-        addMessage(`ESP-${i}`, "status", data, "info")
-
-        if (typeof data === "object" && data.status === "connected") {
-          setMicroControllers((prev) =>
-            prev.map((mc) => (mc.id === i ? { ...mc, connected: true, lastSeen: new Date() } : mc)),
-          )
-        }
-      })
-
-      channel.bind_global((eventName, data) => {
-        if (eventName.startsWith("client-")) {
-          console.log("Global event received:", eventName, "from", channelName, "data:", data)
-          addMessage(`ESP-${i}`, eventName, data, "info")
         }
       })
     }
-  }
-
-  const addMessage = (device, type, data, status) => {
-    const message = {
-      device: device,
-      message: typeof data === "string" ? data : JSON.stringify(data),
-      timestamp: Date.now(),
-      type: type,
-      status: status,
-    }
-    setEspResponses((prev) => [...prev.slice(-9), message])
   }
 
   const sendCommandToESP = async (espId, command) => {
@@ -445,24 +320,33 @@ export default function PruebasCompleto() {
       if (!response.ok) {
         throw new Error(data.message || "Error al enviar comando")
       }
-
-      console.log(`Command sent to ${deviceId}:`, data)
-      addMessage(`ESP-${espId}`, "info", JSON.stringify({ command: command?.command || "ON", from: "server" }), "info")
     } catch (error) {
       console.error(`Error sending command to ESP-${espId}:`, error)
-      addMessage(`ESP-${espId}`, "error", `Error enviando comando: ${error.message}`, "error")
+    }
+  }
+
+  const iniciarCronometroGeneral = () => {
+    setTiempoTranscurrido(0)
+    const interval = setInterval(() => {
+      setTiempoTranscurrido((prev) => prev + 1)
+    }, 1000)
+    setTimerGeneralInterval(interval)
+  }
+
+  const detenerCronometroGeneral = () => {
+    if (timerGeneralInterval) {
+      clearInterval(timerGeneralInterval)
+      setTimerGeneralInterval(null)
     }
   }
 
   const iniciarPruebaSecuencial = async () => {
-    if (!cuentaSeleccionada) {
-      addMessage("SISTEMA", "error", "Debe seleccionar un jugador", "error")
+    if (!selectedPlayer) {
+      showNotification("error", "Debe seleccionar un jugador")
       return
     }
 
     try {
-      console.log("[v0] Starting sequential test for account:", cuentaSeleccionada)
-
       const response = await fetch(`${BACKEND_URL}/api/pruebas/iniciar`, {
         method: "POST",
         headers: {
@@ -470,16 +354,11 @@ export default function PruebasCompleto() {
         },
         body: JSON.stringify({
           tipo: "secuencial",
-          cuentaId: cuentaSeleccionada,
+          cuentaId: selectedPlayer.cuentaId,
         }),
       })
 
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`)
-      }
-
       const data = await response.json()
-      console.log("[v0] Sequential test start response:", data)
 
       if (data.success) {
         localStorage.setItem("prueba_secuencial_id", data.data.id.toString())
@@ -491,23 +370,23 @@ export default function PruebasCompleto() {
         setCurrentSequence(1)
         setEstadisticasSequential({ intentos: 0, aciertos: 0, errores: 0 })
 
-        addMessage("SISTEMA", "info", `Prueba secuencial iniciada - ${totalRounds} rondas`, "info")
+        iniciarCronometroGeneral()
+
+        showNotification("success", `Prueba secuencial iniciada - ${totalRounds} rondas`)
 
         setTimeout(() => {
           activateNextMicrocontrollerSequential(1)
         }, 1000)
       } else {
-        addMessage("SISTEMA", "error", "Error iniciando prueba: " + data.message, "error")
+        showNotification("error", "Error iniciando prueba: " + data.message)
       }
     } catch (error) {
-      console.error("[v0] Error starting sequential test:", error)
-      addMessage("SISTEMA", "error", `Error iniciando prueba: ${error.message}`, "error")
+      console.error("Error starting sequential test:", error)
+      showNotification("error", "Error iniciando prueba")
     }
   }
 
   const activateNextMicrocontrollerSequential = (espId) => {
-    console.log(`[v0] Activating sequential ESP-${espId}`)
-
     if (responseTimeoutSequentialRef.current) {
       clearTimeout(responseTimeoutSequentialRef.current)
       responseTimeoutSequentialRef.current = null
@@ -527,24 +406,17 @@ export default function PruebasCompleto() {
     const command = { command: "ON", from: "server" }
     sendCommandToESP(espId, command)
 
-    addMessage(`ESP-${espId}`, "command", JSON.stringify(command), "info")
-
     responseTimeoutSequentialRef.current = setTimeout(() => {
-      console.log(`[v0] Sequential timeout for ESP-${espId}`)
-      addMessage(`ESP-${espId}`, "timeout", "Timeout - sin respuesta", "warning")
       handleSequentialResponse(espId, "error")
     }, 10000)
   }
 
   const handleSequentialResponse = (espId, responseType) => {
-    console.log(`[v0] Processing sequential response from ESP-${espId}: ${responseType}`)
-
     if (
       !testActiveSequentialRef.current ||
       !waitingForResponseSequentialRef.current ||
       currentActiveESPSequentialRef.current !== espId
     ) {
-      console.log(`[v0] Ignoring sequential response from ESP-${espId} - test not active or not waiting`)
       processingResponseSequentialRef.current = false
       return
     }
@@ -570,31 +442,17 @@ export default function PruebasCompleto() {
       })),
     )
 
-    addMessage(
-      `ESP-${espId}`,
-      "result",
-      responseType === "acierto" ? "ACIERTO" : "ERROR",
-      responseType === "acierto" ? "success" : "error",
-    )
-
     setTimeout(() => {
       const nextEspId = espId + 1
 
       if (nextEspId <= 5) {
-        console.log(`[v0] Sequential mode: moving to next ESP: ${nextEspId}`)
         setCurrentSequence(nextEspId)
         activateNextMicrocontrollerSequential(nextEspId)
       } else {
-        // Completed all 5 ESPs, check if more rounds needed
         setCurrentRound((prevRound) => {
-          console.log(
-            `[v0] Sequential mode: completed sequence, current round: ${prevRound}, total rounds: ${totalRounds}`,
-          )
-
           if (prevRound < totalRounds) {
-            console.log(`[v0] Sequential mode: starting next round: ${prevRound + 1}`)
             limpiarEntreRondasSequential()
-            addMessage("SISTEMA", "info", `Iniciando ronda ${prevRound + 1}`, "info")
+            showNotification("success", `Iniciando ronda ${prevRound + 1}`)
 
             setTimeout(() => {
               setCurrentSequence(1)
@@ -602,8 +460,7 @@ export default function PruebasCompleto() {
             }, 2000)
             return prevRound + 1
           } else {
-            console.log(`[v0] Sequential mode: all rounds completed, finalizing test`)
-            addMessage("SISTEMA", "info", "Todas las rondas completadas - Finalizando prueba", "success")
+            showNotification("success", "Todas las rondas completadas")
             setTimeout(() => {
               finalizarPruebaSecuencial()
             }, 1000)
@@ -615,15 +472,92 @@ export default function PruebasCompleto() {
     }, 1500)
   }
 
+  const finalizarPruebaSecuencial = async () => {
+    detenerCronometroGeneral()
+
+    const pruebaId = localStorage.getItem("prueba_secuencial_id")
+
+    if (pruebaId) {
+      try {
+        await fetch(`${BACKEND_URL}/api/pruebas/finalizar/${pruebaId}`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            cantidad_intentos: estadisticasSequential.intentos,
+            cantidad_aciertos: estadisticasSequential.aciertos,
+            cantidad_errores: estadisticasSequential.errores,
+          }),
+        })
+
+        localStorage.removeItem("prueba_secuencial_id")
+        showNotification("success", "Prueba secuencial finalizada correctamente")
+      } catch (error) {
+        console.error("Error finalizing sequential test:", error)
+      }
+    }
+
+    limpiarPruebaSecuencial()
+  }
+
+  const limpiarPruebaSecuencial = () => {
+    setTestActiveSequential(false)
+    setCurrentActiveESPSequential(null)
+    setWaitingForResponseSequential(false)
+    setCurrentRound(0)
+    setCurrentSequence(0)
+    setPruebaActualSequential(null)
+    setEstadisticasSequential({ intentos: 0, aciertos: 0, errores: 0 })
+
+    setTiempoTranscurrido(0)
+
+    if (responseTimeoutSequentialRef.current) {
+      clearTimeout(responseTimeoutSequentialRef.current)
+      responseTimeoutSequentialRef.current = null
+    }
+
+    setMicroControllers((prev) =>
+      prev.map((mc) => ({
+        ...mc,
+        active: false,
+        status: "",
+        lastResponse: null,
+      })),
+    )
+
+    processingResponseSequentialRef.current = false
+  }
+
+  const limpiarEntreRondasSequential = () => {
+    setCurrentActiveESPSequential(null)
+    setWaitingForResponseSequential(false)
+    setCurrentSequence(0)
+
+    if (responseTimeoutSequentialRef.current) {
+      clearTimeout(responseTimeoutSequentialRef.current)
+      responseTimeoutSequentialRef.current = null
+    }
+
+    setMicroControllers((prev) =>
+      prev.map((mc) => ({
+        ...mc,
+        active: false,
+        status: "",
+        lastResponse: null,
+      })),
+    )
+
+    processingResponseSequentialRef.current = false
+  }
+
   const iniciarPruebaAleatoria = async () => {
-    if (!cuentaSeleccionada) {
-      addMessage("SISTEMA", "error", "Debe seleccionar un jugador", "error")
+    if (!selectedPlayer) {
+      showNotification("error", "Debe seleccionar un jugador")
       return
     }
 
     try {
-      console.log("[v0] Starting random test for account:", cuentaSeleccionada)
-
       const response = await fetch(`${BACKEND_URL}/api/pruebas/iniciar`, {
         method: "POST",
         headers: {
@@ -631,17 +565,12 @@ export default function PruebasCompleto() {
         },
         body: JSON.stringify({
           tipo: "aleatorio",
-          cuentaId: cuentaSeleccionada,
+          cuentaId: selectedPlayer.cuentaId,
           duracion: tiempoPrueba,
         }),
       })
 
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`)
-      }
-
       const data = await response.json()
-      console.log("[v0] Random test start response:", data)
 
       if (data.success) {
         localStorage.setItem("prueba_aleatoria_id", data.data.id.toString())
@@ -652,14 +581,15 @@ export default function PruebasCompleto() {
         setTiempoRestante(tiempoPrueba)
         setEstadisticasRandom({ intentos: 0, aciertos: 0, errores: 0 })
 
-        addMessage("SISTEMA", "info", `Prueba aleatoria iniciada - ${tiempoPrueba} segundos`, "info")
+        iniciarCronometroGeneral()
 
-        // Start timer
+        showNotification("success", `Prueba aleatoria iniciada - ${tiempoPrueba} segundos`)
+
         const interval = setInterval(() => {
           setTiempoRestante((prev) => {
             if (prev <= 1) {
               clearInterval(interval)
-              addMessage("SISTEMA", "info", "Tiempo agotado - Finalizando prueba", "warning")
+              showNotification("success", "Tiempo agotado - Finalizando prueba")
               setTimeout(() => {
                 finalizarPruebaAleatoria()
               }, 1000)
@@ -670,22 +600,20 @@ export default function PruebasCompleto() {
         }, 1000)
         setTimerInterval(interval)
 
-        // Start first random ESP
         setTimeout(() => {
           activateRandomMicrocontroller()
         }, 1000)
       } else {
-        addMessage("SISTEMA", "error", "Error iniciando prueba: " + data.message, "error")
+        showNotification("error", "Error iniciando prueba: " + data.message)
       }
     } catch (error) {
-      console.error("[v0] Error starting random test:", error)
-      addMessage("SISTEMA", "error", `Error iniciando prueba: ${error.message}`, "error")
+      console.error("Error starting random test:", error)
+      showNotification("error", "Error iniciando prueba")
     }
   }
 
   const activateRandomMicrocontroller = () => {
     const randomEspId = Math.floor(Math.random() * 5) + 1
-    console.log(`[v0] Activating random ESP-${randomEspId}`)
 
     if (responseTimeoutRandomRef.current) {
       clearTimeout(responseTimeoutRandomRef.current)
@@ -706,24 +634,17 @@ export default function PruebasCompleto() {
     const command = { command: "ON", from: "server" }
     sendCommandToESP(randomEspId, command)
 
-    addMessage(`ESP-${randomEspId}`, "command", JSON.stringify(command), "info")
-
     responseTimeoutRandomRef.current = setTimeout(() => {
-      console.log(`[v0] Random timeout for ESP-${randomEspId}`)
-      addMessage(`ESP-${randomEspId}`, "timeout", "Timeout - sin respuesta", "warning")
-      handleRandomResponse(randomEspId, "error") // Fixed: used randomEspId instead of espId
+      handleRandomResponse(randomEspId, "error")
     }, 10000)
   }
 
   const handleRandomResponse = (espId, responseType) => {
-    console.log(`[v0] Processing random response from ESP-${espId}: ${responseType}`)
-
     if (
       !testActiveRandomRef.current ||
       !waitingForResponseRandomRef.current ||
       currentActiveESPRandomRef.current !== espId
     ) {
-      console.log(`[v0] Ignoring random response from ESP-${espId} - test not active or not waiting`)
       processingResponseRandomRef.current = false
       return
     }
@@ -749,66 +670,17 @@ export default function PruebasCompleto() {
       })),
     )
 
-    addMessage(
-      `ESP-${espId}`,
-      "result",
-      responseType === "acierto" ? "ACIERTO" : "ERROR",
-      responseType === "acierto" ? "success" : "error",
-    )
-
     setTimeout(() => {
       if (testActiveRandomRef.current) {
-        console.log(`[v0] Random mode: continuing with another random ESP`)
         activateRandomMicrocontroller()
-      } else {
-        console.log(`[v0] Random mode: test stopped`)
       }
       processingResponseRandomRef.current = false
     }, 1000)
   }
 
-  const finalizarPruebaSecuencial = async () => {
-    const pruebaId = localStorage.getItem("prueba_secuencial_id")
-
-    if (pruebaId) {
-      try {
-        console.log("[v0] Finalizing sequential test:", pruebaId)
-
-        const response = await fetch(`${BACKEND_URL}/api/pruebas/finalizar/${pruebaId}`, {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            cantidad_intentos: estadisticasSequential.intentos,
-            cantidad_aciertos: estadisticasSequential.aciertos,
-            cantidad_errores: estadisticasSequential.errores,
-          }),
-        })
-
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}: ${response.statusText}`)
-        }
-
-        const data = await response.json()
-        console.log("[v0] Sequential test finalization response:", data)
-
-        if (data.success) {
-          addMessage("SISTEMA", "info", "Prueba secuencial finalizada correctamente", "success")
-          localStorage.removeItem("prueba_secuencial_id")
-        } else {
-          addMessage("SISTEMA", "error", "Error finalizando prueba: " + data.message, "error")
-        }
-      } catch (error) {
-        console.error("[v0] Error finalizing sequential test:", error)
-        addMessage("SISTEMA", "error", `Error finalizando prueba: ${error.message}`, "error")
-      }
-    }
-
-    limpiarPruebaSecuencial()
-  }
-
   const finalizarPruebaAleatoria = async () => {
+    detenerCronometroGeneral()
+
     if (timerInterval) {
       clearInterval(timerInterval)
       setTimerInterval(null)
@@ -818,9 +690,7 @@ export default function PruebasCompleto() {
 
     if (pruebaId) {
       try {
-        console.log("[v0] Finalizing random test:", pruebaId)
-
-        const response = await fetch(`${BACKEND_URL}/api/pruebas/finalizar/${pruebaId}`, {
+        await fetch(`${BACKEND_URL}/api/pruebas/finalizar/${pruebaId}`, {
           method: "PUT",
           headers: {
             "Content-Type": "application/json",
@@ -832,53 +702,14 @@ export default function PruebasCompleto() {
           }),
         })
 
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}: ${response.statusText}`)
-        }
-
-        const data = await response.json()
-        console.log("[v0] Random test finalization response:", data)
-
-        if (data.success) {
-          addMessage("SISTEMA", "info", "Prueba aleatoria finalizada correctamente", "success")
-          localStorage.removeItem("prueba_aleatoria_id")
-        } else {
-          addMessage("SISTEMA", "error", "Error finalizando prueba: " + data.message, "error")
-        }
+        localStorage.removeItem("prueba_aleatoria_id")
+        showNotification("success", "Prueba aleatoria finalizada correctamente")
       } catch (error) {
-        console.error("[v0] Error finalizing random test:", error)
-        addMessage("SISTEMA", "error", `Error finalizando prueba: ${error.message}`, "error")
+        console.error("Error finalizing random test:", error)
       }
     }
 
     limpiarPruebaAleatoria()
-  }
-
-  const limpiarPruebaSecuencial = () => {
-    setTestActiveSequential(false)
-    setCurrentActiveESPSequential(null)
-    setWaitingForResponseSequential(false)
-    setCurrentRound(0)
-    setCurrentSequence(0)
-    setPruebaActualSequential(null)
-    setEstadisticasSequential({ intentos: 0, aciertos: 0, errores: 0 })
-
-    if (responseTimeoutSequentialRef.current) {
-      clearTimeout(responseTimeoutSequentialRef.current)
-      responseTimeoutSequentialRef.current = null
-    }
-
-    setMicroControllers((prev) =>
-      prev.map((mc) => ({
-        ...mc,
-        active: false,
-        status: "",
-        lastResponse: null,
-      })),
-    )
-
-    processingResponseSequentialRef.current = false
-    addMessage("SISTEMA", "info", "Sistema limpio para nueva prueba secuencial", "info")
   }
 
   const limpiarPruebaAleatoria = () => {
@@ -889,6 +720,8 @@ export default function PruebasCompleto() {
     setEstadisticasRandom({ intentos: 0, aciertos: 0, errores: 0 })
 
     setTiempoRestante(0)
+    setTiempoTranscurrido(0)
+
     if (timerInterval) {
       clearInterval(timerInterval)
       setTimerInterval(null)
@@ -909,58 +742,27 @@ export default function PruebasCompleto() {
     )
 
     processingResponseRandomRef.current = false
-    addMessage("SISTEMA", "info", "Sistema limpio para nueva prueba aleatoria", "info")
-  }
-
-  const limpiarEntreRondasSequential = () => {
-    setCurrentActiveESPSequential(null)
-    setWaitingForResponseSequential(false)
-    setCurrentSequence(0)
-
-    if (responseTimeoutSequentialRef.current) {
-      clearTimeout(responseTimeoutSequentialRef.current)
-      responseTimeoutSequentialRef.current = null
-    }
-
-    setMicroControllers((prev) =>
-      prev.map((mc) => ({
-        ...mc,
-        active: false,
-        status: "",
-        lastResponse: null,
-      })),
-    )
-
-    processingResponseSequentialRef.current = false
-    addMessage("SISTEMA", "info", `Limpieza entre rondas completada`, "info")
   }
 
   const iniciarPruebaManual = async () => {
-    if (!cuentaSeleccionada) {
-      addMessage("SISTEMA", "error", "Debe seleccionar un jugador", "error")
+    if (!selectedPlayer) {
+      showNotification("error", "Debe seleccionar un jugador")
       return
     }
 
     try {
-      console.log("[v0] Starting manual test")
-
       const response = await fetch(`${BACKEND_URL}/api/pruebas/iniciar`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          cuentaId: Number.parseInt(cuentaSeleccionada),
+          cuentaId: selectedPlayer.cuentaId,
           tipo: "manual",
         }),
       })
 
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`)
-      }
-
       const data = await response.json()
-      console.log("[v0] Manual test start response:", data)
 
       if (data.success) {
         localStorage.setItem("prueba_manual_id", data.data.id.toString())
@@ -970,23 +772,22 @@ export default function PruebasCompleto() {
         setModoActual("manual")
         setEstadisticasManual({ intentos: 0, aciertos: 0, errores: 0 })
 
-        addMessage("SISTEMA", "info", "Prueba manual iniciada - Presiona cualquier ESP para enviar comando", "info")
+        iniciarCronometroGeneral()
+
+        showNotification("success", "Prueba manual iniciada - Presiona cualquier ESP para enviar comando")
       } else {
-        addMessage("SISTEMA", "error", "Error iniciando prueba: " + data.message, "error")
+        showNotification("error", "Error iniciando prueba: " + data.message)
       }
     } catch (error) {
-      console.error("[v0] Error starting manual test:", error)
-      addMessage("SISTEMA", "error", `Error iniciando prueba: ${error.message}`, "error")
+      console.error("Error starting manual test:", error)
+      showNotification("error", "Error iniciando prueba")
     }
   }
 
   const activateManualMicrocontroller = (espId) => {
     if (!testActiveManualRef.current || waitingForResponseManualRef.current) {
-      console.log(`[v0] Cannot activate ESP-${espId} - test not active or waiting for response`)
       return
     }
-
-    console.log(`[v0] Activating manual ESP-${espId}`)
 
     if (responseTimeoutManualRef.current) {
       clearTimeout(responseTimeoutManualRef.current)
@@ -1007,24 +808,17 @@ export default function PruebasCompleto() {
     const command = { command: "ON", from: "server" }
     sendCommandToESP(espId, command)
 
-    addMessage(`ESP-${espId}`, "command", JSON.stringify(command), "info")
-
     responseTimeoutManualRef.current = setTimeout(() => {
-      console.log(`[v0] Manual timeout for ESP-${espId}`)
-      addMessage(`ESP-${espId}`, "timeout", "Timeout - sin respuesta", "warning")
       handleManualResponse(espId, "error")
     }, 10000)
   }
 
   const handleManualResponse = (espId, responseType) => {
-    console.log(`[v0] Processing manual response from ESP-${espId}: ${responseType}`)
-
     if (
       !testActiveManualRef.current ||
       !waitingForResponseManualRef.current ||
       currentActiveESPManualRef.current !== espId
     ) {
-      console.log(`[v0] Ignoring manual response from ESP-${espId} - test not active or not waiting`)
       processingResponseManualRef.current = false
       return
     }
@@ -1051,24 +845,17 @@ export default function PruebasCompleto() {
       })),
     )
 
-    addMessage(
-      `ESP-${espId}`,
-      "result",
-      responseType === "acierto" ? "ACIERTO" : "ERROR",
-      responseType === "acierto" ? "success" : "error",
-    )
-
     processingResponseManualRef.current = false
   }
 
   const finalizarPruebaManual = async () => {
+    detenerCronometroGeneral()
+
     const pruebaId = localStorage.getItem("prueba_manual_id")
 
     if (pruebaId) {
       try {
-        console.log("[v0] Finalizing manual test:", pruebaId)
-
-        const response = await fetch(`${BACKEND_URL}/api/pruebas/finalizar/${pruebaId}`, {
+        await fetch(`${BACKEND_URL}/api/pruebas/finalizar/${pruebaId}`, {
           method: "PUT",
           headers: {
             "Content-Type": "application/json",
@@ -1080,22 +867,10 @@ export default function PruebasCompleto() {
           }),
         })
 
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}: ${response.statusText}`)
-        }
-
-        const data = await response.json()
-        console.log("[v0] Manual test finalization response:", data)
-
-        if (data.success) {
-          addMessage("SISTEMA", "info", "Prueba manual finalizada correctamente", "success")
-          localStorage.removeItem("prueba_manual_id")
-        } else {
-          addMessage("SISTEMA", "error", "Error finalizando prueba: " + data.message, "error")
-        }
+        localStorage.removeItem("prueba_manual_id")
+        showNotification("success", "Prueba manual finalizada correctamente")
       } catch (error) {
-        console.error("[v0] Error finalizing manual test:", error)
-        addMessage("SISTEMA", "error", `Error finalizando prueba: ${error.message}`, "error")
+        console.error("Error finalizing manual test:", error)
       }
     }
 
@@ -1108,6 +883,8 @@ export default function PruebasCompleto() {
     setWaitingForResponseManual(false)
     setPruebaActualManual(null)
     setEstadisticasManual({ intentos: 0, aciertos: 0, errores: 0 })
+
+    setTiempoTranscurrido(0)
 
     if (responseTimeoutManualRef.current) {
       clearTimeout(responseTimeoutManualRef.current)
@@ -1124,13 +901,34 @@ export default function PruebasCompleto() {
     )
 
     processingResponseManualRef.current = false
-    addMessage("SISTEMA", "info", "Sistema limpio para nueva prueba manual", "info")
   }
 
   const formatTime = (seconds) => {
     const mins = Math.floor(seconds / 60)
     const secs = seconds % 60
     return `${mins}:${secs.toString().padStart(2, "0")}`
+  }
+
+  const getMicroImage = (mc) => {
+    const testActive = testActiveSequential || testActiveRandom || testActiveManual
+
+    if (!testActive) {
+      return "/gris.png"
+    }
+
+    if (mc.active) {
+      return "/azul.png"
+    }
+
+    if (mc.lastResponse === "acierto") {
+      return "/verde.png"
+    }
+
+    if (mc.lastResponse === "error") {
+      return "/rojo.png"
+    }
+
+    return "/gris.png"
   }
 
   const testActive = testActiveSequential || testActiveRandom || testActiveManual
@@ -1146,451 +944,383 @@ export default function PruebasCompleto() {
       : estadisticasManual
 
   return (
-    <div className="space-y-6 p-6">
-      {jugadorSeleccionado && jugadorSeleccionado.jugador && (
-        <Card className="rounded-xl shadow-lg border border-slate-200/60 overflow-hidden">
-          <div className="bg-gradient-to-r from-red-900 to-red-800 px-4 py-3">
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
-                <User className="h-5 w-5 text-white" />
-              </div>
-              <div>
-                <h2 className="text-lg font-bold text-white">
-                  {jugadorSeleccionado.jugador.nombres} {jugadorSeleccionado.jugador.apellidos} 
-                </h2>
-                <div className="flex items-center space-x-2">
-                  <Trophy className="h-3 w-3 text-red-100" />
-                  <span className="text-red-100 text-xs font-medium">Jugador</span>
+    <div className="min-h-screen bg-gray-50">
+      {/* Notification */}
+      {notification && (
+        <div className="fixed top-20 right-6 z-50 animate-fade-in">
+          <div
+            className={`rounded-xl shadow-lg p-4 flex items-center min-w-80 ${
+              notification.type === "success"
+                ? "bg-green-50 border border-green-200"
+                : "bg-red-50 border border-red-200"
+            }`}
+          >
+            {notification.type === "success" ? (
+              <CheckCircle className="h-5 w-5 text-green-600 mr-3 flex-shrink-0" />
+            ) : (
+              <AlertCircle className="h-5 w-5 text-red-600 mr-3 flex-shrink-0" />
+            )}
+            <span
+              className={`font-medium text-sm ${notification.type === "success" ? "text-green-800" : "text-red-800"}`}
+            >
+              {notification.message}
+            </span>
+            <button
+              onClick={() => setNotification(null)}
+              className={`ml-4 ${notification.type === "success" ? "text-green-600 hover:text-green-800" : "text-red-600 hover:text-red-800"}`}
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Main Content */}
+      <div className="w-full p-4 lg:p-6">
+        <div className="max-w-7xl mx-auto">
+          {/* Header */}
+          <div className="mb-8 text-center">
+            <h1 className="text-4xl font-bold bg-gradient-to-r from-red-900 via-red-800 to-red-900 bg-clip-text text-transparent mb-2">
+              Pruebas de Rendimiento
+            </h1>
+            <div className="w-24 h-1 bg-gradient-to-r from-transparent via-red-800 to-transparent mx-auto mb-3"></div>
+            <p className="text-gray-600 text-sm">Sistema de evaluación de jugadores</p>
+          </div>
+
+          {/* Player Selection */}
+          <div className="bg-white rounded-2xl shadow-xl border border-slate-200/60 p-6 mb-6">
+            <h2 className="text-xl font-bold text-gray-900 mb-4 uppercase tracking-wide">Seleccionar Jugador</h2>
+            <select
+              value={selectedPlayer?.id || ""}
+              onChange={(e) => {
+                const player = jugadores.find((j) => j.id === Number.parseInt(e.target.value))
+                setSelectedPlayer(player)
+              }}
+              className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-red-900 focus:border-transparent"
+              disabled={testActive}
+            >
+              <option value="">Selecciona un jugador</option>
+              {jugadores.map((jugador) => (
+                <option key={jugador.id} value={jugador.id}>
+                  {jugador.nombres} {jugador.apellidos} - {jugador.posicion_principal}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Two Column Layout */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+            {/* Left Column: Player Info */}
+            <div className="bg-white rounded-2xl shadow-xl border border-slate-200/60 p-6">
+              <h2 className="text-xl font-bold text-gray-900 mb-4 uppercase tracking-wide">Datos del Jugador</h2>
+              {selectedPlayer ? (
+                <div className="flex gap-6">
+                  {/* Left side: Photo and name */}
+                  <div className="flex flex-col items-center">
+                    <div className="w-32 h-32 rounded-lg overflow-hidden border-2 border-red-900 shadow-lg mb-2">
+                      {selectedPlayer.imagen ? (
+                        <img
+                          src={selectedPlayer.imagen || "/placeholder.svg"}
+                          alt={`${selectedPlayer.nombres} ${selectedPlayer.apellidos}`}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full bg-gray-200 flex items-center justify-center">
+                          <Users className="h-16 w-16 text-gray-400" />
+                        </div>
+                      )}
+                    </div>
+                    <p className="text-sm font-bold text-gray-900 text-center">
+                      {selectedPlayer.nombres} {selectedPlayer.apellidos}
+                    </p>
+                  </div>
+
+                  {/* Right side: Data fields stacked vertically */}
+                  <div className="flex-1 space-y-3">
+                    {selectedPlayer.fecha_nacimiento && (
+                      <div className="bg-gray-50 px-3 py-2 rounded border">
+                        <p className="text-xs text-gray-500 mb-1">Edad</p>
+                        <p className="text-sm font-semibold text-gray-900">
+                          {calcularEdad(selectedPlayer.fecha_nacimiento)} años
+                        </p>
+                      </div>
+                    )}
+                    <div className="bg-gray-50 px-3 py-2 rounded border">
+                      <p className="text-xs text-gray-500 mb-1">Carrera</p>
+                      <p className="text-sm font-semibold text-gray-900">{selectedPlayer.carrera}</p>
+                    </div>
+                    <div className="bg-gray-50 px-3 py-2 rounded border">
+                      <p className="text-xs text-gray-500 mb-1">Posición</p>
+                      <p className="text-sm font-semibold text-red-700 capitalize">
+                        {selectedPlayer.posicion_principal}
+                      </p>
+                    </div>
+                    <div className="bg-gray-50 px-3 py-2 rounded border">
+                      <p className="text-xs text-gray-500 mb-1">Altura</p>
+                      <p className="text-sm font-semibold text-gray-900">{selectedPlayer.altura} m</p>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-8 text-gray-500">
+                  <Users className="h-12 w-12 mx-auto mb-2 text-gray-400" />
+                  <p>No hay jugador seleccionado</p>
+                </div>
+              )}
+            </div>
+
+            {/* Right Column: Test Progress */}
+            <div className="bg-white rounded-2xl shadow-xl border border-slate-200/60 p-6">
+              <h2 className="text-xl font-bold text-gray-900 mb-4 uppercase tracking-wide">Progreso de la Prueba</h2>
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="bg-blue-50 rounded-xl p-4 border-2 border-blue-300">
+                    <p className="text-xs text-gray-600 mb-1 text-center">tipo de prueba</p>
+                    <p className="text-lg font-bold text-blue-900 capitalize text-center flex items-center justify-center gap-2">
+                      {modoActual === "secuencial" && <List className="h-5 w-5" />}
+                      {modoActual === "aleatorio" && <Shuffle className="h-5 w-5" />}
+                      {modoActual === "manual" && <Hand className="h-5 w-5" />}
+                      {modoActual}
+                    </p>
+                  </div>
+
+                  <div className="bg-gray-50 rounded-xl p-4 border-2 border-gray-300">
+                    <p className="text-xs text-gray-600 mb-2 text-center font-semibold">Intentos aciertos y errores</p>
+                    <div className="grid grid-cols-3 gap-2 text-center">
+                      <div>
+                        <p className="text-xs text-gray-500">Int</p>
+                        <p className="text-lg font-bold text-blue-600">{estadisticas.intentos}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500">Aci</p>
+                        <p className="text-lg font-bold text-green-600">{estadisticas.aciertos}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500">Err</p>
+                        <p className="text-lg font-bold text-red-600">{estadisticas.errores}</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-gray-50 rounded-xl p-4 border-2 border-gray-300">
+                  <p className="text-xs text-gray-600 mb-3 text-center font-semibold">
+                    cronometro, y datos del progreso de la prueba
+                  </p>
+                  <div className="space-y-2">
+                    {testActive && (
+                      <div className="flex justify-center mb-3">
+                        <div className="bg-white px-6 py-3 rounded-lg border-2 border-blue-300 shadow-sm">
+                          <div className="flex items-center gap-2">
+                            <Clock className="h-6 w-6 text-blue-600" />
+                            <span className="text-3xl font-bold text-blue-900">{formatTime(tiempoTranscurrido)}</span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {modoActual === "secuencial" && testActive && (
+                      <>
+                        <div className="flex justify-between items-center bg-white px-3 py-2 rounded border">
+                          <span className="text-sm text-gray-600">Ronda:</span>
+                          <span className="text-sm font-bold">
+                            {currentRound}/{totalRounds}
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center bg-white px-3 py-2 rounded border">
+                          <span className="text-sm text-gray-600">Secuencia:</span>
+                          <span className="text-sm font-bold">{currentSequence}/5</span>
+                        </div>
+                      </>
+                    )}
+
+                    {currentActiveESP && testActive && (
+                      <div className="flex justify-between items-center bg-green-50 px-3 py-2 rounded border border-green-200">
+                        <span className="text-sm text-gray-600">ESP Activo:</span>
+                        <span className="text-sm font-bold text-green-600">ESP-{currentActiveESP}</span>
+                      </div>
+                    )}
+
+                    {!testActive && (
+                      <div className="text-center py-4 text-gray-500">
+                        <p className="text-sm">No hay prueba activa</p>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
           </div>
 
-          <CardContent className="p-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Información de Contacto */}
-              <div className="space-y-3">
-                <h3 className="text-sm font-semibold text-gray-900 border-b border-gray-200 pb-1">
-                  Información de Contacto
-                </h3>
-
-                <div className="space-y-2">
-                  
-                  {jugadorSeleccionado.jugador.fecha_nacimiento && (
-                    <div className="bg-gray-50 px-3 py-2 rounded-lg border border-gray-200/50">
-                      <div className="flex items-center space-x-2">
-                        <Calendar className="h-4 w-4 text-gray-600 flex-shrink-0" />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs font-medium text-gray-800">Edad</p>
-                          <p className="text-xs text-gray-700">
-                            {(() => {
-                              const birthDate = new Date(jugadorSeleccionado.jugador.fecha_nacimiento)
-                              const today = new Date()
-                              let age = today.getFullYear() - birthDate.getFullYear()
-                              const monthDiff = today.getMonth() - birthDate.getMonth()
-                              if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
-                                age--
-                              }
-                              return `${age} años`
-                            })()}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {jugadorSeleccionado.jugador.carrera && (
-                    <div className="bg-gray-50 px-3 py-2 rounded-lg border border-gray-200/50">
-                      <div className="flex items-center space-x-2">
-                        <GraduationCap className="h-4 w-4 text-gray-600 flex-shrink-0" />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs font-medium text-gray-800">Carrera</p>
-                          <p className="text-xs text-gray-700">{jugadorSeleccionado.jugador.carrera}</p>
-                        </div>
-                      </div>
-                    </div>
-                  )}
+          {/* Test Configuration */}
+          <div className="bg-white rounded-2xl shadow-xl border border-slate-200/60 p-6 mb-6">
+            <h2 className="text-xl font-bold text-gray-900 mb-4 uppercase tracking-wide">Configuración de Pruebas</h2>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Tipo de Prueba</label>
+                <div className="flex space-x-2">
+                  <button
+                    onClick={() => setModoActual("secuencial")}
+                    disabled={testActive}
+                    className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors flex items-center justify-center gap-2 ${
+                      modoActual === "secuencial"
+                        ? "bg-red-900 text-white"
+                        : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                    } disabled:opacity-50`}
+                  >
+                    <List className="h-4 w-4" />
+                    <span>Secuencial</span>
+                  </button>
+                  <button
+                    onClick={() => setModoActual("aleatorio")}
+                    disabled={testActive}
+                    className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors flex items-center justify-center gap-2 ${
+                      modoActual === "aleatorio"
+                        ? "bg-red-900 text-white"
+                        : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                    } disabled:opacity-50`}
+                  >
+                    <Shuffle className="h-4 w-4" />
+                    <span>Aleatorio</span>
+                  </button>
+                  <button
+                    onClick={() => setModoActual("manual")}
+                    disabled={testActive}
+                    className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors flex items-center justify-center gap-2 ${
+                      modoActual === "manual" ? "bg-red-900 text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                    } disabled:opacity-50`}
+                  >
+                    <Hand className="h-4 w-4" />
+                    <span>Manual</span>
+                  </button>
                 </div>
               </div>
 
-              {/* Información del Jugador */}
-              <div className="space-y-3">
-                <h3 className="text-sm font-semibold text-gray-900 border-b border-gray-200 pb-1">
-                  Información del Jugador
-                </h3>
-
-                <div className="space-y-2">
-                  {jugadorSeleccionado.jugador.posicion_principal && (
-                    <div className="bg-red-50/80 px-3 py-2 rounded-lg border border-red-200/50">
-                      <div className="flex items-center space-x-2">
-                        <MapPin className="h-4 w-4 text-red-600 flex-shrink-0" />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs font-medium text-red-800">Posición Principal</p>
-                          <p className="text-xs text-red-700 capitalize">
-                            {jugadorSeleccionado.jugador.posicion_principal}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {jugadorSeleccionado.jugador.altura && (
-                    <div className="bg-red-50/80 px-3 py-2 rounded-lg border border-red-200/50">
-                      <div className="flex items-center space-x-2">
-                        <Ruler className="h-4 w-4 text-red-600 flex-shrink-0" />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs font-medium text-red-800">Altura</p>
-                          <p className="text-xs text-red-700">{jugadorSeleccionado.jugador.altura} m</p>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {testActive && (
-        <Card className="border-2 border-blue-500 bg-gradient-to-r from-blue-50 to-indigo-50 shadow-lg">
-          <CardHeader className="pb-3">
-            <CardTitle className="flex items-center gap-2 text-blue-900">
-              <Activity className="h-5 w-5" />
-              Progreso de la prueba
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              <div className="bg-white rounded-lg p-4 shadow-sm border border-blue-200">
-                <p className="text-xs text-gray-600 mb-1">Tipo de Prueba</p>
-                <p className="text-lg font-bold text-blue-900 capitalize">{modoActual}</p>
-              </div>
-
-              <div className="bg-white rounded-lg p-4 shadow-sm border border-blue-200">
-                <p className="text-xs text-gray-600 mb-1">Intentos</p>
-                <p className="text-2xl font-bold text-blue-600">{estadisticas.intentos}</p>
-              </div>
-
-              <div className="bg-white rounded-lg p-4 shadow-sm border border-green-200">
-                <p className="text-xs text-gray-600 mb-1">Aciertos</p>
-                <p className="text-2xl font-bold text-green-600">{estadisticas.aciertos}</p>
-              </div>
-
-              <div className="bg-white rounded-lg p-4 shadow-sm border border-red-200">
-                <p className="text-xs text-gray-600 mb-1">Errores</p>
-                <p className="text-2xl font-bold text-red-600">{estadisticas.errores}</p>
-              </div>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-3 p-3 bg-white/60 rounded-lg border border-blue-200">
-              {modoActual === "secuencial" ? (
-                <>
-                  <Badge variant="outline" className="bg-white">
-                    Ronda {currentRound}/{totalRounds}
-                  </Badge>
-                  <Badge variant="outline" className="bg-white">
-                    Secuencia {currentSequence}/5
-                  </Badge>
-                </>
-              ) : modoActual === "aleatorio" ? (
-                <>
-                  <Badge variant="outline" className="flex items-center gap-1 bg-white">
-                    <Clock className="h-3 w-3" />
-                    {formatTime(tiempoRestante)}
-                  </Badge>
-                </>
-              ) : (
-                <>
-                  {waitingForResponseManual && (
-                    <Badge className="bg-orange-100 text-orange-800">Esperando respuesta...</Badge>
-                  )}
-                </>
-              )}
-              {currentActiveESP && <Badge className="bg-green-100 text-green-800">ESP-{currentActiveESP} Activo</Badge>}
-              {estadisticas.intentos > 0 && (
-                <Badge variant="outline" className="bg-purple-100 text-purple-800">
-                  Precisión: {Math.round((estadisticas.aciertos / estadisticas.intentos) * 100)}%
-                </Badge>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Activity className="h-5 w-5" />
-            Configuración de Pruebas
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Tabs defaultValue="secuencial" className="w-full">
-            <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="secuencial" className="flex items-center gap-2">
-                <Play className="h-4 w-4" />
-                Secuencial
-              </TabsTrigger>
-              <TabsTrigger value="aleatorio" className="flex items-center gap-2">
-                <Shuffle className="h-4 w-4" />
-                Aleatorio
-              </TabsTrigger>
-              <TabsTrigger value="manual" className="flex items-center gap-2">
-                <Hand className="h-4 w-4" />
-                Manual
-              </TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="secuencial" className="space-y-4 mt-4">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {modoActual === "secuencial" && (
                 <div>
-                  <Label htmlFor="jugador">Seleccionar Jugador</Label>
-                  <Select value={cuentaSeleccionada} onValueChange={setCuentaSeleccionada} disabled={testActive}>
-                    <SelectTrigger>
-                      <SelectValue
-                        placeholder={
-                          jugadoresDisponibles.length === 0
-                            ? "No hay jugadores disponibles..."
-                            : "Seleccionar jugador..."
-                        }
-                      />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {jugadoresDisponibles.map((cuenta) => (
-                        <SelectItem key={cuenta.id} value={cuenta.id.toString()}>
-                          {cuenta.jugador ? `${cuenta.jugador.nombres} ${cuenta.jugador.apellidos}` : cuenta.usuario}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <div className="text-sm text-gray-500 mt-1">
-                    {jugadoresDisponibles.length} jugador(es) disponible(s)
-                  </div>
-                </div>
-
-                <div>
-                  <Label htmlFor="rondas">Número de Rondas</Label>
-                  <Input
-                    id="rondas"
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Número de Rondas</label>
+                  <input
                     type="number"
-                    min="1"
-                    max="10"
                     value={totalRounds}
                     onChange={(e) => setTotalRounds(Number.parseInt(e.target.value) || 1)}
+                    min="1"
+                    max="10"
                     disabled={testActive}
+                    className="w-full px-4 py-2 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-red-900 focus:border-transparent disabled:opacity-50"
                   />
-                </div>
-
-                <div className="flex items-end">
-                  {!testActiveSequential ? (
-                    <Button
-                      onClick={iniciarPruebaSecuencial}
-                      disabled={!cuentaSeleccionada || testActiveRandom || testActiveManual}
-                      className="w-full"
-                    >
-                      <Play className="h-4 w-4 mr-2" />
-                      Iniciar Prueba Secuencial
-                    </Button>
-                  ) : (
-                    <Button onClick={finalizarPruebaSecuencial} variant="destructive" className="w-full">
-                      <Square className="h-4 w-4 mr-2" />
-                      Finalizar Prueba
-                    </Button>
-                  )}
-                </div>
-              </div>
-            </TabsContent>
-
-            <TabsContent value="aleatorio" className="space-y-4 mt-4">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <Label htmlFor="jugador-aleatorio">Seleccionar Jugador</Label>
-                  <Select value={cuentaSeleccionada} onValueChange={setCuentaSeleccionada} disabled={testActive}>
-                    <SelectTrigger>
-                      <SelectValue
-                        placeholder={
-                          jugadoresDisponibles.length === 0
-                            ? "No hay jugadores disponibles..."
-                            : "Seleccionar jugador..."
-                        }
-                      />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {jugadoresDisponibles.map((cuenta) => (
-                        <SelectItem key={cuenta.id} value={cuenta.id.toString()}>
-                          {cuenta.jugador ? `${cuenta.jugador.nombres} ${cuenta.jugador.apellidos}` : cuenta.usuario}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <div className="text-sm text-gray-500 mt-1">
-                    {jugadoresDisponibles.length} jugador(es) disponible(s)
-                  </div>
-                </div>
-
-                <div>
-                  <Label htmlFor="tiempo">Tiempo (segundos)</Label>
-                  <Input
-                    id="tiempo"
-                    type="number"
-                    min="30"
-                    max="300"
-                    value={tiempoPrueba}
-                    onChange={(e) => setTiempoPrueba(Number.parseInt(e.target.value) || 60)}
-                    disabled={testActive}
-                  />
-                </div>
-
-                <div className="flex items-end">
-                  {!testActiveRandom ? (
-                    <Button
-                      onClick={iniciarPruebaAleatoria}
-                      disabled={!cuentaSeleccionada || testActiveSequential || testActiveManual}
-                      className="w-full"
-                    >
-                      <Shuffle className="h-4 w-4 mr-2" />
-                      Iniciar Prueba Aleatoria
-                    </Button>
-                  ) : (
-                    <Button onClick={finalizarPruebaAleatoria} variant="destructive" className="w-full">
-                      <Square className="h-4 w-4 mr-2" />
-                      Finalizar Prueba
-                    </Button>
-                  )}
-                </div>
-              </div>
-            </TabsContent>
-
-            <TabsContent value="manual" className="space-y-4 mt-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="jugador-manual">Seleccionar Jugador</Label>
-                  <Select value={cuentaSeleccionada} onValueChange={setCuentaSeleccionada} disabled={testActive}>
-                    <SelectTrigger>
-                      <SelectValue
-                        placeholder={
-                          jugadoresDisponibles.length === 0
-                            ? "No hay jugadores disponibles..."
-                            : "Seleccionar jugador..."
-                        }
-                      />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {jugadoresDisponibles.map((cuenta) => (
-                        <SelectItem key={cuenta.id} value={cuenta.id.toString()}>
-                          {cuenta.jugador ? `${cuenta.jugador.nombres} ${cuenta.jugador.apellidos}` : cuenta.usuario}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <div className="text-sm text-gray-500 mt-1">
-                    {jugadoresDisponibles.length} jugador(es) disponible(s)
-                  </div>
-                </div>
-
-                <div className="flex items-end">
-                  {!testActiveManual ? (
-                    <Button
-                      onClick={iniciarPruebaManual}
-                      disabled={!cuentaSeleccionada || testActiveSequential || testActiveRandom}
-                      className="w-full"
-                    >
-                      <Hand className="h-4 w-4 mr-2" />
-                      Iniciar Prueba Manual
-                    </Button>
-                  ) : (
-                    <Button onClick={finalizarPruebaManual} variant="destructive" className="w-full">
-                      <Square className="h-4 w-4 mr-2" />
-                      Finalizar Prueba
-                    </Button>
-                  )}
-                </div>
-              </div>
-
-              {testActiveManual && (
-                <div className="p-3 bg-yellow-50 rounded-lg border border-yellow-200">
-                  <p className="text-sm text-yellow-800">
-                    <strong>Modo Manual:</strong> Presiona cualquier ESP para enviar comando. Debes esperar la respuesta
-                    antes de poder enviar otro comando.
-                  </p>
                 </div>
               )}
-            </TabsContent>
-          </Tabs>
-        </CardContent>
-      </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Activity className="h-5 w-5" />
-            Estado de Microcontroladores
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-            {microControllers.map((mc) => (
-              <Card
-                key={mc.id}
-                className={`transition-all duration-200 ${
-                  mc.connected
-                    ? mc.active
-                      ? "border-blue-500 bg-blue-50"
-                      : "border-green-500 bg-green-50"
-                    : "border-gray-300 bg-gray-50"
-                } ${
-                  testActiveManual && mc.connected && !waitingForResponseManual
-                    ? "cursor-pointer hover:shadow-md hover:scale-105"
-                    : ""
-                }`}
-                onClick={() => {
-                  if (testActiveManual && mc.connected && !waitingForResponseManual) {
-                    activateManualMicrocontroller(mc.id)
-                  }
-                }}
-              >
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm flex items-center justify-between">
-                    ESP-{mc.id}
-                    <div className="flex items-center gap-1">
-                      {mc.connected && <div className="w-2 h-2 bg-green-500 rounded-full" />}
-                      {mc.active && <Badge className="bg-green-100 text-green-800">ESP-{mc.id} Activo</Badge>}
-                    </div>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="pt-0">
-                  <div className="space-y-1 text-xs">
-                    <div>Estado: {mc.connected ? "Conectado" : "Desconectado"}</div>
-                    {mc.status && (
-                      <div>
-                        Status:{" "}
-                        <span
-                          className={
-                            mc.status === "Acierto"
-                              ? "text-green-600 font-medium"
-                              : mc.status === "Error"
-                                ? "text-red-600 font-medium"
-                                : "text-gray-600"
-                          }
-                        >
-                          {mc.status}
-                        </span>
-                      </div>
-                    )}
-                    {testActiveManual && mc.connected && (
-                      <div className="text-blue-600 font-medium">
-                        {waitingForResponseManual ? "Esperando..." : "Clic para enviar"}
-                      </div>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+              {modoActual === "aleatorio" && (
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Tiempo (segundos)</label>
+                  <input
+                    type="number"
+                    value={tiempoPrueba}
+                    onChange={(e) => setTiempoPrueba(Number.parseInt(e.target.value) || 60)}
+                    min="30"
+                    max="300"
+                    disabled={testActive}
+                    className="w-full px-4 py-2 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-red-900 focus:border-transparent disabled:opacity-50"
+                  />
+                </div>
+              )}
+
+              <div className="flex items-end">
+                {!testActive ? (
+                  <button
+                    onClick={() => {
+                      if (modoActual === "secuencial") iniciarPruebaSecuencial()
+                      else if (modoActual === "aleatorio") iniciarPruebaAleatoria()
+                      else iniciarPruebaManual()
+                    }}
+                    className="w-full px-6 py-2 bg-red-900 text-white rounded-lg hover:bg-red-800 transition-colors font-semibold flex items-center justify-center space-x-2"
+                  >
+                    <Play className="h-5 w-5" />
+                    <span>Iniciar Prueba</span>
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => {
+                      if (modoActual === "secuencial") finalizarPruebaSecuencial()
+                      else if (modoActual === "aleatorio") finalizarPruebaAleatoria()
+                      else finalizarPruebaManual()
+                    }}
+                    className="w-full px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-semibold"
+                  >
+                    Finalizar Prueba
+                  </button>
+                )}
+              </div>
+            </div>
           </div>
-        </CardContent>
-      </Card>
+
+          {/* Microcontroller Status */}
+          <div className="bg-white rounded-2xl shadow-xl border border-slate-200/60 p-6">
+            <h2 className="text-xl font-bold text-gray-900 mb-6 uppercase tracking-wide">
+              Estado de Microcontroladores
+            </h2>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
+              {microControllers.map((mc, index) => (
+                <div
+                  key={index}
+                  className={`flex flex-col items-center space-y-3 ${
+                    testActiveManual && mc.connected && !waitingForResponseManual ? "cursor-pointer" : ""
+                  }`}
+                  onClick={() => {
+                    if (testActiveManual && mc.connected && !waitingForResponseManual) {
+                      activateManualMicrocontroller(mc.id)
+                    }
+                  }}
+                >
+                  <div
+                    className={`w-full aspect-square rounded-2xl overflow-hidden border-4 transition-all duration-300 ${
+                      !testActive
+                        ? "border-gray-300"
+                        : mc.active
+                          ? "border-blue-500 animate-pulse"
+                          : mc.lastResponse === "acierto"
+                            ? "border-green-500"
+                            : mc.lastResponse === "error"
+                              ? "border-red-500"
+                              : "border-gray-300"
+                    }`}
+                  >
+                    <img
+                      src={getMicroImage(mc) || "/placeholder.svg"}
+                      alt={`ESP-${mc.id}`}
+                      className="w-full h-full object-contain p-4"
+                    />
+                  </div>
+                  <div className="text-center">
+                    <p className="font-bold text-gray-900">ESP-{mc.id}</p>
+                    <p className="text-sm text-gray-600 capitalize">
+                      {!testActive
+                        ? "Esperando"
+                        : mc.active
+                          ? "Procesando..."
+                          : mc.lastResponse === "acierto"
+                            ? "Correcto"
+                            : mc.lastResponse === "error"
+                              ? "Incorrecto"
+                              : "Esperando"}
+                    </p>
+                  </div>
+                  {testActiveManual && mc.connected && (
+                    <button
+                      onClick={() => activateManualMicrocontroller(mc.id)}
+                      disabled={waitingForResponseManual}
+                      className="px-4 py-2 bg-red-900 text-white rounded-lg hover:bg-red-800 transition-colors font-medium text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Enviar
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   )
 }

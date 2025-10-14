@@ -759,7 +759,7 @@ export default function JugadoresPage() {
                     {currentItems.map((jugador) => (
                       <div
                         key={jugador.id}
-                        className="bg-white border-2 border-gray-200 rounded-2xl overflow-hidden hover:shadow-xl hover:border-red-300 transition-all duration-300 transform hover:-translate-y-1"
+                        className="bg-white border-2 border-red-900 rounded-2xl overflow-hidden hover:shadow-xl hover:border-red-800 transition-all duration-300 transform hover:-translate-y-1"
                       >
                         {/* Top section: Image and Info side by side */}
                         <div className="flex p-4 gap-4">
