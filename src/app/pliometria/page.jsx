@@ -3,74 +3,85 @@
 import { useState, useEffect, useRef } from "react"
 import { Button } from "../../components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card"
-import { Badge } from "../../components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select"
 import { Label } from "../../components/ui/label"
-import {
-  Activity,
-  Play,
-  Square,
-  Clock,
-  User,
-  Trophy,
-  Calendar,
-  GraduationCap,
-  Ruler,
-  MapPin,
-  Zap,
-  TrendingUp,
-} from "lucide-react"
+import { Input } from "../../components/ui/input"
+import { Activity, User, Calendar, GraduationCap, Zap, TrendingUp, GaugeCircle, Rocket, TimerReset } from "lucide-react"
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts"
 
 const BACKEND_URL = "https://voley-backend-nhyl.onrender.com"
 
-export default function PliometriaPage() {
-  // State variables
-  const [testActive, setTestActive] = useState(false)
-  const [tiempoEjecucion, setTiempoEjecucion] = useState(0)
-  const [timerInterval, setTimerInterval] = useState(null)
-  const [pruebaActual, setPruebaActual] = useState(null)
-
-  // ESP data from Pusher
-  const [datosESP, setDatosESP] = useState({
-    aceleracion: null,
-    extensionI: null,
-    extensionD: null,
-  })
-
-  // Player and exercise selection
+export default function AlcancePage() {
   const [cuentas, setCuentas] = useState([])
   const [cuentaSeleccionada, setCuentaSeleccionada] = useState("")
   const [jugadoresDisponibles, setJugadoresDisponibles] = useState([])
-  const [tipoEjercicio, setTipoEjercicio] = useState("salto_simple")
 
-  // Pusher connection
   const [pusherConnected, setPusherConnected] = useState(false)
   const [pusherStatus, setPusherStatus] = useState("Desconectado")
-  const [espMessages, setEspMessages] = useState([])
+  const [esp6Connected, setEsp6Connected] = useState(false)
+  const [esp6Status, setEsp6Status] = useState("")
 
-  // Refs
-  const testActiveRef = useRef(false)
-  const timerIntervalRef = useRef(null)
+  // Alcance data (legacy)
+  const [peso, setPeso] = useState("")
+  const [altura, setAltura] = useState("")
+  const [alcanceActual, setAlcanceActual] = useState("0")
+  const [alcanceRealizado, setAlcanceRealizado] = useState("0")
+
+  // Nuevas métricas del ESP (i + c): potencia, velocidad, tiempo de vuelo
+  const [potencia, setPotencia] = useState("0")
+  const [velocidad, setVelocidad] = useState("0")
+  const [tiempoVuelo, setTiempoVuelo] = useState("0")
+
+  // Calibración data
+  const [calibracionData, setCalibracionData] = useState({
+    p0: "0",
+    pmin: "0",
+    pmax: "0",
+  })
+
+  // Prueba configuration
+  const [tiempoPrueba, setTiempoPrueba] = useState("30")
+  const [tipoPrueba, setTipoPrueba] = useState("cajon")
+
+  // Session data
+  const [sessionActive, setSessionActive] = useState(false)
+  const [tiempoTranscurrido, setTiempoTranscurrido] = useState(0)
+  const [alcancePico, setAlcancePico] = useState("0")
+  const [extensionIzqPico, setExtensionIzqPico] = useState("0")
+  const [extensionDerPico, setExtensionDerPico] = useState("0")
+
+  // Real-time graph data
+  const [graphData, setGraphData] = useState([])
+
+  const [loadingAlcance, setLoadingAlcance] = useState(false)
+  const [loadingCalibrar, setLoadingCalibrar] = useState(false)
+  const [loadingIniciar, setLoadingIniciar] = useState(false)
+  const [loadingIC, setLoadingIC] = useState(false)
+
+  const [messages, setMessages] = useState([])
+
+  const waitingForCommandRef = useRef(null)
+  const commandTimeoutRef = useRef(null)
+  const sessionTimerRef = useRef(null)
+  const sessionStartTimeRef = useRef(null)
 
   useEffect(() => {
-    testActiveRef.current = testActive
-    timerIntervalRef.current = timerInterval
-  }, [testActive, timerInterval])
-
-  useEffect(() => {
-    console.log("[v0] Connecting to backend:", BACKEND_URL)
+    console.log("[v1] Alcance - Connecting to backend:", BACKEND_URL)
     cargarCuentas()
     loadPusher()
 
     return () => {
-      if (timerIntervalRef.current) {
-        clearInterval(timerIntervalRef.current)
+      if (sessionTimerRef.current) {
+        clearInterval(sessionTimerRef.current)
+      }
+      if (commandTimeoutRef.current) {
+        clearTimeout(commandTimeoutRef.current)
       }
     }
   }, [])
 
   const cargarCuentas = async () => {
-    console.log("[v0] Loading accounts from:", `${BACKEND_URL}/api/cuentas`)
+    console.log("[v1] Loading accounts from:", `${BACKEND_URL}/api/cuentas`)
 
     try {
       const controller = new AbortController()
@@ -91,22 +102,22 @@ export default function PliometriaPage() {
       }
 
       const data = await response.json()
-      console.log("[v0] Accounts loaded:", data)
+      console.log("[v1] Accounts loaded:", data)
 
       if (data.success) {
         setCuentas(data.data)
         const jugadores = data.data.filter((cuenta) => cuenta.rol === "jugador")
         setJugadoresDisponibles(jugadores)
-        console.log("[v0] Players filtered:", jugadores.length)
+        console.log("[v1] Players filtered:", jugadores.length)
 
         if (jugadores.length === 0) {
-          addMessage("warning", "No se encontraron jugadores disponibles")
+          addMessage("SISTEMA", "No se encontraron jugadores disponibles", "warning")
         }
       } else {
         throw new Error(data.message || "Error en respuesta del servidor")
       }
     } catch (error) {
-      console.error("[v0] Error loading accounts:", error)
+      console.error("[v1] Error loading accounts:", error)
 
       if (error.name === "AbortError") {
         setPusherStatus("Timeout cargando cuentas")
@@ -131,7 +142,7 @@ export default function PliometriaPage() {
         initializePusher()
       }
     } catch (error) {
-      console.error("Error loading Pusher:", error)
+      console.error("[v1] Error loading Pusher:", error)
       setPusherStatus("Error cargando Pusher")
     }
   }
@@ -147,287 +158,433 @@ export default function PliometriaPage() {
       forceTLS: true,
     })
 
-    console.log("Pusher instance created")
+    console.log("[v1] Pusher instance created")
 
     pusher.connection.bind("connecting", () => {
-      console.log("Pusher connecting...")
+      console.log("[v1] Pusher connecting...")
       setPusherStatus("Conectando...")
     })
 
     pusher.connection.bind("connected", () => {
-      console.log("Pusher connected successfully!")
-      console.log("Socket ID:", pusher.connection.socket_id)
+      console.log("[v1] Pusher connected successfully!")
+      console.log("[v1] Socket ID:", pusher.connection.socket_id)
       setPusherStatus("Conectado")
       setPusherConnected(true)
 
-      subscribeToESP6Channel(pusher)
+      subscribeToESP6(pusher)
     })
 
     pusher.connection.bind("disconnected", () => {
-      console.log("Pusher disconnected")
+      console.log("[v1] Pusher disconnected")
       setPusherStatus("Desconectado")
       setPusherConnected(false)
     })
 
     pusher.connection.bind("failed", () => {
-      console.log("Pusher connection failed")
+      console.log("[v1] Pusher connection failed")
       setPusherStatus("Error de conexión")
       setPusherConnected(false)
     })
 
     pusher.connection.bind("error", (error) => {
-      console.log("Pusher connection error:", error)
+      console.log("[v1] Pusher connection error:", error)
       setPusherStatus("Error: " + error.message)
       setPusherConnected(false)
     })
   }
 
-  const subscribeToESP6Channel = (pusher) => {
-    console.log("Subscribing to ESP-6 channel...")
-
+  const subscribeToESP6 = (pusher) => {
     const channelName = "private-device-ESP-6"
-    console.log("Subscribing to channel:", channelName)
+    console.log("[v1] Subscribing to channel:", channelName)
 
     const channel = pusher.subscribe(channelName)
 
     channel.bind("pusher:subscription_succeeded", () => {
-      console.log("Successfully subscribed to", channelName)
-      addMessage("success", "Conectado a ESP-6")
+      console.log("[v1] Successfully subscribed to", channelName)
+      setEsp6Connected(true)
+      setEsp6Status("Conectado")
+      addMessage("ESP-6", "Conectado exitosamente", "success")
     })
 
     channel.bind("pusher:subscription_error", (error) => {
-      console.log("Subscription error for", channelName, ":", error)
-      addMessage("error", "Error conectando a ESP-6")
+      console.log("[v1] Subscription error for", channelName, ":", error)
+      setEsp6Connected(false)
+      setEsp6Status("Error de conexión")
+      addMessage("ESP-6", "Error de conexión", "error")
     })
 
+    // Manejo de respuestas a comandos (incluye i+c)
     channel.bind("client-response", (data) => {
-      console.log("[v0] Received data from ESP-6:", data)
+      console.log("[v1] Response received from ESP-6:", data)
 
-      if (testActiveRef.current) {
-        // Parse the data from ESP
-        const message = data.message || data
+      // normalizamos payload
+      let payload = data
+      if (data && typeof data === "object" && "message" in data && typeof data.message === "string") {
+        // intento de parseo a partir de string key:value
+        const parts = String(data.message)
+          .split(/[,\n]/)
+          .map((s) => s.trim())
+          .filter(Boolean)
+        const kv = {}
+        parts.forEach((p) => {
+          const [k, v] = p.split(":").map((s) => s.trim())
+          if (k && v) kv[k] = v
+        })
+        payload = { ...data, ...kv }
+      }
 
-        // Expected format: { aceleracion: "value", extensionI: "value", extensionD: "value" }
-        if (typeof message === "object") {
-          setDatosESP({
-            aceleracion: message.aceleracion || message.acceleration || null,
-            extensionI: message.extensionI || message.extension_izq || null,
-            extensionD: message.extensionD || message.extension_der || null,
-          })
-          addMessage(
-            "success",
-            `Datos recibidos: Acel=${message.aceleracion}, ExtI=${message.extensionI}, ExtD=${message.extensionD}`,
+      // lectura flexible de campos
+      const pot = payload.potencia ?? payload.power ?? payload.Potencia
+      const vel = payload.velocidad ?? payload.speed ?? payload.Velocidad
+      const tVuelo = payload.tiempoVuelo ?? payload.tiempo_vuelo ?? payload.flightTime ?? payload.TiempoVuelo
+
+      if (pot !== undefined || vel !== undefined || tVuelo !== undefined) {
+        if (pot !== undefined) setPotencia(String(pot))
+        if (vel !== undefined) setVelocidad(String(vel))
+        if (tVuelo !== undefined) setTiempoVuelo(String(tVuelo))
+        addMessage("ESP-6", `Métricas recibidas${
+          [pot !== undefined ? ` potencia=${pot}` : "", vel !== undefined ? ` velocidad=${vel}` : "", tVuelo !== undefined ? ` tiempoVuelo=${tVuelo}` : ""].join(
+            ""
           )
-        } else {
-          addMessage("info", `Mensaje de ESP-6: ${JSON.stringify(message)}`)
+        }`, "success")
+      }
+
+      const responseMessage = payload.message || ""
+      const currentCommand = waitingForCommandRef.current
+
+      if (commandTimeoutRef.current) {
+        clearTimeout(commandTimeoutRef.current)
+        commandTimeoutRef.current = null
+      }
+
+      if (currentCommand === "A") {
+        try {
+          const alcance = String(responseMessage).split(":")[1] || "0"
+          setAlcanceRealizado(alcance)
+          setLoadingAlcance(false)
+          addMessage("ESP-6", `Alcance calculado: ${alcance}`, "success")
+        } catch (error) {
+          console.error("[v1] Error parsing alcance data:", error)
+          addMessage("ESP-6", `Error parseando alcance: ${responseMessage}`, "error")
+          setLoadingAlcance(false)
         }
+      } else if (currentCommand === "C") {
+        try {
+          const parts = String(responseMessage).split(",")
+          const p0 = parts[0]?.split(":")[1] || "0"
+          const pmin = parts[1]?.split(":")[1] || "0"
+          const pmax = parts[2]?.split(":")[1] || "0"
+
+          setCalibracionData({ p0, pmin, pmax })
+          setLoadingCalibrar(false)
+          addMessage("ESP-6", `Calibración: p0=${p0}, pmin=${pmin}, pmax=${pmax}`, "success")
+        } catch (error) {
+          console.error("[v1] Error parsing calibration data:", error)
+          addMessage("ESP-6", `Error parseando calibración: ${responseMessage}`, "error")
+          setLoadingCalibrar(false)
+        }
+      } else if (currentCommand === "IC") {
+        // recibimos algo para i+c; simplemente detenemos el loader
+        setLoadingIC(false)
+      }
+
+      waitingForCommandRef.current = null
+    })
+
+    // Datos en tiempo real durante sesión (se mantiene tal cual)
+    channel.bind("client-sensor-data", (data) => {
+      console.log("[v1] Sensor data received:", data)
+
+      if (sessionActive) {
+        const { alcance, extensionIzq, extensionDer } = data
+
+        const elapsed = (Date.now() - sessionStartTimeRef.current) / 1000
+        setGraphData((prev) => [
+          ...prev,
+          {
+            tiempo: elapsed.toFixed(1),
+            alcance: Number.parseFloat(alcance) || 0,
+          },
+        ])
+
+        const alcanceNum = Number.parseFloat(alcance) || 0
+        const extIzqNum = Number.parseFloat(extensionIzq) || 0
+        const extDerNum = Number.parseFloat(extensionDer) || 0
+
+        setAlcancePico((prev) => {
+          const prevNum = Number.parseFloat(prev) || 0
+          return alcanceNum > prevNum ? String(alcance) : prev
+        })
+
+        setExtensionIzqPico((prev) => {
+          const prevNum = Number.parseFloat(prev) || 0
+          return extIzqNum > prevNum ? String(extensionIzq) : prev
+        })
+
+        setExtensionDerPico((prev) => {
+          const prevNum = Number.parseFloat(prev) || 0
+          return extDerNum > prevNum ? String(extensionDer) : prev
+        })
       }
     })
 
     channel.bind("client-heartbeat", (data) => {
-      console.log("Heartbeat received from ESP-6:", data)
-      addMessage("info", "Heartbeat de ESP-6")
+      console.log("[v1] Heartbeat received from ESP-6:", data)
+      setEsp6Connected(true)
+      addMessage("ESP-6", "Heartbeat recibido", "info")
+    })
+
+    channel.bind("client-status", (data) => {
+      console.log("[v1] Status update from ESP-6:", data)
+      addMessage("ESP-6", JSON.stringify(data), "info")
+
+      if (typeof data === "object" && data.status === "connected") {
+        setEsp6Connected(true)
+        setEsp6Status("Conectado")
+      }
     })
 
     channel.bind_global((eventName, data) => {
       if (eventName.startsWith("client-")) {
-        console.log("Global event received:", eventName, "from ESP-6, data:", data)
+        console.log("[v1] Global event received:", eventName, "data:", data)
+        addMessage("ESP-6", `${eventName}: ${JSON.stringify(data)}`, "info")
       }
     })
   }
 
-  const addMessage = (type, message) => {
-    const msg = {
-      type: type,
+  const addMessage = (device, message, status) => {
+    const newMessage = {
+      device: device,
       message: message,
-      timestamp: Date.now(),
+      timestamp: new Date().toLocaleTimeString(),
+      status: status,
     }
-    setEspMessages((prev) => [...prev.slice(-9), msg])
+    setMessages((prev) => [...prev.slice(-19), newMessage])
   }
 
-  const sendCommandToESP6 = async (command) => {
-    try {
-      const deviceId = "ESP-6"
-      const response = await fetch(`${BACKEND_URL}/api/pusher/send-command`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          deviceId: deviceId,
-          command: command,
-          channel: `private-device-${deviceId}`,
-        }),
-      })
+  // Helper para enviar un comando POST al backend
+  const postCommand = async (command, params = {}) => {
+    const deviceId = "ESP-6"
+    const response = await fetch(`${BACKEND_URL}/api/pusher/send-command`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        deviceId: deviceId,
+        command: command,
+        params: params,
+        channel: `private-device-${deviceId}`,
+      }),
+    })
 
-      const data = await response.json()
-
-      if (!response.ok) {
-        throw new Error(data.message || "Error al enviar comando")
-      }
-
-      console.log(`Command sent to ${deviceId}:`, data)
-      addMessage("info", `Comando "${command}" enviado a ESP-6`)
-    } catch (error) {
-      console.error(`Error sending command to ESP-6:`, error)
-      addMessage("error", `Error enviando comando: ${error.message}`)
+    const data = await response.json()
+    if (!response.ok) {
+      throw new Error(data.message || "Error al enviar comando")
     }
+    return data
   }
 
-  const iniciarPliometria = async () => {
+  const sendCommandToESP6 = async (command, params = {}) => {
     if (!cuentaSeleccionada) {
-      addMessage("error", "Debe seleccionar un jugador")
+      addMessage("SISTEMA", "Debe seleccionar un jugador primero", "error")
+      return
+    }
+
+    if (waitingForCommandRef.current && command !== "S") {
+      addMessage("SISTEMA", "Esperando respuesta del comando anterior", "warning")
       return
     }
 
     try {
-      console.log("[v0] Starting pliometria for account:", cuentaSeleccionada)
+      console.log(`[v1] Sending command "${command}" to ESP-6 with params:`, params)
 
-      const response = await fetch(`${BACKEND_URL}/api/pliometrias/iniciar`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          cuentaId: cuentaSeleccionada,
-          tipo_de_ejercicio: tipoEjercicio,
-        }),
-      })
+      if (command === "A") setLoadingAlcance(true)
+      else if (command === "C") setLoadingCalibrar(true)
+      else if (command === "S") setLoadingIniciar(true)
 
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+      if (command !== "S") {
+        waitingForCommandRef.current = command
       }
 
-      const data = await response.json()
-      console.log("[v0] Pliometria start response:", data)
+      const data = await postCommand(command, params)
 
-      if (data.success) {
-        localStorage.setItem("pliometria_id", data.data.id.toString())
+      console.log(`[v1] Command sent to ESP-6:`, data)
+      addMessage("ESP-6", `Comando enviado: ${command}`, "info")
 
-        setPruebaActual(data.data)
-        setTestActive(true)
-        setTiempoEjecucion(0)
-        setDatosESP({ aceleracion: null, extensionI: null, extensionD: null })
-
-        addMessage("success", `Pliometría iniciada - ${tipoEjercicio}`)
-
-        await sendCommandToESP6("i")
-
-        const interval = setInterval(() => {
-          setTiempoEjecucion((prev) => prev + 0.1)
-        }, 100)
-        setTimerInterval(interval)
+      if (command === "S") {
+        startSession(params.tiempo)
       } else {
-        addMessage("error", "Error iniciando pliometría: " + data.message)
+        commandTimeoutRef.current = setTimeout(() => {
+          console.log(`[v1] Timeout waiting for response to command: ${command}`)
+          addMessage("ESP-6", `Timeout - sin respuesta para comando: ${command}`, "warning")
+
+          if (command === "A") setLoadingAlcance(false)
+          else if (command === "C") setLoadingCalibrar(false)
+
+          waitingForCommandRef.current = null
+        }, 30000)
       }
     } catch (error) {
-      console.error("[v0] Error starting pliometria:", error)
-      addMessage("error", `Error iniciando pliometría: ${error.message}`)
+      console.error(`[v1] Error sending command to ESP-6:`, error)
+      addMessage("ESP-6", `Error enviando comando: ${error.message}`, "error")
+
+      if (command === "A") setLoadingAlcance(false)
+      else if (command === "C") setLoadingCalibrar(false)
+      else if (command === "S") setLoadingIniciar(false)
+
+      waitingForCommandRef.current = null
     }
   }
 
-  const finalizarPliometria = async () => {
-    if (timerIntervalRef.current) {
-      clearInterval(timerIntervalRef.current)
-      setTimerInterval(null)
+  // Nuevo: envía i y c a la vez
+  const sendICSimultaneo = async () => {
+    if (!cuentaSeleccionada) {
+      addMessage("SISTEMA", "Debe seleccionar un jugador primero", "error")
+      return
     }
 
-    const pliometriaId = localStorage.getItem("pliometria_id")
+    if (waitingForCommandRef.current) {
+      addMessage("SISTEMA", "Esperando respuesta del comando anterior", "warning")
+      return
+    }
 
-    if (pliometriaId) {
-      try {
-        console.log("[v0] Finalizing pliometria:", pliometriaId)
+    try {
+      setLoadingIC(true)
+      waitingForCommandRef.current = "IC"
+      addMessage("ESP-6", "Enviando comandos i + c", "info")
 
-        const response = await fetch(`${BACKEND_URL}/api/pliometrias/finalizar/${pliometriaId}`, {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            tiempo_ejecucion: Number.parseFloat(tiempoEjecucion.toFixed(2)),
-            aceleracion: datosESP.aceleracion ? Number.parseFloat(datosESP.aceleracion) : 0,
-            extension_pierna_izq: datosESP.extensionI ? Number.parseFloat(datosESP.extensionI) : 0,
-            extension_pierna_der: datosESP.extensionD ? Number.parseFloat(datosESP.extensionD) : 0,
-          }),
-        })
+      // Enviar ambos POST en paralelo
+      await Promise.all([postCommand("i"), postCommand("c")])
 
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+      // Armamos timeout de espera de métricas
+      commandTimeoutRef.current = setTimeout(() => {
+        console.log("[v1] Timeout esperando respuesta a i+c")
+        addMessage("ESP-6", "Timeout - sin respuesta para comandos i+c", "warning")
+        setLoadingIC(false)
+        waitingForCommandRef.current = null
+      }, 30000)
+    } catch (error) {
+      console.error("[v1] Error enviando i+c:", error)
+      addMessage("ESP-6", `Error enviando i+c: ${error.message}`, "error")
+      setLoadingIC(false)
+      waitingForCommandRef.current = null
+    }
+  }
+
+  const startSession = (duracion) => {
+    setSessionActive(true)
+    setTiempoTranscurrido(0)
+    setGraphData([])
+    setAlcancePico("0")
+    setExtensionIzqPico("0")
+    setExtensionDerPico("0")
+    sessionStartTimeRef.current = Date.now()
+
+    sessionTimerRef.current = setInterval(() => {
+      setTiempoTranscurrido((prev) => {
+        const newTime = prev + 0.1
+        if (newTime >= duracion) {
+          endSession()
+          return duracion
         }
-
-        const data = await response.json()
-        console.log("[v0] Pliometria finalization response:", data)
-
-        if (data.success) {
-          addMessage("success", "Pliometría finalizada correctamente")
-          localStorage.removeItem("pliometria_id")
-        } else {
-          addMessage("error", "Error finalizando pliometría: " + data.message)
-        }
-      } catch (error) {
-        console.error("[v0] Error finalizing pliometria:", error)
-        addMessage("error", `Error finalizando pliometría: ${error.message}`)
-      }
-    }
-
-    limpiarPliometria()
+        return newTime
+      })
+    }, 100)
   }
 
-  const limpiarPliometria = () => {
-    setTestActive(false)
-    setPruebaActual(null)
-    setTiempoEjecucion(0)
-    setDatosESP({ aceleracion: null, extensionI: null, extensionD: null })
-
-    if (timerIntervalRef.current) {
-      clearInterval(timerIntervalRef.current)
-      setTimerInterval(null)
+  const endSession = () => {
+    if (sessionTimerRef.current) {
+      clearInterval(sessionTimerRef.current)
+      sessionTimerRef.current = null
     }
-
-    addMessage("info", "Sistema limpio para nueva pliometría")
-  }
-
-  const formatTime = (seconds) => {
-    return seconds.toFixed(1) + "s"
+    setSessionActive(false)
+    setLoadingIniciar(false)
+    addMessage("SISTEMA", "Sesión finalizada", "success")
   }
 
   return (
-    <div className="space-y-6 p-6">
-      {/* Player Info Card */}
-      {jugadorSeleccionado && jugadorSeleccionado.jugador && (
-        <Card className="rounded-xl shadow-lg border border-slate-200/60 overflow-hidden">
-          <div className="bg-gradient-to-r from-purple-900 to-purple-800 px-4 py-3">
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
-                <User className="h-5 w-5 text-white" />
-              </div>
-              <div>
-                <h2 className="text-lg font-bold text-white">
-                  {jugadorSeleccionado.jugador.nombres} {jugadorSeleccionado.jugador.apellidos}
-                </h2>
-                <div className="flex items-center space-x-2">
-                  <Trophy className="h-3 w-3 text-purple-100" />
-                  <span className="text-purple-100 text-xs font-medium">Jugador</span>
-                </div>
-              </div>
-            </div>
-          </div>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6">
+      <div className="max-w-7xl mx-auto space-y-6">
+        {/* Top buttons */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <Card className="shadow-lg">
+            <CardContent className="p-4">
+              <Label htmlFor="jugador" className="mb-2 block">
+                Seleccionar Jugador
+              </Label>
+              <Select value={cuentaSeleccionada} onValueChange={setCuentaSeleccionada}>
+                <SelectTrigger>
+                  <SelectValue
+                    placeholder={
+                      jugadoresDisponibles.length === 0 ? "No hay jugadores disponibles..." : "Seleccionar jugador..."
+                    }
+                  />
+                </SelectTrigger>
+                <SelectContent>
+                  {jugadoresDisponibles.map((cuenta) => (
+                    <SelectItem key={cuenta.id} value={cuenta.id.toString()}>
+                      {cuenta.jugador ? `${cuenta.jugador.nombres} ${cuenta.jugador.apellidos}` : cuenta.usuario}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </CardContent>
+          </Card>
 
-          <CardContent className="p-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-3">
-                <h3 className="text-sm font-semibold text-gray-900 border-b border-gray-200 pb-1">
-                  Información de Contacto
-                </h3>
+          {/* Botón i + c simultáneo */}
+          <Card className="shadow-lg">
+            <CardContent className="p-4 flex items-end">
+              <Button
+                onClick={sendICSimultaneo}
+                disabled={!cuentaSeleccionada || !esp6Connected || loadingIC}
+                className="w-full h-12 bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800"
+              >
+                {loadingIC ? "Esperando métricas..." : "Iniciar (i + c)"}
+              </Button>
+            </CardContent>
+          </Card>
 
-                <div className="space-y-2">
+          <Card className="shadow-lg">
+            <CardContent className="p-4 flex items-end">
+              <Button
+                onClick={() => sendCommandToESP6("C")}
+                disabled={!cuentaSeleccionada || !esp6Connected || loadingCalibrar}
+                className="w-full h-12 bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800"
+              >
+                {loadingCalibrar ? "Calibrando..." : "Iniciar Calibración"}
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Player info and alcance data */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Player info */}
+          <Card className="shadow-lg">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <User className="h-5 w-5" />
+                Datos del Jugador
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {jugadorSeleccionado && jugadorSeleccionado.jugador ? (
+                <div className="space-y-3">
+                  <div className="bg-slate-100 border-2 border-slate-300 rounded-lg p-3">
+                    <p className="text-sm font-medium text-slate-600">Nombre</p>
+                    <p className="text-lg font-bold text-slate-800">
+                      {jugadorSeleccionado.jugador.nombres} {jugadorSeleccionado.jugador.apellidos}
+                    </p>
+                  </div>
+
                   {jugadorSeleccionado.jugador.fecha_nacimiento && (
-                    <div className="bg-gray-50 px-3 py-2 rounded-lg border border-gray-200/50">
-                      <div className="flex items-center space-x-2">
-                        <Calendar className="h-4 w-4 text-gray-600 flex-shrink-0" />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs font-medium text-gray-800">Edad</p>
-                          <p className="text-xs text-gray-700">
+                    <div className="bg-slate-100 border-2 border-slate-300 rounded-lg p-3">
+                      <div className="flex items-center gap-2">
+                        <Calendar className="h-4 w-4 text-slate-600" />
+                        <div>
+                          <p className="text-sm font-medium text-slate-600">Edad</p>
+                          <p className="text-base text-slate-800">
                             {(() => {
                               const birthDate = new Date(jugadorSeleccionado.jugador.fecha_nacimiento)
                               const today = new Date()
@@ -445,224 +602,297 @@ export default function PliometriaPage() {
                   )}
 
                   {jugadorSeleccionado.jugador.carrera && (
-                    <div className="bg-gray-50 px-3 py-2 rounded-lg border border-gray-200/50">
-                      <div className="flex items-center space-x-2">
-                        <GraduationCap className="h-4 w-4 text-gray-600 flex-shrink-0" />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs font-medium text-gray-800">Carrera</p>
-                          <p className="text-xs text-gray-700">{jugadorSeleccionado.jugador.carrera}</p>
+                    <div className="bg-slate-100 border-2 border-slate-300 rounded-lg p-3">
+                      <div className="flex items-center gap-2">
+                        <GraduationCap className="h-4 w-4 text-slate-600" />
+                        <div>
+                          <p className="text-sm font-medium text-slate-600">Carrera</p>
+                          <p className="text-base text-slate-800">{jugadorSeleccionado.jugador.carrera}</p>
                         </div>
                       </div>
                     </div>
                   )}
+
+                  <div className="bg-slate-100 border-2 border-slate-300 rounded-lg p-3">
+                    <div className="flex items-center gap-2">
+                      <Zap className="h-4 w-4 text-slate-600" />
+                      <div>
+                        <p className="text-sm font-medium text-slate-600">ESP-6</p>
+                        <div className="flex items-center gap-2">
+                          <div className={`w-2 h-2 rounded-full ${esp6Connected ? "bg-green-500" : "bg-red-500"}`} />
+                          <p className="text-base text-slate-800">{esp6Status || "Desconectado"}</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-slate-500 text-center py-8">Seleccione un jugador</p>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Alcance actual */}
+          <Card className="shadow-lg">
+            <CardHeader>
+              <CardTitle className="text-base">Datos del Alcance Actual (si tiene registrado)</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="bg-blue-50 border-2 border-blue-300 rounded-lg p-6 text-center">
+                <p className="text-sm font-medium text-blue-600 mb-2">Alcance Registrado</p>
+                <p className="text-4xl font-bold text-blue-800">{alcanceActual}</p>
+                <p className="text-sm text-blue-600 mt-1">cm</p>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Métricas recibidas (i + c) */}
+          <Card className="shadow-lg">
+            <CardHeader>
+              <CardTitle className="text-base">Métricas del Salto (i + c)</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-3 gap-3">
+                <div className="bg-emerald-50 border-2 border-emerald-300 rounded-lg p-3 text-center">
+                  <div className="flex items-center justify-center gap-2 text-emerald-700 mb-1">
+                    <GaugeCircle className="h-4 w-4" />
+                    <span className="text-xs font-medium">Potencia</span>
+                  </div>
+                  <p className="text-2xl font-bold text-emerald-800">{potencia}</p>
+                  <p className="text-xs text-emerald-700 mt-1">W</p>
+                </div>
+                <div className="bg-sky-50 border-2 border-sky-300 rounded-lg p-3 text-center">
+                  <div className="flex items-center justify-center gap-2 text-sky-700 mb-1">
+                    <Rocket className="h-4 w-4" />
+                    <span className="text-xs font-medium">Velocidad</span>
+                  </div>
+                  <p className="text-2xl font-bold text-sky-800">{velocidad}</p>
+                  <p className="text-xs text-sky-700 mt-1">m/s</p>
+                </div>
+                <div className="bg-amber-50 border-2 border-amber-300 rounded-lg p-3 text-center">
+                  <div className="flex items-center justify-center gap-2 text-amber-700 mb-1">
+                    <TimerReset className="h-4 w-4" />
+                    <span className="text-xs font-medium">Tiempo Vuelo</span>
+                  </div>
+                  <p className="text-2xl font-bold text-amber-800">{tiempoVuelo}</p>
+                  <p className="text-xs text-amber-700 mt-1">ms</p>
                 </div>
               </div>
+            </CardContent>
+          </Card>
+        </div>
 
-              <div className="space-y-3">
-                <h3 className="text-sm font-semibold text-gray-900 border-b border-gray-200 pb-1">
-                  Información del Jugador
-                </h3>
+        {/* Datos del alcance realizado (legacy) */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <Card className="shadow-lg">
+            <CardHeader>
+              <CardTitle>Alcance (cálculo previo)</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label htmlFor="peso" className="text-xs">
+                    Peso (kg)
+                  </Label>
+                  <Input
+                    id="peso"
+                    type="number"
+                    value={peso}
+                    onChange={(e) => setPeso(e.target.value)}
+                    placeholder="70"
+                    className="mt-1"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="altura" className="text-xs">
+                    Altura (cm)
+                  </Label>
+                  <Input
+                    id="altura"
+                    type="number"
+                    value={altura}
+                    onChange={(e) => setAltura(e.target.value)}
+                    placeholder="180"
+                    className="mt-1"
+                  />
+                </div>
+              </div>
+              <div className="bg-green-50 border-2 border-green-300 rounded-lg p-4 text-center mt-3">
+                <p className="text-sm font-medium text-green-600 mb-1">Alcance Calculado</p>
+                <p className="text-3xl font-bold text-green-800">{alcanceRealizado}</p>
+                <p className="text-sm text-green-600 mt-1">cm</p>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="shadow-lg">
+            <CardHeader>
+              <CardTitle>Datos de la Prueba</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="bg-orange-50 border-2 border-orange-300 rounded-lg p-4 text-center">
+                  <p className="text-sm font-medium text-orange-600 mb-1">Tiempo (cronómetro)</p>
+                  <p className="text-2xl font-bold text-orange-800">{tiempoTranscurrido.toFixed(1)}s</p>
+                </div>
+                <div className="bg-purple-50 border-2 border-purple-300 rounded-lg p-4 text-center">
+                  <p className="text-sm font-medium text-purple-600 mb-1">Alcance Pico</p>
+                  <p className="text-2xl font-bold text-purple-800">{alcancePico}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Configuración y gráfica */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <Card className="shadow-lg">
+            <CardHeader>
+              <CardTitle>Configuración de la Prueba</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="tiempo-prueba">Tiempo del ejercicio (segundos)</Label>
+                  <Input
+                    id="tiempo-prueba"
+                    type="number"
+                    min="10"
+                    max="300"
+                    value={tiempoPrueba}
+                    onChange={(e) => setTiempoPrueba(e.target.value)}
+                    placeholder="30"
+                    className="mt-1"
+                  />
+                </div>
 
                 <div className="space-y-2">
-                  {jugadorSeleccionado.jugador.posicion_principal && (
-                    <div className="bg-purple-50/80 px-3 py-2 rounded-lg border border-purple-200/50">
-                      <div className="flex items-center space-x-2">
-                        <MapPin className="h-4 w-4 text-purple-600 flex-shrink-0" />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs font-medium text-purple-800">Posición Principal</p>
-                          <p className="text-xs text-purple-700 capitalize">
-                            {jugadorSeleccionado.jugador.posicion_principal}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  )}
+                  <Label>Tipo de Prueba</Label>
+                  <div className="grid grid-cols-1 gap-2">
+                    <Button
+                      variant={tipoPrueba === "cajon" ? "default" : "outline"}
+                      onClick={() => setTipoPrueba("cajon")}
+                      className="w-full"
+                    >
+                      Cajón
+                    </Button>
+                    <Button
+                      variant={tipoPrueba === "vallas" ? "default" : "outline"}
+                      onClick={() => setTipoPrueba("vallas")}
+                      className="w-full"
+                    >
+                      Vallas
+                    </Button>
+                    <Button
+                      variant={tipoPrueba === "salto-simple" ? "default" : "outline"}
+                      onClick={() => setTipoPrueba("salto-simple")}
+                      className="w-full"
+                    >
+                      Salto Simple
+                    </Button>
+                  </div>
+                </div>
 
-                  {jugadorSeleccionado.jugador.altura && (
-                    <div className="bg-purple-50/80 px-3 py-2 rounded-lg border border-purple-200/50">
-                      <div className="flex items-center space-x-2">
-                        <Ruler className="h-4 w-4 text-purple-600 flex-shrink-0" />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs font-medium text-purple-800">Altura</p>
-                          <p className="text-xs text-purple-700">{jugadorSeleccionado.jugador.altura} m</p>
-                        </div>
-                      </div>
-                    </div>
-                  )}
+                <Button
+                  onClick={() =>
+                    sendCommandToESP6("S", {
+                      tiempo: Number.parseInt(tiempoPrueba),
+                      tipo: tipoPrueba,
+                    })
+                  }
+                  disabled={!cuentaSeleccionada || !esp6Connected || loadingIniciar || sessionActive || !tiempoPrueba}
+                  className="w-full h-14 text-lg bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800"
+                >
+                  {loadingIniciar || sessionActive ? "Sesión en Curso..." : "Empezar Prueba (stream)"}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Graph */}
+          <Card className="shadow-lg lg:col-span-2">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <TrendingUp className="h-5 w-5" />
+                Gráfica en Tiempo Real
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="h-80">
+                {graphData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={graphData}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="tiempo" label={{ value: "Tiempo (s)", position: "insideBottom", offset: -5 }} />
+                      <YAxis label={{ value: "Alcance", angle: -90, position: "insideLeft" }} />
+                      <Tooltip />
+                      <Line type="monotone" dataKey="alcance" stroke="#3b82f6" strokeWidth={2} dot={false} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="flex items-center justify-center h-full text-slate-400">
+                    <p>Inicie una prueba para ver la gráfica en tiempo real</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Peak values */}
+              <div className="grid grid-cols-3 gap-4 mt-4">
+                <div className="bg-blue-50 border-2 border-blue-300 rounded-lg p-3 text-center">
+                  <p className="text-xs font-medium text-blue-600 mb-1">Ext. Izq. Pico</p>
+                  <p className="text-xl font-bold text-blue-800">{extensionIzqPico}</p>
+                </div>
+                <div className="bg-blue-50 border-2 border-blue-300 rounded-lg p-3 text-center">
+                  <p className="text-xs font-medium text-blue-600 mb-1">Ext. Der. Pico</p>
+                  <p className="text-xl font-bold text-blue-800">{extensionDerPico}</p>
+                </div>
+                <div className="bg-blue-50 border-2 border-blue-300 rounded-lg p-3 text-center">
+                  <p className="text-xs font-medium text-blue-600 mb-1">Alcance Máximo</p>
+                  <p className="text-xl font-bold text-blue-800">{alcancePico}</p>
                 </div>
               </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+            </CardContent>
+          </Card>
+        </div>
 
-      {/* Progress Card */}
-      {testActive && (
-        <Card className="border-2 border-purple-500 bg-gradient-to-r from-purple-50 to-indigo-50 shadow-lg">
-          <CardHeader className="pb-3">
-            <CardTitle className="flex items-center gap-2 text-purple-900">
+        {/* Messages monitor */}
+        <Card className="shadow-lg">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
               <Activity className="h-5 w-5" />
-              Pliometría en Progreso
+              Monitor de Mensajes
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              <div className="bg-white rounded-lg p-4 shadow-sm border border-purple-200">
-                <p className="text-xs text-gray-600 mb-1 flex items-center gap-1">
-                  <Clock className="h-3 w-3" />
-                  Tiempo
-                </p>
-                <p className="text-2xl font-bold text-purple-600">{formatTime(tiempoEjecucion)}</p>
-              </div>
-
-              <div className="bg-white rounded-lg p-4 shadow-sm border border-blue-200">
-                <p className="text-xs text-gray-600 mb-1 flex items-center gap-1">
-                  <Zap className="h-3 w-3" />
-                  Aceleración
-                </p>
-                <p className="text-2xl font-bold text-blue-600">
-                  {datosESP.aceleracion !== null ? datosESP.aceleracion : "--"}
-                </p>
-              </div>
-
-              <div className="bg-white rounded-lg p-4 shadow-sm border border-green-200">
-                <p className="text-xs text-gray-600 mb-1 flex items-center gap-1">
-                  <TrendingUp className="h-3 w-3" />
-                  Ext. Izq.
-                </p>
-                <p className="text-2xl font-bold text-green-600">
-                  {datosESP.extensionI !== null ? datosESP.extensionI : "--"}
-                </p>
-              </div>
-
-              <div className="bg-white rounded-lg p-4 shadow-sm border border-orange-200">
-                <p className="text-xs text-gray-600 mb-1 flex items-center gap-1">
-                  <TrendingUp className="h-3 w-3" />
-                  Ext. Der.
-                </p>
-                <p className="text-2xl font-bold text-orange-600">
-                  {datosESP.extensionD !== null ? datosESP.extensionD : "--"}
-                </p>
-              </div>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-3 p-3 bg-white/60 rounded-lg border border-purple-200">
-              <Badge variant="outline" className="bg-white capitalize">
-                {tipoEjercicio.replace("_", " ")}
-              </Badge>
-              <Badge className="bg-purple-100 text-purple-800">ESP-6 Activo</Badge>
-              <Badge className="bg-green-100 text-green-800">
-                Pusher: {pusherConnected ? "Conectado" : "Desconectado"}
-              </Badge>
+          <CardContent>
+            <div className="bg-slate-900 rounded-lg p-4 h-64 overflow-y-auto font-mono text-sm">
+              {messages.length === 0 ? (
+                <p className="text-slate-400">No hay mensajes aún...</p>
+              ) : (
+                <div className="space-y-1">
+                  {messages.map((msg, index) => (
+                    <div
+                      key={index}
+                      className={`flex items-start gap-2 ${
+                        msg.status === "error"
+                          ? "text-red-400"
+                          : msg.status === "success"
+                          ? "text-green-400"
+                          : msg.status === "warning"
+                          ? "text-yellow-400"
+                          : "text-slate-300"
+                      }`}
+                    >
+                      <span className="text-slate-500">[{msg.timestamp}]</span>
+                      <span className="font-semibold">{msg.device}:</span>
+                      <span>{msg.message}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
-      )}
-
-      {/* Configuration Card */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Activity className="h-5 w-5" />
-            Configuración de Pliometría
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <Label htmlFor="jugador">Seleccionar Jugador</Label>
-              <Select value={cuentaSeleccionada} onValueChange={setCuentaSeleccionada} disabled={testActive}>
-                <SelectTrigger>
-                  <SelectValue
-                    placeholder={
-                      jugadoresDisponibles.length === 0 ? "No hay jugadores disponibles..." : "Seleccionar jugador..."
-                    }
-                  />
-                </SelectTrigger>
-                <SelectContent>
-                  {jugadoresDisponibles.map((cuenta) => (
-                    <SelectItem key={cuenta.id} value={cuenta.id.toString()}>
-                      {cuenta.jugador ? `${cuenta.jugador.nombres} ${cuenta.jugador.apellidos}` : cuenta.usuario}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <div className="text-sm text-gray-500 mt-1">{jugadoresDisponibles.length} jugador(es) disponible(s)</div>
-            </div>
-
-            <div>
-              <Label htmlFor="tipo-ejercicio">Tipo de Ejercicio</Label>
-              <Select value={tipoEjercicio} onValueChange={setTipoEjercicio} disabled={testActive}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="salto_simple">Salto Simple</SelectItem>
-                  <SelectItem value="salto_cajon">Salto Cajón</SelectItem>
-                  <SelectItem value="salto_valla">Salto Valla</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="flex items-end">
-              {!testActive ? (
-                <Button onClick={iniciarPliometria} disabled={!cuentaSeleccionada} className="w-full">
-                  <Play className="h-4 w-4 mr-2" />
-                  Iniciar Pliometría
-                </Button>
-              ) : (
-                <Button onClick={finalizarPliometria} variant="destructive" className="w-full">
-                  <Square className="h-4 w-4 mr-2" />
-                  Finalizar Pliometría
-                </Button>
-              )}
-            </div>
-          </div>
-
-          {testActive && (
-            <div className="mt-4 p-3 bg-yellow-50 rounded-lg border border-yellow-200">
-              <p className="text-sm text-yellow-800">
-                <strong>Pliometría en curso:</strong> El ESP-6 está enviando datos. Presiona "Finalizar" cuando el
-                ejercicio termine o si deseas detenerlo manualmente.
-              </p>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Messages Card */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Activity className="h-5 w-5" />
-            Mensajes del Sistema
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-2 max-h-64 overflow-y-auto">
-            {espMessages.length === 0 ? (
-              <p className="text-sm text-gray-500">No hay mensajes aún...</p>
-            ) : (
-              espMessages.map((msg, index) => (
-                <div
-                  key={index}
-                  className={`p-2 rounded-lg text-sm ${
-                    msg.type === "success"
-                      ? "bg-green-50 text-green-800 border border-green-200"
-                      : msg.type === "error"
-                        ? "bg-red-50 text-red-800 border border-red-200"
-                        : msg.type === "warning"
-                          ? "bg-yellow-50 text-yellow-800 border border-yellow-200"
-                          : "bg-blue-50 text-blue-800 border border-blue-200"
-                  }`}
-                >
-                  <span className="font-medium">{new Date(msg.timestamp).toLocaleTimeString()}</span> - {msg.message}
-                </div>
-              ))
-            )}
-          </div>
-        </CardContent>
-      </Card>
+      </div>
     </div>
   )
 }
