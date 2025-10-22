@@ -1,445 +1,545 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import {
-  Trophy,
-  Users,
-  Clock,
-  Target,
-  TrendingUp,
-  Loader2,
-  AlertCircle,
-  RefreshCw,
-  Eye,
-  User,
-  GraduationCap,
-} from "lucide-react"
+import { Card, CardContent } from "../../components/ui/card"
+import { Tabs, TabsList, TabsTrigger } from "../../components/ui/tabs"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../../components/ui/dialog"
+import { Avatar, AvatarFallback, AvatarImage } from "../../components/ui/avatar"
+import { ArrowLeft, Target, TrendingUp, Award, Trophy } from "lucide-react"
 
-export default function RankingPage() {
-  const [rankingData, setRankingData] = useState(null)
+const BACKEND_URL = "https://jenn-back-reac.onrender.com"
+
+export default function ResultadosGeneralPage() {
+  const [rankingData, setRankingData] = useState([])
+  const [userPosition, setUserPosition] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
-  const [activeTab, setActiveTab] = useState("secuencial")
-  const [expandedPlayer, setExpandedPlayer] = useState(null)
+  const [periodo, setPeriodo] = useState("general")
+  const [carrera, setCarrera] = useState("general")
+  const [posicion, setPosicion] = useState("general")
+  const [selectedPlayer, setSelectedPlayer] = useState(null)
+  const [playerDetails, setPlayerDetails] = useState(null)
+  const [loadingDetails, setLoadingDetails] = useState(false)
 
-  const fetchRanking = async () => {
+  useEffect(() => {
+    cargarRanking()
+  }, [periodo, carrera, posicion])
+
+  const cargarRanking = async () => {
     try {
       setLoading(true)
-      setError(null)
-      const response = await fetch("https://voley-backend-nhyl.onrender.com/api/ranking/general")
+      const userId = localStorage.getItem("idUser")
 
-      if (!response.ok) {
-        throw new Error("Error al obtener el ranking")
-      }
+      let url = `${BACKEND_URL}/api/ranking/general?periodo=${periodo}`
+      if (carrera !== "general") url += `&carrera=${carrera}`
+      if (posicion !== "general") url += `&posicion=${posicion}`
+      if (userId) url += `&idUser=${userId}`
 
+      const response = await fetch(url)
       const data = await response.json()
 
       if (data.success) {
-        setRankingData(data.data)
-      } else {
-        throw new Error(data.message || "Error al obtener el ranking")
+        setRankingData(data.data || [])
+        setUserPosition(data.userPosition || null)
       }
-    } catch (err) {
-      setError(err.message)
+    } catch (error) {
+      console.error("Error loading ranking:", error)
     } finally {
       setLoading(false)
     }
   }
 
-  useEffect(() => {
-    fetchRanking()
-  }, [])
+  const cargarDetallesJugador = async (cuentaId) => {
+    try {
+      setLoadingDetails(true)
+      const response = await fetch(`${BACKEND_URL}/api/ranking/detalles/${cuentaId}?periodo=${periodo}`)
+      const data = await response.json()
 
-  const formatTime = (milliseconds) => {
-    const seconds = Math.floor(milliseconds / 1000)
-    const minutes = Math.floor(seconds / 60)
-    const remainingSeconds = seconds % 60
-    return `${minutes}:${remainingSeconds.toString().padStart(2, "0")}`
-  }
-
-  const getPositionText = (position) => {
-    switch (position) {
-      case 0:
-        return "1er Lugar"
-      case 1:
-        return "2do Lugar"
-      case 2:
-        return "3er Lugar"
-      default:
-        return `${position + 1}° Lugar`
+      if (data.success) {
+        setPlayerDetails(data.data)
+      }
+    } catch (error) {
+      console.error("Error loading player details:", error)
+    } finally {
+      setLoadingDetails(false)
     }
   }
 
-  const calculateAge = (birthDate) => {
-    const today = new Date()
-    const birth = new Date(birthDate)
-    let age = today.getFullYear() - birth.getFullYear()
-    const monthDiff = today.getMonth() - birth.getMonth()
-
-    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
-      age--
-    }
-
-    return age
+  const handlePlayerClick = (player) => {
+    setSelectedPlayer(player)
+    cargarDetallesJugador(player.cuentaId)
   }
 
-  const tabs = [
-    { id: "secuencial", label: "Secuencial", icon: Clock },
-    { id: "aleatorio", label: "Aleatorio", icon: Target },
-    { id: "manual", label: "Manual", icon: Users },
-  ]
+  const getPodiumHeight = (position) => {
+    if (position === 1) return "h-48"
+    if (position === 2) return "h-36"
+    if (position === 3) return "h-32"
+    return "h-24"
+  }
+
+  const getPodiumColor = (position) => {
+    if (position === 1) return "from-[#800020] to-[#600018]"
+    if (position === 2) return "from-gray-400 to-gray-500"
+    if (position === 3) return "from-gray-500 to-gray-600"
+    return "from-gray-600 to-gray-700"
+  }
+
+  const getBadgeColor = (position) => {
+    if (position === 1)
+      return "bg-gradient-to-br from-yellow-400 to-yellow-600 text-white shadow-lg shadow-yellow-500/50"
+    if (position === 2) return "bg-gradient-to-br from-gray-300 to-gray-400 text-gray-800 shadow-lg shadow-gray-400/50"
+    if (position === 3) return "bg-gradient-to-br from-amber-600 to-amber-700 text-white shadow-lg shadow-amber-600/50"
+    return "bg-gray-200 text-gray-700"
+  }
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
         <div className="text-center">
-          <Loader2 className="h-12 w-12 animate-spin text-slate-600 mx-auto mb-4" />
-          <p className="text-slate-600 font-medium text-lg">Cargando ranking...</p>
+          <div className="animate-spin rounded-full h-16 w-16 border-4 border-[#800020] border-t-transparent mx-auto"></div>
+          <p className="mt-4 text-gray-600 font-semibold">Cargando ranking...</p>
         </div>
       </div>
     )
   }
 
-  if (error) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center max-w-md">
-          <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-slate-900 mb-2">Error al cargar el ranking</h3>
-          <p className="text-slate-600 mb-6">{error}</p>
-          <button
-            onClick={fetchRanking}
-            className="flex items-center space-x-2 px-6 py-3 bg-gradient-to-r from-red-900 to-red-800 text-white rounded-xl hover:from-red-800 hover:to-red-700 font-medium mx-auto shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-300"
-          >
-            <RefreshCw className="h-4 w-4" />
-            <span>Reintentar</span>
-          </button>
-        </div>
-      </div>
-    )
-  }
+  const top3 = rankingData.slice(0, 3)
+  const rest = rankingData.slice(3)
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="w-full">
-        <div className="p-4 lg:p-6 max-w-full">
-          <div className="max-w-7xl mx-auto">
-            {/* Header */}
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 gap-4">
-              <div>
-                <h1 className="text-xl sm:text-2xl font-bold text-gray-900 flex items-center space-x-3">
-                  <TrendingUp className="h-6 w-6 sm:h-8 sm:w-8 text-red-600" />
-                  <span>Ranking de Pruebas de Reacción</span>
-                </h1>
-                <p className="text-gray-600 text-sm">Top 3 mejores jugadores de voleibol por categoría</p>
-              </div>
-              <button
-                onClick={fetchRanking}
-                className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-slate-100 to-slate-200 text-slate-700 rounded-lg hover:from-slate-200 hover:to-slate-300 transition-all duration-300 font-medium shadow-md hover:shadow-lg w-full sm:w-auto justify-center"
-              >
-                <RefreshCw className="h-4 w-4" />
-                <span>Actualizar</span>
-              </button>
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100">
+      <div className="max-w-6xl mx-auto p-4 md:p-8">
+        {/* Header */}
+        <div className="flex items-center gap-4 mb-8 animate-fade-in">
+          <button
+            onClick={() => window.history.back()}
+            className="p-3 bg-white hover:bg-gray-50 rounded-xl transition-all duration-300 hover:scale-105 shadow-md border border-gray-200"
+          >
+            <ArrowLeft className="h-5 w-5 text-gray-700" />
+          </button>
+          <div>
+            <h1 className="text-4xl md:text-5xl font-black text-gray-900">Ranking</h1>
+            <p className="text-gray-500 text-sm mt-1">Tabla de posiciones general</p>
+          </div>
+        </div>
+
+        {/* Filters */}
+        <Card className="bg-white border-gray-200 shadow-lg mb-8 animate-fade-in-up">
+          <CardContent className="p-6">
+            <Tabs value={periodo} onValueChange={setPeriodo} className="w-full mb-6">
+              <TabsList className="grid w-full grid-cols-3 h-12 bg-gray-100 rounded-xl p-1">
+                <TabsTrigger
+                  value="semanal"
+                  className="rounded-lg data-[state=active]:bg-[#800020] data-[state=active]:text-white data-[state=active]:shadow-md text-gray-600 font-semibold transition-all duration-300"
+                >
+                  Semanal
+                </TabsTrigger>
+                <TabsTrigger
+                  value="mensual"
+                  className="rounded-lg data-[state=active]:bg-[#800020] data-[state=active]:text-white data-[state=active]:shadow-md text-gray-600 font-semibold transition-all duration-300"
+                >
+                  Mensual
+                </TabsTrigger>
+                <TabsTrigger
+                  value="general"
+                  className="rounded-lg data-[state=active]:bg-[#800020] data-[state=active]:text-white data-[state=active]:shadow-md text-gray-600 font-semibold transition-all duration-300"
+                >
+                  General
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
+
+            <div className="flex flex-wrap gap-4">
+              <Select value={carrera} onValueChange={setCarrera}>
+                <SelectTrigger className="flex-1 min-w-[160px] bg-gray-50 text-gray-700 border-gray-200 rounded-xl h-11 font-medium hover:border-[#800020] transition-all duration-300">
+                  <SelectValue placeholder="Carrera" />
+                </SelectTrigger>
+                <SelectContent className="bg-white border-gray-200">
+                  <SelectItem value="general">Todas las carreras</SelectItem>
+                  <SelectItem value="Ingeniería">Ingeniería</SelectItem>
+                  <SelectItem value="Medicina">Medicina</SelectItem>
+                  <SelectItem value="Derecho">Derecho</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <Select value={posicion} onValueChange={setPosicion}>
+                <SelectTrigger className="flex-1 min-w-[160px] bg-gray-50 text-gray-700 border-gray-200 rounded-xl h-11 font-medium hover:border-[#800020] transition-all duration-300">
+                  <SelectValue placeholder="Posición" />
+                </SelectTrigger>
+                <SelectContent className="bg-white border-gray-200">
+                  <SelectItem value="general">Todas las posiciones</SelectItem>
+                  <SelectItem value="armador">Armador</SelectItem>
+                  <SelectItem value="opuesto">Opuesto</SelectItem>
+                  <SelectItem value="central">Central</SelectItem>
+                  <SelectItem value="receptor">Receptor</SelectItem>
+                  <SelectItem value="libero">Líbero</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
+          </CardContent>
+        </Card>
 
-            <div className="flex flex-col sm:flex-row space-y-1 sm:space-y-0 sm:space-x-1 mb-6 bg-white rounded-xl p-1 shadow-lg border border-slate-200/60">
-              {tabs.map((tab) => {
-                const Icon = tab.icon
-                return (
-                  <button
-                    key={tab.id}
-                    onClick={() => setActiveTab(tab.id)}
-                    className={`flex items-center space-x-2 px-4 sm:px-6 py-3 rounded-lg font-medium transition-all duration-300 flex-1 justify-center ${
-                      activeTab === tab.id
-                        ? "bg-gradient-to-r from-red-900 to-red-800 text-white shadow-lg"
-                        : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
-                    }`}
-                  >
-                    <Icon className="h-4 w-4" />
-                    <span className="text-sm sm:text-base">{tab.label}</span>
-                  </button>
-                )
-              })}
-            </div>
-
-            {/* Ranking Content - Top 3 Only */}
-            <div className="bg-white rounded-2xl shadow-xl border border-slate-200/60 overflow-hidden backdrop-blur-sm">
-              {!rankingData ||
-              !rankingData.topPorTipo ||
-              !rankingData.topPorTipo[activeTab] ||
-              rankingData.topPorTipo[activeTab].length === 0 ? (
-                <div className="p-12 text-center">
-                  <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <Trophy className="h-8 w-8 text-slate-400" />
-                  </div>
-                  <h3 className="text-lg font-medium text-slate-900 mb-2">No hay datos de ranking</h3>
-                  <p className="text-slate-500">No se encontraron pruebas finalizadas para esta categoría.</p>
-                </div>
-              ) : (
-                <>
-                  {/* Header */}
-                  <div className="bg-slate-600 px-4 sm:px-8 py-6 border-2 border-gray-900 relative overflow-hidden">
-                    <div className="relative text-center">
-                      <h2 className="text-lg sm:text-xl font-bold text-white uppercase tracking-wider">
-                        Top 3 - {tabs.find((t) => t.id === activeTab)?.label}
-                      </h2>
-                    </div>
-                  </div>
-
-                  <div className="p-4 sm:p-8">
-                    <div className="space-y-4">
-                      {rankingData.topPorTipo[activeTab].slice(0, 3).map((item, index) => (
-                        <div
-                          key={item.cuenta.id}
-                          className="relative bg-white border-2 border-slate-200 rounded-2xl p-4 sm:p-6 shadow-lg hover:shadow-xl hover:bg-red-50 hover:border-red-200 transition-all duration-300 transform hover:-translate-y-1"
-                        >
-                          <div className="flex flex-col lg:flex-row lg:items-center space-y-4 lg:space-y-0 lg:space-x-6">
-                            {/* Position */}
-                            <div className="flex-shrink-0 flex items-center justify-center lg:justify-start space-x-3">
-                              <div className="flex items-center justify-center w-12 h-12 rounded-full bg-slate-100">
-                                <span className="text-lg font-bold text-slate-600">#{index + 1}</span>
-                              </div>
-                              <div>
-                                <h3 className="text-base sm:text-lg font-bold text-slate-900">
-                                  {getPositionText(index)}
-                                </h3>
-                              </div>
-                            </div>
-
-                            {/* Player Info */}
-                            <div className="flex-grow">
-                              <div className="flex items-center space-x-4">
-                                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-slate-200 rounded-full flex items-center justify-center">
-                                  <User className="h-5 w-5 sm:h-6 sm:w-6 text-slate-600" />
-                                </div>
-                                <div>
-                                  <h4 className="text-base sm:text-lg font-bold text-slate-900">
-                                    {item.cuenta.jugador.nombres} {item.cuenta.jugador.apellidos}
-                                  </h4>
-                                  <p className="text-xs sm:text-sm text-slate-600">
-                                    {item.cuenta.jugador.posicion_principal}
-                                  </p>
-                                </div>
-                              </div>
-                            </div>
-
-                            {/* Stats Grid */}
-                            <div className="flex-shrink-0 grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-2 gap-2 sm:gap-4 text-center">
-                              <div>
-                                <span className="text-xs font-medium text-slate-600 block">Aciertos</span>
-                                <span className="text-sm sm:text-lg font-bold text-green-600">
-                                  {item.totalAciertos}
-                                </span>
-                              </div>
-                              <div>
-                                <span className="text-xs font-medium text-slate-600 block">Errores</span>
-                                <span className="text-sm sm:text-lg font-bold text-red-600">{item.totalErrores}</span>
-                              </div>
-                              <div>
-                                <span className="text-xs font-medium text-slate-600 block">Intentos</span>
-                                <span className="text-sm sm:text-lg font-bold text-slate-700">
-                                  {item.totalIntentos}
-                                </span>
-                              </div>
-                              <div>
-                                <span className="text-xs font-medium text-slate-600 block">Efectividad</span>
-                                <span className="text-sm sm:text-lg font-bold text-blue-600">
-                                  {item.porcentajePromedio}%
-                                </span>
-                              </div>
-                            </div>
-
-                            {/* Cantidad de Pruebas - Highlighted */}
-                            <div className="flex-shrink-0 bg-red-100 border border-red-200 rounded-lg p-3 sm:p-4 text-center">
-                              <div className="flex items-center justify-center space-x-2 mb-1">
-                                <Target className="h-3 w-3 sm:h-4 sm:w-4 text-red-600" />
-                                <span className="text-xs font-medium text-red-700">Pruebas</span>
-                              </div>
-                              <span className="text-xl sm:text-2xl font-bold text-red-600">{item.cantidadPruebas}</span>
-                            </div>
-
-                            {/* View Details Button */}
-                            <div className="flex-shrink-0">
-                              <button
-                                onClick={() =>
-                                  setExpandedPlayer(expandedPlayer === item.cuenta.id ? null : item.cuenta.id)
-                                }
-                                className="flex items-center justify-center space-x-2 px-3 sm:px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition-all duration-300 font-medium w-full lg:w-auto"
-                              >
-                                <Eye className="h-4 w-4" />
-                                <span className="text-sm">{expandedPlayer === item.cuenta.id ? "Ocultar" : "Ver"}</span>
-                              </button>
-                            </div>
-                          </div>
-
-                          {/* Expanded Details */}
-                          {expandedPlayer === item.cuenta.id && (
-                            <div className="mt-6 pt-6 border-t border-slate-200">
-                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                <div className="flex items-center space-x-2 text-sm">
-                                  <GraduationCap className="h-4 w-4 text-slate-500" />
-                                  <span className="text-slate-600">Carrera:</span>
-                                  <span className="font-medium text-slate-900">{item.cuenta.jugador.carrera}</span>
-                                </div>
-                                <div className="flex items-center space-x-2 text-sm">
-                                  <User className="h-4 w-4 text-slate-500" />
-                                  <span className="text-slate-600">Edad:</span>
-                                  <span className="font-medium text-slate-900">
-                                    {calculateAge(item.cuenta.jugador.fecha_nacimiento)} años
-                                  </span>
-                                </div>
-                                {item.cuenta.jugador.posicion_secundaria && (
-                                  <div className="flex items-center space-x-2 text-sm">
-                                    <Users className="h-4 w-4 text-slate-500" />
-                                    <span className="text-slate-600">Posición secundaria:</span>
-                                    <span className="font-medium text-slate-900">
-                                      {item.cuenta.jugador.posicion_secundaria}
-                                    </span>
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </>
-              )}
-            </div>
-
-            {/* Top General section - Top 3 Only */}
-            {rankingData && rankingData.topGeneral && rankingData.topGeneral.length > 0 && (
-              <div className="mt-8 bg-white rounded-2xl shadow-xl border border-slate-200/60 overflow-hidden backdrop-blur-sm">
-                <div className="bg-gradient-to-r from-red-900 to-red-800 px-4 sm:px-8 py-6">
-                  <h2 className="text-lg sm:text-xl font-bold text-white flex items-center space-x-3">
-                    <Trophy className="h-5 w-5 sm:h-6 sm:w-6" />
-                    <span>Top 3 General (Todas las Categorías)</span>
-                  </h2>
-                </div>
-                <div className="p-4 sm:p-8">
-                  <div className="space-y-4">
-                    {rankingData.topGeneral.slice(0, 3).map((item, index) => (
-                      <div
-                        key={item.cuenta.id}
-                        className="relative bg-white border-2 border-slate-200 rounded-2xl p-4 sm:p-6 shadow-lg hover:shadow-xl hover:bg-red-50 hover:border-red-200 transition-all duration-300 transform hover:-translate-y-1"
-                      >
-                        <div className="flex flex-col lg:flex-row lg:items-center space-y-4 lg:space-y-0 lg:space-x-6">
-                          {/* Position */}
-                          <div className="flex-shrink-0 flex items-center justify-center lg:justify-start space-x-3">
-                            <div className="flex items-center justify-center w-12 h-12 rounded-full bg-slate-100">
-                              <span className="text-lg font-bold text-slate-600">#{index + 1}</span>
-                            </div>
-                            <div>
-                              <h3 className="text-base sm:text-lg font-bold text-slate-900">
-                                {getPositionText(index)}
-                              </h3>
-                            </div>
-                          </div>
-
-                          {/* Player Info */}
-                          <div className="flex-grow">
-                            <div className="flex items-center space-x-4">
-                              <div className="w-10 h-10 sm:w-12 sm:h-12 bg-slate-200 rounded-full flex items-center justify-center">
-                                <User className="h-5 w-5 sm:h-6 sm:w-6 text-slate-600" />
-                              </div>
-                              <div>
-                                <h4 className="text-base sm:text-lg font-bold text-slate-900">
-                                  {item.cuenta.jugador.nombres} {item.cuenta.jugador.apellidos}
-                                </h4>
-                                <p className="text-xs sm:text-sm text-slate-600">
-                                  {item.cuenta.jugador.posicion_principal}
-                                </p>
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* Stats Grid */}
-                          <div className="flex-shrink-0 grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-2 gap-2 sm:gap-4 text-center">
-                            <div>
-                              <span className="text-xs font-medium text-slate-600 block">Aciertos</span>
-                              <span className="text-sm sm:text-lg font-bold text-green-600">{item.totalAciertos}</span>
-                            </div>
-                            <div>
-                              <span className="text-xs font-medium text-slate-600 block">Errores</span>
-                              <span className="text-sm sm:text-lg font-bold text-red-600">{item.totalErrores}</span>
-                            </div>
-                            <div>
-                              <span className="text-xs font-medium text-slate-600 block">Intentos</span>
-                              <span className="text-sm sm:text-lg font-bold text-slate-700">{item.totalIntentos}</span>
-                            </div>
-                            <div>
-                              <span className="text-xs font-medium text-slate-600 block">Efectividad</span>
-                              <span className="text-sm sm:text-lg font-bold text-blue-600">
-                                {item.porcentajePromedio}%
-                              </span>
-                            </div>
-                          </div>
-
-                          {/* Cantidad de Pruebas - Highlighted */}
-                          <div className="flex-shrink-0 bg-red-100 border border-red-200 rounded-lg p-3 sm:p-4 text-center">
-                            <div className="flex items-center justify-center space-x-2 mb-1">
-                              <Target className="h-3 w-3 sm:h-4 sm:w-4 text-red-600" />
-                              <span className="text-xs font-medium text-red-700">Pruebas</span>
-                            </div>
-                            <span className="text-xl sm:text-2xl font-bold text-red-600">{item.cantidadPruebas}</span>
-                          </div>
-
-                          {/* View Details Button */}
-                          <div className="flex-shrink-0">
-                            <button
-                              onClick={() =>
-                                setExpandedPlayer(
-                                  expandedPlayer === `general-${item.cuenta.id}` ? null : `general-${item.cuenta.id}`,
-                                )
-                              }
-                              className="flex items-center justify-center space-x-2 px-3 sm:px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition-all duration-300 font-medium w-full lg:w-auto"
-                            >
-                              <Eye className="h-4 w-4" />
-                              <span className="text-sm">
-                                {expandedPlayer === `general-${item.cuenta.id}` ? "Ocultar" : "Ver"}
-                              </span>
-                            </button>
+        {rankingData.length === 0 ? (
+          <Card className="bg-white border-gray-200 shadow-lg">
+            <CardContent className="p-16 text-center">
+              <Trophy className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+              <p className="text-gray-500 text-lg font-medium">No hay datos disponibles</p>
+            </CardContent>
+          </Card>
+        ) : (
+          <>
+            {/* Top 3 Podium */}
+            {top3.length > 0 && (
+              <div className="mb-12 bg-gradient-to-br from-[#800020] to-[#600018] rounded-3xl p-8 shadow-2xl animate-fade-in-up">
+                <div className="flex items-end justify-center gap-6 mb-8">
+                  {/* 2nd Place */}
+                  {top3[1] && (
+                    <div
+                      className="flex-1 max-w-[180px] cursor-pointer group animate-slide-up"
+                      style={{ animationDelay: "0.2s" }}
+                      onClick={() => handlePlayerClick(top3[1])}
+                    >
+                      <div className="text-center mb-4">
+                        <div className="relative inline-block">
+                          <Avatar className="w-24 h-24 border-4 border-white shadow-xl group-hover:scale-110 transition-transform duration-300">
+                            <AvatarImage src={top3[1].imagen || "/placeholder.svg"} />
+                            <AvatarFallback className="bg-gray-200 text-gray-700 font-bold text-2xl">
+                              {top3[1].nombre.charAt(0)}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div
+                            className={`absolute -top-2 -right-2 w-10 h-10 rounded-full ${getBadgeColor(2)} flex items-center justify-center font-black text-lg animate-bounce-slow`}
+                          >
+                            2
                           </div>
                         </div>
-
-                        {/* Expanded Details */}
-                        {expandedPlayer === `general-${item.cuenta.id}` && (
-                          <div className="mt-6 pt-6 border-t border-slate-200">
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                              <div className="flex items-center space-x-2 text-sm">
-                                <GraduationCap className="h-4 w-4 text-slate-500" />
-                                <span className="text-slate-600">Carrera:</span>
-                                <span className="font-medium text-slate-900">{item.cuenta.jugador.carrera}</span>
-                              </div>
-                              <div className="flex items-center space-x-2 text-sm">
-                                <User className="h-4 w-4 text-slate-500" />
-                                <span className="text-slate-600">Edad:</span>
-                                <span className="font-medium text-slate-900">
-                                  {calculateAge(item.cuenta.jugador.fecha_nacimiento)} años
-                                </span>
-                              </div>
-                              {item.cuenta.jugador.posicion_secundaria && (
-                                <div className="flex items-center space-x-2 text-sm">
-                                  <Users className="h-4 w-4 text-slate-500" />
-                                  <span className="text-slate-600">Posición secundaria:</span>
-                                  <span className="font-medium text-slate-900">
-                                    {item.cuenta.jugador.posicion_secundaria}
-                                  </span>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        )}
+                        <p className="font-bold text-white mt-3 text-sm truncate">{top3[1].nombre}</p>
                       </div>
-                    ))}
-                  </div>
+                      <div
+                        className={`bg-gradient-to-b ${getPodiumColor(2)} ${getPodiumHeight(2)} rounded-t-2xl flex flex-col items-center justify-center shadow-xl group-hover:shadow-2xl transition-all duration-300`}
+                      >
+                        <p className="text-white text-3xl font-black">{top3[1].porcentajePromedio}%</p>
+                        <p className="text-white/80 text-xs font-semibold mt-1">Precisión</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 1st Place */}
+                  {top3[0] && (
+                    <div
+                      className="flex-1 max-w-[200px] cursor-pointer group animate-slide-up"
+                      style={{ animationDelay: "0.1s" }}
+                      onClick={() => handlePlayerClick(top3[0])}
+                    >
+                      <div className="text-center mb-4">
+                        <div className="relative inline-block">
+                          <Avatar className="w-32 h-32 border-4 border-yellow-400 shadow-2xl shadow-yellow-500/50 group-hover:scale-110 transition-transform duration-300 animate-pulse-slow">
+                            <AvatarImage src={top3[0].imagen || "/placeholder.svg"} />
+                            <AvatarFallback className="bg-yellow-100 text-yellow-800 font-bold text-3xl">
+                              {top3[0].nombre.charAt(0)}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div
+                            className={`absolute -top-3 -right-3 w-12 h-12 rounded-full ${getBadgeColor(1)} flex items-center justify-center font-black text-xl animate-bounce-slow`}
+                          >
+                            1
+                          </div>
+                        </div>
+                        <p className="font-bold text-white mt-3 text-base truncate">{top3[0].nombre}</p>
+                      </div>
+                      <div
+                        className={`bg-gradient-to-b ${getPodiumColor(1)} ${getPodiumHeight(1)} rounded-t-2xl flex flex-col items-center justify-center shadow-2xl group-hover:shadow-3xl transition-all duration-300`}
+                      >
+                        <Trophy className="h-8 w-8 text-yellow-400 mb-2 animate-bounce-slow" />
+                        <p className="text-white text-4xl font-black">{top3[0].porcentajePromedio}%</p>
+                        <p className="text-white/90 text-sm font-semibold mt-1">Precisión</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 3rd Place */}
+                  {top3[2] && (
+                    <div
+                      className="flex-1 max-w-[180px] cursor-pointer group animate-slide-up"
+                      style={{ animationDelay: "0.3s" }}
+                      onClick={() => handlePlayerClick(top3[2])}
+                    >
+                      <div className="text-center mb-4">
+                        <div className="relative inline-block">
+                          <Avatar className="w-24 h-24 border-4 border-white shadow-xl group-hover:scale-110 transition-transform duration-300">
+                            <AvatarImage src={top3[2].imagen || "/placeholder.svg"} />
+                            <AvatarFallback className="bg-amber-100 text-amber-800 font-bold text-2xl">
+                              {top3[2].nombre.charAt(0)}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div
+                            className={`absolute -top-2 -right-2 w-10 h-10 rounded-full ${getBadgeColor(3)} flex items-center justify-center font-black text-lg animate-bounce-slow`}
+                          >
+                            3
+                          </div>
+                        </div>
+                        <p className="font-bold text-white mt-3 text-sm truncate">{top3[2].nombre}</p>
+                      </div>
+                      <div
+                        className={`bg-gradient-to-b ${getPodiumColor(3)} ${getPodiumHeight(3)} rounded-t-2xl flex flex-col items-center justify-center shadow-xl group-hover:shadow-2xl transition-all duration-300`}
+                      >
+                        <p className="text-white text-3xl font-black">{top3[2].porcentajePromedio}%</p>
+                        <p className="text-white/80 text-xs font-semibold mt-1">Precisión</p>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
-          </div>
-        </div>
+
+            {/* Rest of Players */}
+            {rest.length > 0 && (
+              <div className="space-y-3">
+                {rest.map((player, index) => (
+                  <Card
+                    key={player.cuentaId}
+                    className="bg-white border-gray-200 hover:border-[#800020] shadow-md hover:shadow-xl transition-all duration-300 cursor-pointer transform hover:scale-[1.02] animate-fade-in-up group"
+                    style={{ animationDelay: `${0.4 + index * 0.05}s` }}
+                    onClick={() => handlePlayerClick(player)}
+                  >
+                    <CardContent className="p-5">
+                      <div className="flex items-center gap-5">
+                        {/* Position Number */}
+                        <div className="w-12 text-center">
+                          <div className="text-3xl font-black text-gray-300 group-hover:text-[#800020] transition-colors duration-300">
+                            {player.posicion}
+                          </div>
+                        </div>
+
+                        {/* Avatar */}
+                        <Avatar className="w-14 h-14 border-2 border-gray-200 shadow-md group-hover:border-[#800020] transition-all duration-300">
+                          <AvatarImage src={player.imagen || "/placeholder.svg"} />
+                          <AvatarFallback className="bg-gray-100 text-gray-700 font-bold text-lg">
+                            {player.nombre.charAt(0)}
+                          </AvatarFallback>
+                        </Avatar>
+
+                        {/* Player Info */}
+                        <div className="flex-1">
+                          <p className="font-bold text-gray-900 text-lg group-hover:text-[#800020] transition-colors duration-300">
+                            {player.nombre}
+                          </p>
+                          <p className="text-sm text-gray-500 font-medium flex items-center gap-1">
+                            <Target className="h-3 w-3" />
+                            {player.totalIntentos} intentos
+                          </p>
+                        </div>
+
+                        {/* Score */}
+                        <div className="text-right">
+                          <p className="text-3xl font-black text-[#800020]">{player.porcentajePromedio}%</p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </>
+        )}
       </div>
+
+      {/* Player Details Modal */}
+      <Dialog open={selectedPlayer !== null} onOpenChange={() => setSelectedPlayer(null)}>
+        <DialogContent className="max-w-md bg-white border-gray-200 animate-scale-in rounded-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+              <Trophy className="h-6 w-6 text-[#800020]" />
+              Detalles del Jugador
+            </DialogTitle>
+          </DialogHeader>
+
+          {loadingDetails ? (
+            <div className="flex justify-center py-8">
+              <div className="animate-spin rounded-full h-12 w-12 border-4 border-[#800020] border-t-transparent"></div>
+            </div>
+          ) : playerDetails ? (
+            <div className="space-y-6">
+              {/* Player Info */}
+              <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-xl border border-gray-200">
+                <Avatar className="w-16 h-16 border-4 border-[#800020] shadow-lg">
+                  <AvatarImage src={playerDetails.imagen || "/placeholder.svg"} />
+                  <AvatarFallback className="bg-[#800020] text-white font-bold text-xl">
+                    {playerDetails.nombre.charAt(0)}
+                  </AvatarFallback>
+                </Avatar>
+                <div>
+                  <p className="font-bold text-xl text-gray-900">{playerDetails.nombre}</p>
+                  <p className="text-sm text-gray-600">
+                    {playerDetails.jugador?.carrera || "N/A"} • {playerDetails.jugador?.posicion_principal || "N/A"}
+                  </p>
+                </div>
+              </div>
+
+              {/* Stats Cards */}
+              <div className="grid grid-cols-2 gap-3">
+                <Card className="bg-blue-50 border-blue-200 hover:scale-105 transition-transform duration-300">
+                  <CardContent className="p-4 text-center">
+                    <Target className="h-8 w-8 text-blue-600 mx-auto mb-2" />
+                    <p className="text-2xl font-bold text-gray-900">{playerDetails.totalIntentos}</p>
+                    <p className="text-xs text-blue-600 font-semibold">Total Intentos</p>
+                  </CardContent>
+                </Card>
+
+                <Card className="bg-green-50 border-green-200 hover:scale-105 transition-transform duration-300">
+                  <CardContent className="p-4 text-center">
+                    <TrendingUp className="h-8 w-8 text-green-600 mx-auto mb-2" />
+                    <p className="text-2xl font-bold text-gray-900">{playerDetails.porcentajePromedio}%</p>
+                    <p className="text-xs text-green-600 font-semibold">Precisión</p>
+                  </CardContent>
+                </Card>
+
+                <Card className="bg-purple-50 border-purple-200 hover:scale-105 transition-transform duration-300">
+                  <CardContent className="p-4 text-center">
+                    <Award className="h-8 w-8 text-purple-600 mx-auto mb-2" />
+                    <p className="text-2xl font-bold text-gray-900">{playerDetails.totalAciertos}</p>
+                    <p className="text-xs text-purple-600 font-semibold">Aciertos</p>
+                  </CardContent>
+                </Card>
+
+                <Card className="bg-red-50 border-red-200 hover:scale-105 transition-transform duration-300">
+                  <CardContent className="p-4 text-center">
+                    <div className="text-2xl font-bold text-red-600 mx-auto mb-2">✕</div>
+                    <p className="text-2xl font-bold text-gray-900">{playerDetails.totalErrores}</p>
+                    <p className="text-xs text-red-600 font-semibold">Errores</p>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Test Type Breakdown */}
+              <div className="space-y-3">
+                <h3 className="font-bold text-gray-900">Rendimiento por Tipo</h3>
+
+                {["secuencial", "aleatorio", "manual"].map((tipo) => {
+                  const data = playerDetails.resumenPorTipo[tipo]
+                  const colors = {
+                    secuencial: { bg: "bg-blue-50", border: "border-blue-200", text: "text-blue-600" },
+                    aleatorio: { bg: "bg-yellow-50", border: "border-yellow-200", text: "text-yellow-600" },
+                    manual: { bg: "bg-green-50", border: "border-green-200", text: "text-green-600" },
+                  }
+                  const color = colors[tipo]
+
+                  return (
+                    <Card
+                      key={tipo}
+                      className={`${color.bg} border ${color.border} hover:scale-[1.02] transition-transform duration-300`}
+                    >
+                      <CardContent className="p-3">
+                        <div className="flex justify-between items-center">
+                          <div>
+                            <p className="font-bold text-gray-900 capitalize">{tipo}</p>
+                            <p className="text-sm text-gray-600">
+                              {data.totalAciertos}/{data.totalIntentos} aciertos
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <p className={`text-2xl font-bold ${color.text}`}>{data.porcentajePromedio}%</p>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )
+                })}
+              </div>
+            </div>
+          ) : null}
+        </DialogContent>
+      </Dialog>
+
+      <style jsx global>{`
+        @keyframes fade-in-up {
+          from {
+            opacity: 0;
+            transform: translateY(20px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+
+        @keyframes fade-in {
+          from {
+            opacity: 0;
+          }
+          to {
+            opacity: 1;
+          }
+        }
+
+        @keyframes slide-up {
+          from {
+            opacity: 0;
+            transform: translateY(30px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+
+        @keyframes bounce-slow {
+          0%, 100% {
+            transform: translateY(0);
+          }
+          50% {
+            transform: translateY(-8px);
+          }
+        }
+
+        @keyframes pulse-slow {
+          0%, 100% {
+            opacity: 1;
+            transform: scale(1);
+          }
+          50% {
+            opacity: 0.9;
+            transform: scale(1.05);
+          }
+        }
+
+        @keyframes scale-in {
+          from {
+            opacity: 0;
+            transform: scale(0.95);
+          }
+          to {
+            opacity: 1;
+            transform: scale(1);
+          }
+        }
+
+        .animate-fade-in-up {
+          animation: fade-in-up 0.6s ease-out forwards;
+          opacity: 0;
+        }
+
+        .animate-fade-in {
+          animation: fade-in 0.8s ease-out forwards;
+        }
+
+        .animate-slide-up {
+          animation: slide-up 0.6s ease-out forwards;
+          opacity: 0;
+        }
+
+        .animate-bounce-slow {
+          animation: bounce-slow 2s infinite;
+        }
+
+        .animate-pulse-slow {
+          animation: pulse-slow 3s infinite;
+        }
+
+        .animate-scale-in {
+          animation: scale-in 0.3s ease-out forwards;
+        }
+      `}</style>
     </div>
   )
 }

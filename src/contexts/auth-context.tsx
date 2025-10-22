@@ -1,76 +1,38 @@
 "use client"
 
-import { useState, useEffect, useCallback, useRef } from "react"
+import { createContext, useContext, useState, useEffect, useCallback, useRef } from "react"
 
-const initialAuthState = {
-  idUser: "",
-  rol: "",
-  token: "",
-  isAuthenticated: false,
-}
+const AuthContext = createContext(undefined)
 
-const AUTH_CHANGE_EVENT = "authStateChange"
-const INACTIVITY_TIMEOUT = 5 * 60 * 1000 // 5 minutos
+const INACTIVITY_TIMEOUT = 10 * 60 * 1000
 
-export function useAuth() {
-  const [authState, setAuthState] = useState(initialAuthState)
-  const inactivityTimer = useRef<NodeJS.Timeout | null>(null)
+export function AuthProvider({ children }) {
+  const [idUser, setIdUser] = useState(null)
+  const [rol, setRol] = useState("jugador")
+  const [token, setToken] = useState(null)
+  const [posicion, setPosicion] = useState(null)
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
 
-  const updateAuthState = useCallback(() => {
-    if (typeof window !== "undefined") {
-      const idUser = localStorage.getItem("idUser") || ""
-      const rol = localStorage.getItem("rol") || ""
-      const token = localStorage.getItem("token") || ""
-      const isAuthenticated = !!(idUser && rol && token)
+  const inactivityTimer = useRef(null)
 
-      setAuthState({
-        idUser,
-        rol,
-        token,
-        isAuthenticated,
-      })
+  const logout = useCallback(() => {
+    if (inactivityTimer.current) {
+      clearTimeout(inactivityTimer.current)
     }
+
+    localStorage.removeItem("idUser")
+    localStorage.removeItem("rol")
+    localStorage.removeItem("token")
+    localStorage.removeItem("posicion")
+
+    setIdUser(null)
+    setRol("jugador")
+    setToken(null)
+    setPosicion(null)
+    setIsAuthenticated(false)
   }, [])
 
-  const triggerAuthChange = useCallback(() => {
-    updateAuthState()
-    if (typeof window !== "undefined") {
-      window.dispatchEvent(new CustomEvent(AUTH_CHANGE_EVENT))
-    }
-  }, [updateAuthState])
-
-  const login = useCallback(
-    (idUser: string, rol: string, token: string) => {
-      if (typeof window !== "undefined") {
-        localStorage.setItem("idUser", idUser)
-        localStorage.setItem("rol", rol)
-        localStorage.setItem("token", token)
-        triggerAuthChange()
-      }
-    },
-    [triggerAuthChange],
-  )
-
-  const logout = useCallback(async () => {
-    const token = localStorage.getItem("token")
-    try {
-      if (token) {
-        await fetch("https://voley-backend-nhyl.onrender.com/api/auth/logout", {
-          method: "POST",
-          headers: { Authorization: `Bearer ${token}` },
-        })
-      }
-    } catch (error) {
-      console.error("Error al cerrar sesión:", error)
-    } finally {
-      if (typeof window !== "undefined") {
-        localStorage.clear()
-        triggerAuthChange()
-      }
-    }
-  }, [triggerAuthChange])
-
-  // 🔥 Timer de inactividad
   const resetInactivityTimer = useCallback(() => {
     if (inactivityTimer.current) {
       clearTimeout(inactivityTimer.current)
@@ -82,16 +44,23 @@ export function useAuth() {
   }, [logout])
 
   useEffect(() => {
-    updateAuthState()
+    const storedUserId = localStorage.getItem("idUser")
+    const storedRol = localStorage.getItem("rol")
+    const storedToken = localStorage.getItem("token")
+    const storedPosicion = localStorage.getItem("posicion")
+
+    if (storedUserId && storedRol && storedToken) {
+      setIdUser(storedUserId)
+      setRol(storedRol)
+      setToken(storedToken)
+      setPosicion(storedPosicion)
+      setIsAuthenticated(true)
+    }
+
+    setIsLoading(false)
 
     if (typeof window !== "undefined") {
-      // ⚡ Si está en el HOME "/" → limpiar auth
-      if (window.location.pathname === "/") {
-        console.log("En Home, limpiando datos de sesión...")
-        logout()
-      }
-
-      const events = ["mousemove", "keydown", "click", "scroll"]
+      const events = ["mousemove", "keydown", "click", "scroll", "touchstart"]
       events.forEach((event) => {
         window.addEventListener(event, resetInactivityTimer)
       })
@@ -107,25 +76,52 @@ export function useAuth() {
         }
       }
     }
-  }, [updateAuthState, resetInactivityTimer, logout])
+  }, [logout, resetInactivityTimer])
 
-  // sincronizar entre tabs
-  useEffect(() => {
-    const handleAuthChange = () => {
-      updateAuthState()
-    }
-    if (typeof window !== "undefined") {
-      window.addEventListener(AUTH_CHANGE_EVENT, handleAuthChange)
-      return () => {
-        window.removeEventListener(AUTH_CHANGE_EVENT, handleAuthChange)
+  const login = useCallback(
+    (userId, userRole, authToken, userPosition) => {
+      localStorage.setItem("idUser", userId)
+      localStorage.setItem("rol", userRole)
+      localStorage.setItem("token", authToken)
+      if (userPosition) {
+        localStorage.setItem("posicion", userPosition)
       }
-    }
-  }, [updateAuthState])
 
-  return {
-    ...authState,
-    login,
-    logout,
-    triggerAuthChange,
+      setIdUser(userId)
+      setRol(userRole)
+      setToken(authToken)
+      setPosicion(userPosition || null)
+      setIsAuthenticated(true)
+
+      resetInactivityTimer()
+    },
+    [resetInactivityTimer],
+  )
+
+  return (
+    <AuthContext.Provider
+      value={{
+        idUser,
+        rol,
+        token,
+        posicion,
+        isAuthenticated,
+        login,
+        logout,
+        isLoading,
+      }}
+    >
+      {children}
+    </AuthContext.Provider>
+  )
+}
+
+export function useAuth() {
+  const context = useContext(AuthContext)
+
+  if (context === undefined) {
+    throw new Error("useAuth must be used within an AuthProvider")
   }
+
+  return context
 }

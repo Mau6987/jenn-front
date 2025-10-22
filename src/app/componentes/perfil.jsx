@@ -16,10 +16,14 @@ import {
   Save,
   Camera,
   Shield,
+  Trophy,
+  Target,
+  Award,
 } from "lucide-react"
+import { getPositionIcon, getPositionName } from "../../lib/position-icons"
 
 export default function Perfil() {
-  const { idUser, token, isAuthenticated } = useAuth()
+  const { idUser, token, isAuthenticated, isLoading: authLoading } = useAuth()
   const [perfil, setPerfil] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
@@ -28,15 +32,57 @@ export default function Perfil() {
   const [formData, setFormData] = useState({})
   const [updating, setUpdating] = useState(false)
   const [uploadingImage, setUploadingImage] = useState(false)
+  const [rankingStats, setRankingStats] = useState(null)
+  const [loadingStats, setLoadingStats] = useState(false)
 
   useEffect(() => {
+    console.log("[v0] Perfil page - Auth state:", {
+      isAuthenticated,
+      idUser,
+      hasToken: !!token,
+      authLoading,
+    })
+
+    if (authLoading) {
+      console.log("[v0] Waiting for auth to initialize...")
+      return
+    }
+
     if (isAuthenticated && idUser) {
+      console.log("[v0] User is authenticated, fetching profile...")
       obtenerPerfil()
     } else {
+      console.log("[v0] User is not authenticated")
       setError("Usuario no autenticado")
       setLoading(false)
     }
-  }, [idUser, isAuthenticated])
+  }, [idUser, isAuthenticated, authLoading])
+
+  const obtenerEstadisticasRanking = async () => {
+    try {
+      setLoadingStats(true)
+      const response = await fetch(
+        `https://voley-backend-nhyl.onrender.com/api/ranking/personal/${idUser}?periodo=general`,
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        },
+      )
+
+      const data = await response.json()
+
+      if (data.success) {
+        setRankingStats(data.data)
+      }
+    } catch (error) {
+      console.error("Error al obtener estadísticas de ranking:", error)
+    } finally {
+      setLoadingStats(false)
+    }
+  }
 
   const obtenerPerfil = async () => {
     try {
@@ -56,6 +102,9 @@ export default function Perfil() {
       if (data.success) {
         setPerfil(data.data)
         initializeFormData(data.data)
+        if (data.data.rol === "jugador") {
+          obtenerEstadisticasRanking()
+        }
         setNotification({
           type: "success",
           message: "Perfil cargado correctamente",
@@ -213,12 +262,23 @@ export default function Perfil() {
     }
   }, [notification])
 
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-red-950 to-slate-900 flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="h-12 w-12 animate-spin text-red-400 mx-auto mb-4" />
+          <p className="text-slate-300 font-medium text-lg">Inicializando...</p>
+        </div>
+      </div>
+    )
+  }
+
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-red-950 to-slate-900 flex items-center justify-center">
         <div className="text-center">
-          <Loader2 className="h-12 w-12 animate-spin text-red-900 mx-auto mb-4" />
-          <p className="text-slate-600 font-medium text-lg">Cargando perfil...</p>
+          <Loader2 className="h-12 w-12 animate-spin text-red-400 mx-auto mb-4" />
+          <p className="text-slate-300 font-medium text-lg">Cargando perfil...</p>
         </div>
       </div>
     )
@@ -226,8 +286,8 @@ export default function Perfil() {
 
   if (error && !perfil) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-        <div className="bg-red-50 border border-red-200 text-red-700 px-6 py-4 rounded-xl flex items-center max-w-md">
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-red-950 to-slate-900 flex items-center justify-center p-4">
+        <div className="bg-red-900/20 border border-red-500/30 text-red-300 px-6 py-4 rounded-xl flex items-center max-w-md backdrop-blur-sm">
           <AlertCircle className="h-6 w-6 mr-3 flex-shrink-0" />
           <div>
             <h3 className="font-semibold">Error al cargar perfil</h3>
@@ -240,11 +300,11 @@ export default function Perfil() {
 
   if (!perfil) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-red-950 to-gray-900 flex items-center justify-center p-4">
         <div className="text-center">
-          <User className="h-16 w-16 text-slate-400 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-slate-900 mb-2">No se encontró el perfil</h3>
-          <p className="text-slate-500">No se pudo cargar la información del usuario.</p>
+          <User className="h-16 w-16 text-slate-500 mx-auto mb-4" />
+          <h3 className="text-lg font-medium text-slate-200 mb-2">No se encontró el perfil</h3>
+          <p className="text-slate-400">No se pudo cargar la información del usuario.</p>
         </div>
       </div>
     )
@@ -254,336 +314,419 @@ export default function Perfil() {
   const datosEspecificos = perfil.jugador || perfil.entrenador || perfil.tecnico
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-red-950 to-gray-900">
       {notification && (
-        <div className="fixed top-20 right-6 z-50 animate-fade-in">
+        <div className="fixed top-20 right-6 z-50 animate-slide-in-right">
           <div
-            className={`rounded-xl shadow-lg p-4 flex items-center min-w-80 ${
+            className={`rounded-xl shadow-2xl p-4 flex items-center min-w-80 backdrop-blur-sm ${
               notification.type === "success"
-                ? "bg-green-50 border border-green-200"
-                : "bg-red-50 border border-red-200"
+                ? "bg-green-500/90 border-2 border-green-300"
+                : "bg-red-500/90 border-2 border-red-300"
             }`}
           >
             {notification.type === "success" ? (
-              <CheckCircle className="h-5 w-5 text-green-600 mr-3 flex-shrink-0" />
+              <CheckCircle className="h-5 w-5 text-white mr-3 flex-shrink-0" />
             ) : (
-              <AlertCircle className="h-5 w-5 text-red-600 mr-3 flex-shrink-0" />
+              <AlertCircle className="h-5 w-5 text-white mr-3 flex-shrink-0" />
             )}
-            <span
-              className={`font-medium text-sm ${notification.type === "success" ? "text-green-800" : "text-red-800"}`}
-            >
-              {notification.message}
-            </span>
-            <button
-              onClick={() => setNotification(null)}
-              className={`ml-4 ${notification.type === "success" ? "text-green-600 hover:text-green-800" : "text-red-600 hover:text-red-800"}`}
-            >
+            <span className="font-medium text-sm text-white">{notification.message}</span>
+            <button onClick={() => setNotification(null)} className="ml-4 text-white hover:text-gray-200">
               <X className="h-4 w-4" />
             </button>
           </div>
         </div>
       )}
 
-      <div className="w-full">
-        <div className="p-4 lg:p-6 max-w-full">
-          <div className="max-w-4xl mx-auto">
-           
+      <div className="w-full p-4 lg:p-8">
+        <div className="max-w-7xl mx-auto">
+          {/* Header */}
+          <div className="mb-8 animate-fade-in">
+            <h1 className="text-5xl font-bold text-white mb-2">Profile</h1>
+            <p className="text-gray-400 text-lg">View all your profile details here.</p>
+          </div>
 
-            <div className="bg-white rounded-2xl shadow-xl border border-slate-200/60 overflow-hidden backdrop-blur-sm">
-              <div className="bg-gradient-to-r from-red-900 to-red-800 px-8 py-8">
-                <div className="flex flex-col items-center space-y-4">
-                  
-                  <div className="text-center">
-                    <h2 className="text-3xl font-bold text-white">
-                      {isEditing ? (
-                        <div className="flex gap-2 justify-center">
-                          <input
-                            type="text"
-                            value={formData.nombres}
-                            onChange={(e) => handleInputChange("nombres", e.target.value)}
-                            className="bg-white/20 text-white placeholder-white/70 border border-white/30 rounded px-3 py-2 text-xl text-center"
-                            placeholder="Nombres"
-                          />
-                          <input
-                            type="text"
-                            value={formData.apellidos}
-                            onChange={(e) => handleInputChange("apellidos", e.target.value)}
-                            className="bg-white/20 text-white placeholder-white/70 border border-white/30 rounded px-3 py-2 text-xl text-center"
-                            placeholder="Apellidos"
-                          />
-                        </div>
-                      ) : (
-                        `${datosEspecificos?.nombres} ${datosEspecificos?.apellidos}`
-                      )}
-                    </h2>
-                    <p className="text-red-100 text-lg font-medium capitalize mt-2">{tipoUsuario}</p>
+          {/* Main Profile Card */}
+          <div className="bg-gradient-to-br from-gray-800/90 to-gray-900/90 backdrop-blur-xl rounded-3xl shadow-2xl border border-gray-700/50 overflow-hidden animate-scale-in">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 p-8">
+              {/* Left Column - Avatar & Basic Info */}
+              <div className="lg:col-span-1 space-y-6">
+                <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl p-6 border border-gray-700/50 shadow-xl animate-fade-in-up">
+                  {/* Avatar */}
+                  <div className="relative group mb-6">
+                    <div className="w-48 h-48 mx-auto rounded-full overflow-hidden border-4 border-red-500 shadow-2xl transform transition-all duration-500 group-hover:scale-105 group-hover:rotate-3 group-hover:border-red-400">
+                      {datosEspecificos?.imagen ? (
+                        <img
+                          src={datosEspecificos.imagen || "/placeholder.svg"}
+                          alt="Profile"
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            e.target.style.display = "none"
+                            e.target.nextSibling.style.display = "flex"
+                          }}
+                        />
+                      ) : null}
+                      <div
+                        className="w-full h-full bg-gradient-to-br from-red-900 to-red-700 flex items-center justify-center"
+                        style={{ display: datosEspecificos?.imagen ? "none" : "flex" }}
+                      >
+                        <User className="h-24 w-24 text-white" />
+                      </div>
+                    </div>
+                    {isEditing && (
+                      <label className="absolute bottom-2 right-1/2 transform translate-x-1/2 bg-red-600 hover:bg-red-700 text-white p-3 rounded-full cursor-pointer shadow-lg transition-all duration-300 hover:scale-110">
+                        <Camera className="h-5 w-5" />
+                        <input type="file" accept="image/*" onChange={handleImageChange} className="hidden" />
+                      </label>
+                    )}
                   </div>
+
+                  {/* Name & Role */}
+                  <div className="text-center space-y-3 animate-fade-in-up" style={{ animationDelay: "0.1s" }}>
+                    {isEditing ? (
+                      <div className="space-y-2">
+                        <input
+                          type="text"
+                          value={formData.nombres}
+                          onChange={(e) => handleInputChange("nombres", e.target.value)}
+                          className="w-full bg-gray-700/50 text-white border border-gray-600 rounded-lg px-3 py-2 text-center text-xl font-bold focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all"
+                          placeholder="Nombres"
+                        />
+                        <input
+                          type="text"
+                          value={formData.apellidos}
+                          onChange={(e) => handleInputChange("apellidos", e.target.value)}
+                          className="w-full bg-gray-700/50 text-white border border-gray-600 rounded-lg px-3 py-2 text-center text-xl font-bold focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all"
+                          placeholder="Apellidos"
+                        />
+                      </div>
+                    ) : (
+                      <h2 className="text-3xl font-bold text-white">
+                        {datosEspecificos?.nombres} {datosEspecificos?.apellidos}
+                      </h2>
+                    )}
+                    <div className="inline-block bg-gradient-to-r from-red-600 to-red-500 text-white px-4 py-2 rounded-full text-sm font-semibold shadow-lg animate-pulse-slow">
+                      {tipoUsuario}
+                    </div>
+                  </div>
+
+                  {tipoUsuario === "jugador" && datosEspecificos?.posicion_principal && (
+                    <div
+                      className="mt-6 flex flex-col items-center space-y-3 animate-fade-in-up"
+                      style={{ animationDelay: "0.15s" }}
+                    >
+                      <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-red-500/50 shadow-xl transform transition-all duration-500 hover:scale-110 hover:rotate-6">
+                        <img
+                          src={getPositionIcon(datosEspecificos.posicion_principal) || "/placeholder.svg"}
+                          alt={datosEspecificos.posicion_principal}
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                      <p className="text-lg font-semibold text-white capitalize">
+                        {getPositionName(datosEspecificos.posicion_principal)}
+                      </p>
+                    </div>
+                  )}
+
+                  {tipoUsuario === "jugador" && (
+                    <div className="grid grid-cols-3 gap-3 mt-6 animate-fade-in-up" style={{ animationDelay: "0.2s" }}>
+                      <div className="bg-gradient-to-br from-blue-600/20 to-blue-500/20 border border-blue-500/30 rounded-xl p-3 text-center transform transition-all duration-300 hover:scale-105 hover:shadow-lg hover:shadow-blue-500/20">
+                        <Trophy className="h-6 w-6 text-blue-400 mx-auto mb-1" />
+                        <p className="text-2xl font-bold text-white">{rankingStats?.posicion || "-"}</p>
+                        <p className="text-xs text-gray-400">Ranking</p>
+                      </div>
+                      <div className="bg-gradient-to-br from-green-600/20 to-green-500/20 border border-green-500/30 rounded-xl p-3 text-center transform transition-all duration-300 hover:scale-105 hover:shadow-lg hover:shadow-green-500/20">
+                        <Target className="h-6 w-6 text-green-400 mx-auto mb-1" />
+                        <p className="text-2xl font-bold text-white">
+                          {rankingStats?.precisionPromedio?.toFixed(0) || "0"}%
+                        </p>
+                        <p className="text-xs text-gray-400">Precisión</p>
+                      </div>
+                      <div className="bg-gradient-to-br from-purple-600/20 to-purple-500/20 border border-purple-500/30 rounded-xl p-3 text-center transform transition-all duration-300 hover:scale-105 hover:shadow-lg hover:shadow-purple-500/20">
+                        <Award className="h-6 w-6 text-purple-400 mx-auto mb-1" />
+                        <p className="text-2xl font-bold text-white">{rankingStats?.totalIntentos || "0"}</p>
+                        <p className="text-xs text-gray-400">Intentos</p>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
 
-              <div className="p-8">
-                {error && isEditing && (
-                  <div className="mb-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-center">
-                    <AlertCircle className="h-5 w-5 mr-2 flex-shrink-0" />
-                    <span className="text-sm">{error}</span>
+              {/* Right Column - Bio & Details */}
+              <div className="lg:col-span-2 space-y-6">
+                <div
+                  className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl p-6 border border-gray-700/50 shadow-xl animate-fade-in-up"
+                  style={{ animationDelay: "0.3s" }}
+                >
+                  <div className="flex items-center justify-between mb-6">
+                    <h3 className="text-2xl font-bold text-white">Bio & other details</h3>
+                    {isEditing && (
+                      <button
+                        onClick={cancelarEdicion}
+                        className="text-gray-400 hover:text-white transition-colors duration-300"
+                      >
+                        <X className="h-5 w-5" />
+                      </button>
+                    )}
                   </div>
-                )}
 
-                {isEditing && (
-                  <div className="mb-8 p-6 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border border-blue-200">
-                    <div className="flex items-start space-x-4">
-                      <div className="flex-shrink-0">
-                        <div className="w-24 h-24 bg-white rounded-lg flex items-center justify-center overflow-hidden border-4 border-white shadow-lg">
-                          {formData.imagen ? (
-                            <img
-                              src={formData.imagen || "/placeholder.svg"}
-                              alt="Vista previa"
-                              className="w-full h-full object-cover"
-                              onError={(e) => {
-                                e.target.style.display = "none"
-                                e.target.nextSibling.style.display = "flex"
-                              }}
-                            />
-                          ) : null}
-                          <Camera
-                            className="h-10 w-10 text-gray-400"
-                            style={{ display: formData.imagen ? "none" : "block" }}
-                          />
-                        </div>
-                      </div>
-                      <div className="flex-1">
-                        <label className="block text-sm font-semibold text-gray-700 mb-2">
-                          <Camera className="h-4 w-4 inline mr-2" />
-                          Imagen de perfil (opcional)
-                        </label>
+                  {error && isEditing && (
+                    <div className="mb-6 bg-red-500/20 border border-red-500/50 text-red-300 px-4 py-3 rounded-lg flex items-center animate-shake">
+                      <AlertCircle className="h-5 w-5 mr-2 flex-shrink-0" />
+                      <span className="text-sm">{error}</span>
+                    </div>
+                  )}
+
+                  {/* Details Grid */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Usuario */}
+                    <div className="space-y-2 animate-fade-in-up" style={{ animationDelay: "0.4s" }}>
+                      <label className="text-sm text-gray-400 flex items-center gap-2">
+                        <User className="h-4 w-4" />
+                        Usuario
+                      </label>
+                      {isEditing ? (
                         <input
-                          type="file"
-                          accept="image/*"
-                          onChange={handleImageChange}
-                          disabled={uploadingImage}
-                          className="w-full px-4 py-2 border border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-100 file:text-blue-700 hover:file:bg-blue-200 disabled:opacity-50"
+                          type="text"
+                          value={formData.usuario}
+                          onChange={(e) => handleInputChange("usuario", e.target.value)}
+                          className="w-full bg-gray-700/50 text-white border border-gray-600 rounded-lg px-4 py-2 focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all"
                         />
-                        <p className="text-xs text-gray-600 mt-2">
-                          {uploadingImage ? "Cargando imagen..." : "Selecciona una imagen (JPG, PNG, GIF). Máximo 2MB."}
+                      ) : (
+                        <p className="text-white font-medium">{perfil.usuario}</p>
+                      )}
+                    </div>
+
+                    {/* Email */}
+                    <div className="space-y-2 animate-fade-in-up" style={{ animationDelay: "0.5s" }}>
+                      <label className="text-sm text-gray-400 flex items-center gap-2">
+                        <Mail className="h-4 w-4" />
+                        {tipoUsuario === "entrenador" ? "Correo Electrónico" : "Correo Institucional"}
+                      </label>
+                      {isEditing ? (
+                        <input
+                          type="email"
+                          value={
+                            tipoUsuario === "entrenador" ? formData.correo_electronico : formData.correo_institucional
+                          }
+                          onChange={(e) =>
+                            handleInputChange(
+                              tipoUsuario === "entrenador" ? "correo_electronico" : "correo_institucional",
+                              e.target.value,
+                            )
+                          }
+                          className="w-full bg-gray-700/50 text-white border border-gray-600 rounded-lg px-4 py-2 focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all"
+                        />
+                      ) : (
+                        <p className="text-white font-medium">
+                          {tipoUsuario === "entrenador"
+                            ? datosEspecificos?.correo_electronico
+                            : datosEspecificos?.correo_institucional}
                         </p>
-                        {formData.imagen && (
-                          <button
-                            type="button"
-                            onClick={() => handleInputChange("imagen", "")}
-                            className="mt-2 text-xs text-red-600 hover:text-red-800 font-medium"
-                          >
-                            Eliminar imagen
-                          </button>
+                      )}
+                    </div>
+
+                    {/* Phone */}
+                    <div className="space-y-2 animate-fade-in-up" style={{ animationDelay: "0.6s" }}>
+                      <label className="text-sm text-gray-400 flex items-center gap-2">
+                        <Phone className="h-4 w-4" />
+                        Teléfono
+                      </label>
+                      {isEditing ? (
+                        <input
+                          type="tel"
+                          value={formData.numero_celular}
+                          onChange={(e) => handleInputChange("numero_celular", e.target.value)}
+                          className="w-full bg-gray-700/50 text-white border border-gray-600 rounded-lg px-4 py-2 focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all"
+                        />
+                      ) : (
+                        <p className="text-white font-medium">{datosEspecificos?.numero_celular}</p>
+                      )}
+                    </div>
+
+                    {/* Age */}
+                    <div className="space-y-2 animate-fade-in-up" style={{ animationDelay: "0.7s" }}>
+                      <label className="text-sm text-gray-400 flex items-center gap-2">
+                        <Calendar className="h-4 w-4" />
+                        Edad
+                      </label>
+                      {isEditing ? (
+                        <input
+                          type="date"
+                          value={formData.fecha_nacimiento}
+                          onChange={(e) => handleInputChange("fecha_nacimiento", e.target.value)}
+                          className="w-full bg-gray-700/50 text-white border border-gray-600 rounded-lg px-4 py-2 focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all"
+                        />
+                      ) : (
+                        <p className="text-white font-medium">
+                          {calcularEdad(datosEspecificos?.fecha_nacimiento)} años
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Career */}
+                    {tipoUsuario === "jugador" && (
+                      <div className="space-y-2 animate-fade-in-up" style={{ animationDelay: "0.8s" }}>
+                        <label className="text-sm text-gray-400 flex items-center gap-2">
+                          <GraduationCap className="h-4 w-4" />
+                          Carrera
+                        </label>
+                        {isEditing ? (
+                          <input
+                            type="text"
+                            value={formData.carrera}
+                            onChange={(e) => handleInputChange("carrera", e.target.value)}
+                            className="w-full bg-gray-700/50 text-white border border-gray-600 rounded-lg px-4 py-2 focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all"
+                          />
+                        ) : (
+                          <p className="text-white font-medium">{datosEspecificos?.carrera}</p>
                         )}
                       </div>
-                    </div>
-                  </div>
-                )}
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                  <div className="space-y-6">
-                    <h3 className="text-lg font-semibold text-gray-900 border-b border-gray-200 pb-2">
-                      Información de la Cuenta
-                    </h3>
-
-                    <div className="space-y-4">
-                      {!isEditing && (
-                        <div className="flex justify-center mb-4">
-                          <div className="w-40 h-40 md:w-60 md:h-60 lg:w-72 lg:h-72 bg-gray-200 rounded-lg flex items-center justify-center overflow-hidden border-4 border-gray-300 shadow-lg">
-                            {datosEspecificos?.imagen ? (
-                              <img
-                                src={datosEspecificos.imagen || "/placeholder.svg"}
-                                alt="Foto de perfil"
-                                className="w-full h-full object-cover"
-                                onError={(e) => {
-                                  e.target.style.display = "none"
-                                  e.target.nextSibling.style.display = "flex"
-                                }}
-                              />
-                            ) : null}
-                            <User
-                              className="h-20 w-20 text-gray-400"
-                              style={{ display: datosEspecificos?.imagen ? "none" : "block" }}
-                            />
-                          </div>
-                        </div>
-                      )}
-
-                      <div className="bg-blue-50/50 px-4 py-3 rounded-lg border border-blue-200/30">
-                        <div className="flex items-center space-x-3">
-                          <User className="h-5 w-5 text-blue-600" />
-                          <div className="flex-1">
-                            <p className="text-sm font-medium text-blue-800">Usuario</p>
-                            {isEditing ? (
-                              <input
-                                type="text"
-                                value={formData.usuario}
-                                onChange={(e) => handleInputChange("usuario", e.target.value)}
-                                className="w-full mt-1 px-2 py-1 border border-blue-300 rounded text-sm text-blue-700"
-                              />
-                            ) : (
-                              <p className="text-sm text-blue-700">{perfil.usuario}</p>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="space-y-6">
-                    <h3 className="text-lg font-semibold text-gray-900 border-b border-gray-200 pb-2">
-                      Información Personal
-                    </h3>
-
-                    <div className="space-y-4">
-                      <div className="bg-gray-50 px-4 py-3 rounded-lg border border-gray-200/50">
-                        <div className="flex items-center space-x-3">
-                          <Mail className="h-5 w-5 text-gray-600" />
-                          <div className="flex-1">
-                            <p className="text-sm font-medium text-gray-800">
-                              {tipoUsuario === "entrenador" ? "Correo Electrónico" : "Correo Institucional"}
-                            </p>
-                            {isEditing ? (
-                              <input
-                                type="email"
-                                value={
-                                  tipoUsuario === "entrenador"
-                                    ? formData.correo_electronico
-                                    : formData.correo_institucional
-                                }
-                                onChange={(e) =>
-                                  handleInputChange(
-                                    tipoUsuario === "entrenador" ? "correo_electronico" : "correo_institucional",
-                                    e.target.value,
-                                  )
-                                }
-                                className="w-full mt-1 px-2 py-1 border border-gray-300 rounded text-sm text-gray-700"
-                              />
-                            ) : (
-                              <p className="text-sm text-gray-700">
-                                {tipoUsuario === "entrenador"
-                                  ? datosEspecificos?.correo_electronico
-                                  : datosEspecificos?.correo_institucional}
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="bg-gray-50 px-4 py-3 rounded-lg border border-gray-200/50">
-                        <div className="flex items-center space-x-3">
-                          <Phone className="h-5 w-5 text-gray-600" />
-                          <div className="flex-1">
-                            <p className="text-sm font-medium text-gray-800">Teléfono</p>
-                            {isEditing ? (
-                              <input
-                                type="tel"
-                                value={formData.numero_celular}
-                                onChange={(e) => handleInputChange("numero_celular", e.target.value)}
-                                className="w-full mt-1 px-2 py-1 border border-gray-300 rounded text-sm text-gray-700"
-                              />
-                            ) : (
-                              <p className="text-sm text-gray-700">{datosEspecificos?.numero_celular}</p>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="bg-gray-50 px-4 py-3 rounded-lg border border-gray-200/50">
-                        <div className="flex items-center space-x-3">
-                          <Calendar className="h-5 w-5 text-gray-600" />
-                          <div className="flex-1">
-                            <p className="text-sm font-medium text-gray-800">Edad</p>
-                            {isEditing ? (
-                              <input
-                                type="date"
-                                value={formData.fecha_nacimiento}
-                                onChange={(e) => handleInputChange("fecha_nacimiento", e.target.value)}
-                                className="w-full mt-1 px-2 py-1 border border-gray-300 rounded text-sm text-gray-700"
-                              />
-                            ) : (
-                              <p className="text-sm text-gray-700">
-                                {calcularEdad(datosEspecificos?.fecha_nacimiento)} años
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-
-                      {tipoUsuario === "jugador" && (
-                        <div className="bg-gray-50 px-4 py-3 rounded-lg border border-gray-200/50">
-                          <div className="flex items-center space-x-3">
-                            <GraduationCap className="h-5 w-5 text-gray-600" />
-                            <div className="flex-1">
-                              <p className="text-sm font-medium text-gray-800">Carrera</p>
-                              {isEditing ? (
-                                <input
-                                  type="text"
-                                  value={formData.carrera}
-                                  onChange={(e) => handleInputChange("carrera", e.target.value)}
-                                  className="w-full mt-1 px-2 py-1 border border-gray-300 rounded text-sm text-gray-700"
-                                />
-                              ) : (
-                                <p className="text-sm text-gray-700">{datosEspecificos?.carrera}</p>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      )}
-
-                      {(tipoUsuario === "entrenador" || tipoUsuario === "jugador") && (
-                        <div className="bg-gray-50 px-4 py-3 rounded-lg border border-gray-200/50">
-                          <div className="flex items-center space-x-3">
-                            <Shield className="h-5 w-5 text-gray-600" />
-                            <div className="flex-1">
-                              <p className="text-sm font-medium text-gray-800">Años de Experiencia en Voleibol</p>
-                              {isEditing ? (
-                                <input
-                                  type="number"
-                                  value={formData.anos_experiencia_voley}
-                                  onChange={(e) => handleInputChange("anos_experiencia_voley", e.target.value)}
-                                  className="w-full mt-1 px-2 py-1 border border-gray-300 rounded text-sm text-gray-700"
-                                />
-                              ) : (
-                                <p className="text-sm text-gray-700">{datosEspecificos?.anos_experiencia_voley} años</p>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="mt-8 pt-6 border-t border-gray-200 text-center">
-                  <button
-                    onClick={handleActualizarPerfil}
-                    disabled={updating}
-                    className="px-6 py-3 bg-gradient-to-r from-red-900 to-red-800 text-white rounded-xl hover:from-red-800 hover:to-red-900 transition-all duration-300 font-medium shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 mx-auto"
-                  >
-                    {updating ? (
-                      <>
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        Guardando...
-                      </>
-                    ) : isEditing ? (
-                      <>
-                        <Save className="h-4 w-4" />
-                        Guardar Cambios
-                      </>
-                    ) : (
-                      <>
-                        <Edit className="h-4 w-4" />
-                        Actualizar Perfil
-                      </>
                     )}
-                  </button>
+
+                    {/* Experience */}
+                    {(tipoUsuario === "entrenador" || tipoUsuario === "jugador") && (
+                      <div className="space-y-2 animate-fade-in-up" style={{ animationDelay: "0.9s" }}>
+                        <label className="text-sm text-gray-400 flex items-center gap-2">
+                          <Shield className="h-4 w-4" />
+                          Años de Experiencia
+                        </label>
+                        {isEditing ? (
+                          <input
+                            type="number"
+                            value={formData.anos_experiencia_voley}
+                            onChange={(e) => handleInputChange("anos_experiencia_voley", e.target.value)}
+                            className="w-full bg-gray-700/50 text-white border border-gray-600 rounded-lg px-4 py-2 focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all"
+                          />
+                        ) : (
+                          <p className="text-white font-medium">{datosEspecificos?.anos_experiencia_voley} años</p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Action Button */}
+                  <div className="mt-8 flex justify-center animate-fade-in-up" style={{ animationDelay: "1s" }}>
+                    <button
+                      onClick={handleActualizarPerfil}
+                      disabled={updating}
+                      className="px-8 py-3 bg-gradient-to-r from-red-600 to-red-500 text-white rounded-xl hover:from-red-700 hover:to-red-600 transition-all duration-300 font-semibold shadow-lg hover:shadow-2xl hover:shadow-red-500/50 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-3 group"
+                    >
+                      {updating ? (
+                        <>
+                          <Loader2 className="h-5 w-5 animate-spin" />
+                          Guardando...
+                        </>
+                      ) : isEditing ? (
+                        <>
+                          <Save className="h-5 w-5 group-hover:rotate-12 transition-transform duration-300" />
+                          Guardar Cambios
+                        </>
+                      ) : (
+                        <>
+                          <Edit className="h-5 w-5 group-hover:rotate-12 transition-transform duration-300" />
+                          Editar Perfil
+                        </>
+                      )}
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
         </div>
       </div>
+
+      <style jsx global>{`
+        @keyframes fade-in {
+          from {
+            opacity: 0;
+          }
+          to {
+            opacity: 1;
+          }
+        }
+
+        @keyframes fade-in-up {
+          from {
+            opacity: 0;
+            transform: translateY(30px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+
+        @keyframes scale-in {
+          from {
+            opacity: 0;
+            transform: scale(0.95);
+          }
+          to {
+            opacity: 1;
+            transform: scale(1);
+          }
+        }
+
+        @keyframes slide-in-right {
+          from {
+            opacity: 0;
+            transform: translateX(100px);
+          }
+          to {
+            opacity: 1;
+            transform: translateX(0);
+          }
+        }
+
+        @keyframes pulse-slow {
+          0%,
+          100% {
+            opacity: 1;
+          }
+          50% {
+            opacity: 0.8;
+          }
+        }
+
+        @keyframes shake {
+          0%,
+          100% {
+            transform: translateX(0);
+          }
+          25% {
+            transform: translateX(-5px);
+          }
+          75% {
+            transform: translateX(5px);
+          }
+        }
+
+        .animate-fade-in {
+          animation: fade-in 0.8s ease-out forwards;
+        }
+
+        .animate-fade-in-up {
+          animation: fade-in-up 0.6s ease-out forwards;
+          opacity: 0;
+        }
+
+        .animate-scale-in {
+          animation: scale-in 0.5s ease-out forwards;
+        }
+
+        .animate-slide-in-right {
+          animation: slide-in-right 0.4s ease-out forwards;
+        }
+
+        .animate-pulse-slow {
+          animation: pulse-slow 3s infinite;
+        }
+
+        .animate-shake {
+          animation: shake 0.5s ease-in-out;
+        }
+      `}</style>
     </div>
   )
 }
