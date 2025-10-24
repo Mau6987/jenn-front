@@ -95,7 +95,7 @@ export default function EntrenadoresPage() {
       setLoading(true)
       const token = localStorage.getItem("token")
 
-      const response = await fetch("https://voley-backend-nhyl.onrender.com/api/cuentas", {
+      const response = await fetch("https://jenn-back-reac.onrender.com/api/cuentas", {
         method: "GET",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -343,7 +343,7 @@ export default function EntrenadoresPage() {
         rol: "entrenador",
       }
 
-      const baseUrl = "https://voley-backend-nhyl.onrender.com/api/cuentas"
+      const baseUrl = "https://jenn-back-reac.onrender.com/api/cuentas"
       const url = formMode === "create" ? baseUrl : `${baseUrl}/${selectedEntrenador.cuentaId}`
       const method = formMode === "create" ? "POST" : "PUT"
 
@@ -402,7 +402,7 @@ export default function EntrenadoresPage() {
       }
 
       const response = await fetch(
-        `https://voley-backend-nhyl.onrender.com/api/cuentas/${selectedEntrenador.cuentaId}`,
+        `https://jenn-back-reac.onrender.com/api/cuentas/${selectedEntrenador.cuentaId}`,
         {
           method: "DELETE",
           headers: {

@@ -7,7 +7,7 @@ import { Badge } from "../../components/ui/badge"
 import { User, Trophy, TrendingUp, Target, Zap } from "lucide-react"
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip, Legend } from "recharts"
 
-const BACKEND_URL = "https://voley-backend-nhyl.onrender.com"
+const BACKEND_URL = "https://jenn-back-reac.onrender.com"
 
 const COLORS = {
   secuencial: "#3b82f6",

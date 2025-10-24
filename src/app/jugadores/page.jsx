@@ -113,7 +113,7 @@ export default function JugadoresPage() {
       setLoading(true)
       const token = localStorage.getItem("token")
 
-      const response = await fetch("https://voley-backend-nhyl.onrender.com/api/cuentas", {
+      const response = await fetch("https://jenn-back-reac.onrender.com/api/cuentas", {
         method: "GET",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -175,7 +175,7 @@ export default function JugadoresPage() {
       setLoading(true)
       const token = localStorage.getItem("token")
 
-      const response = await fetch("https://voley-backend-nhyl.onrender.com/api/jugadores/import", {
+      const response = await fetch("https://jenn-back-reac.onrender.com/api/jugadores/import", {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -209,7 +209,7 @@ export default function JugadoresPage() {
       setLoading(true)
       const token = localStorage.getItem("token")
 
-      const response = await fetch("https://voley-backend-nhyl.onrender.com/api/jugadores/export", {
+      const response = await fetch("https://jenn-back-reac.onrender.com/api/jugadores/export", {
         method: "GET",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -446,7 +446,7 @@ export default function JugadoresPage() {
         rol: "jugador",
       }
 
-      const baseUrl = "https://voley-backend-nhyl.onrender.com/api/cuentas"
+      const baseUrl = "https://jenn-back-reac.onrender.com/api/cuentas"
       const url = formMode === "create" ? baseUrl : `${baseUrl}/${selectedJugador.cuentaId}`
       const method = formMode === "create" ? "POST" : "PUT"
 
@@ -504,7 +504,7 @@ export default function JugadoresPage() {
         return
       }
 
-      const response = await fetch(`https://voley-backend-nhyl.onrender.com/api/cuentas/${selectedJugador.cuentaId}`, {
+      const response = await fetch(`https://jenn-back-reac.onrender.com/api/cuentas/${selectedJugador.cuentaId}`, {
         method: "DELETE",
         headers: {
           Authorization: `Bearer ${token}`,

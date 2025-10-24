@@ -9,7 +9,7 @@ import { Label } from "../../components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs"
 import { Activity, Lightbulb, Volume2, Wifi, TestTube, Zap, Settings, Power, PowerOff } from "lucide-react"
 
-const BACKEND_URL = "https://voley-backend-nhyl.onrender.com"
+const BACKEND_URL = "https://jenn-back-reac.onrender.com"
 
 export default function ESPMonitoringDashboard() {
   const [microControllers, setMicroControllers] = useState([

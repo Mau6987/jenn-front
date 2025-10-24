@@ -62,7 +62,7 @@ export default function Perfil() {
     try {
       setLoadingStats(true)
       const response = await fetch(
-        `https://voley-backend-nhyl.onrender.com/api/ranking/personal/${idUser}?periodo=general`,
+        `https://jenn-back-reac.onrender.com/api/ranking/personal/${idUser}?periodo=general`,
         {
           method: "GET",
           headers: {
@@ -89,7 +89,7 @@ export default function Perfil() {
       setLoading(true)
       setError("")
 
-      const response = await fetch(`https://voley-backend-nhyl.onrender.com/api/cuentas/perfil/${idUser}`, {
+      const response = await fetch(`https://jenn-back-reac.onrender.com/api/cuentas/perfil/${idUser}`, {
         method: "GET",
         headers: {
           Authorization: `Bearer ${token}`,

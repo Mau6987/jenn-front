@@ -86,7 +86,7 @@ export default function TecnicosPage() {
         return
       }
 
-      const response = await fetch("https://voley-backend-nhyl.onrender.com/api/cuentas", {
+      const response = await fetch("https://jenn-back-reac.onrender.com/api/cuentas", {
         method: "GET",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -152,7 +152,7 @@ export default function TecnicosPage() {
         rol: "tecnico",
       }
 
-      const baseUrl = "https://voley-backend-nhyl.onrender.com/api/cuentas"
+      const baseUrl = "https://jenn-back-reac.onrender.com/api/cuentas"
       const url = formMode === "create" ? baseUrl : `${baseUrl}/${selectedTecnico.id}`
       const method = formMode === "create" ? "POST" : "PUT"
 
@@ -275,7 +275,7 @@ export default function TecnicosPage() {
         return
       }
 
-      const response = await fetch(`https://voley-backend-nhyl.onrender.com/api/cuentas/${selectedTecnico.id}`, {
+      const response = await fetch(`https://jenn-back-reac.onrender.com/api/cuentas/${selectedTecnico.id}`, {
         method: "DELETE",
         headers: {
           Authorization: `Bearer ${token}`,

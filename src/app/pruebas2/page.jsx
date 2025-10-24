@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { AlertCircle, CheckCircle, X, Users, Play, Clock, List, Shuffle, Hand } from "lucide-react"
 
-const BACKEND_URL = "https://voley-backend-nhyl.onrender.com"
+const BACKEND_URL = "https://jenn-back-reac.onrender.com"
 
 export default function PruebasPage() {
   const router = useRouter()
@@ -142,7 +142,7 @@ export default function PruebasPage() {
       setLoading(true)
       const token = localStorage.getItem("token")
 
-      const response = await fetch("https://voley-backend-nhyl.onrender.com/api/cuentas", {
+      const response = await fetch("https://jenn-back-reac.onrender.com/api/cuentas", {
         method: "GET",
         headers: {
           Authorization: `Bearer ${token}`,

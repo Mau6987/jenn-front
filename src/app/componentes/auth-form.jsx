@@ -31,7 +31,7 @@ export default function LoginPage() {
     setError("")
 
     try {
-      const response = await fetch("https://voley-backend-nhyl.onrender.com/api/auth/login", {
+      const response = await fetch("https://jenn-back-reac.onrender.com/api/auth/login", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

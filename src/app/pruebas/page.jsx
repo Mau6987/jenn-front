@@ -25,7 +25,7 @@ import {
   GraduationCap,
 } from "lucide-react"
 
-const BACKEND_URL = "https://voley-backend-nhyl.onrender.com"
+const BACKEND_URL = "https://jenn-back-reac.onrender.com"
 
 export default function PruebasCompleto() {
   // Sequential mode variables
