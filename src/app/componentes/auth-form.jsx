@@ -67,29 +67,31 @@ export default function LoginPage() {
         }}
       />
 
+      <div className="absolute inset-0 bg-gradient-to-br from-gray-900/80 via-gray-900/70 to-gray-900/90" />
+
+      <div className="absolute top-20 left-20 w-72 h-72 bg-red-600/10 rounded-full blur-3xl animate-float-slow" />
+      <div className="absolute bottom-20 right-20 w-96 h-96 bg-rose-700/10 rounded-full blur-3xl animate-float-slower" />
+      <div className="absolute top-1/2 left-1/2 w-64 h-64 bg-red-500/5 rounded-full blur-3xl animate-pulse-glow" />
+
       <div className="flex justify-center items-center flex-grow relative z-10 px-4">
         <div className="grid gap-8 w-full max-w-md lg:max-w-2xl animate-fade-in-up">
-          <div className="bg-white/10 rounded-[26px] shadow-2xl animate-scale-in hover:shadow-orange-500/30 transition-all duration-500 backdrop-blur-md border-2 border-white/30">
+          <div className="bg-white/10 rounded-[26px] shadow-2xl animate-scale-in hover:shadow-red-600/30 transition-all duration-500 backdrop-blur-md border-2 border-white/30">
             <div className="rounded-[20px] bg-gray-900/70 backdrop-blur-sm shadow-lg p-6 sm:p-8 lg:p-12">
               <div className="flex flex-col items-center pt-4 sm:pt-8 pb-4 sm:pb-6 animate-fade-in">
                 <div className="mb-4 hover:scale-110 transition-transform duration-500 drop-shadow-2xl animate-bounce-slow">
-                  <Image
-                    src="/login.png"
-                    alt="Voley Training Sys Logo"
-                    width={100}
-                    height={100}
-                    className="sm:w-[120px] sm:h-[120px] lg:w-[140px] lg:h-[140px]"
-                    priority
-                  />
+                  
                 </div>
-                <h1 className="font-bold text-4xl sm:text-5xl lg:text-6xl text-center cursor-default bg-gradient-to-r from-orange-500 via-orange-600 to-orange-500 bg-clip-text text-transparent animate-gradient-text bg-[length:200%_auto]">
+                <h1 className="font-bold text-4xl sm:text-5xl lg:text-6xl text-center cursor-default bg-gradient-to-r from-red-600 via-rose-700 to-red-600 bg-clip-text text-transparent animate-gradient-text bg-[length:200%_auto]">
                   Voley Training Sys
                 </h1>
+                <p className="text-red-200/70 text-sm sm:text-base mt-3 animate-fade-in-delayed">
+                  Sistema de Entrenamiento Profesional
+                </p>
               </div>
 
-              <form onSubmit={handleSubmit} className="space-y-4 lg:space-y-6">
+              <form onSubmit={handleSubmit} className="space-y-4 lg:space-y-6 mt-8">
                 {error && (
-                  <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg shadow-sm animate-shake text-sm sm:text-base">
+                  <div className="bg-red-500/10 border border-red-500/30 text-red-300 px-4 py-3 rounded-xl shadow-sm animate-shake text-sm sm:text-base backdrop-blur-sm">
                     {error}
                   </div>
                 )}
@@ -97,14 +99,14 @@ export default function LoginPage() {
                 <div className="animate-slide-in-left" style={{ animationDelay: "0.2s" }}>
                   <label
                     htmlFor="usuario"
-                    className="mb-2 text-orange-300 text-base sm:text-lg lg:text-xl block font-medium"
+                    className="mb-2 text-red-400 text-base sm:text-lg lg:text-xl block font-medium"
                   >
                     Usuario
                   </label>
                   <input
                     id="usuario"
                     name="usuario"
-                    className="border p-3 lg:p-4 bg-white/10 text-white border-white/20 shadow-md placeholder:text-gray-400 placeholder:text-sm sm:placeholder:text-base focus:scale-[1.02] ease-in-out duration-300 rounded-lg w-full focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all hover:shadow-lg hover:bg-white/15 text-base lg:text-lg"
+                    className="border p-3 lg:p-4 bg-white/5 text-white border-white/10 shadow-md placeholder:text-gray-500 placeholder:text-sm sm:placeholder:text-base focus:scale-[1.02] ease-in-out duration-300 rounded-xl w-full focus:ring-2 focus:ring-red-500/50 focus:border-red-500/50 transition-all hover:shadow-lg hover:shadow-red-500/10 hover:bg-white/10 text-base lg:text-lg backdrop-blur-sm"
                     type="text"
                     placeholder="Ingresa tu usuario"
                     value={formData.usuario}
@@ -116,14 +118,14 @@ export default function LoginPage() {
                 <div className="animate-slide-in-right" style={{ animationDelay: "0.3s" }}>
                   <label
                     htmlFor="contraseña"
-                    className="mb-2 text-orange-300 text-base sm:text-lg lg:text-xl block font-medium"
+                    className="mb-2 text-red-400 text-base sm:text-lg lg:text-xl block font-medium"
                   >
                     Contraseña
                   </label>
                   <input
                     id="contraseña"
                     name="contraseña"
-                    className="border p-3 lg:p-4 shadow-md bg-white/10 text-white border-white/20 placeholder:text-gray-400 placeholder:text-sm sm:placeholder:text-base focus:scale-[1.02] ease-in-out duration-300 rounded-lg w-full focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all hover:shadow-lg hover:bg-white/15 text-base lg:text-lg"
+                    className="border p-3 lg:p-4 shadow-md bg-white/5 text-white border-white/10 placeholder:text-gray-500 placeholder:text-sm sm:placeholder:text-base focus:scale-[1.02] ease-in-out duration-300 rounded-xl w-full focus:ring-2 focus:ring-red-500/50 focus:border-red-500/50 transition-all hover:shadow-lg hover:shadow-red-500/10 hover:bg-white/10 text-base lg:text-lg backdrop-blur-sm"
                     type="password"
                     placeholder="Ingresa tu contraseña"
                     value={formData.contraseña}
@@ -133,12 +135,19 @@ export default function LoginPage() {
                 </div>
 
                 <button
-                  className="bg-gradient-to-r from-orange-500 to-orange-600 shadow-lg mt-6 p-3 lg:p-4 text-white rounded-lg w-full hover:scale-[1.02] hover:from-orange-400 hover:to-orange-500 transition-all duration-300 ease-in-out disabled:opacity-50 disabled:cursor-not-allowed font-medium hover:shadow-2xl hover:shadow-orange-500/50 animate-pulse-slow text-sm sm:text-base lg:text-lg"
+                  className="bg-gradient-to-r from-red-600 via-rose-700 to-red-600 shadow-lg shadow-red-600/30 mt-6 p-3 lg:p-4 text-white rounded-xl w-full hover:scale-[1.03] hover:shadow-2xl hover:shadow-red-600/50 transition-all duration-500 ease-in-out disabled:opacity-50 disabled:cursor-not-allowed font-semibold text-sm sm:text-base lg:text-lg animate-shimmer bg-[length:200%_100%] hover:brightness-110"
                   type="submit"
                   disabled={isLoading}
                   style={{ animationDelay: "0.4s" }}
                 >
-                  {isLoading ? "INICIANDO SESIÓN..." : "INICIAR SESIÓN"}
+                  {isLoading ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <span className="animate-spin-slow">⚡</span>
+                      INICIANDO SESIÓN...
+                    </span>
+                  ) : (
+                    "INICIAR SESIÓN"
+                  )}
                 </button>
               </form>
 
@@ -150,7 +159,7 @@ export default function LoginPage() {
                   href="https://www.instagram.com/univalle_bolivia/?hl=es"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="hover:scale-110 ease-in-out duration-300 shadow-lg p-2 sm:p-3 rounded-lg bg-gradient-to-r from-pink-500 to-purple-600 text-white hover:shadow-pink-500/50 hover:rotate-6 transition-all"
+                  className="hover:scale-110 ease-in-out duration-300 shadow-lg shadow-pink-500/20 p-2 sm:p-3 rounded-xl bg-gradient-to-r from-pink-500 to-purple-600 text-white hover:shadow-pink-500/50 hover:rotate-6 transition-all backdrop-blur-sm"
                 >
                   <Instagram size={20} className="sm:w-6 sm:h-6" />
                 </Link>
@@ -159,7 +168,7 @@ export default function LoginPage() {
                   href="https://www.facebook.com/UnivalleBolivia/?locale=es_LA"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="hover:scale-110 ease-in-out duration-300 shadow-lg p-2 sm:p-3 rounded-lg bg-blue-600 text-white hover:shadow-blue-500/50 hover:rotate-6 transition-all"
+                  className="hover:scale-110 ease-in-out duration-300 shadow-lg shadow-blue-500/20 p-2 sm:p-3 rounded-xl bg-blue-600 text-white hover:shadow-blue-500/50 hover:rotate-6 transition-all backdrop-blur-sm"
                 >
                   <Facebook size={20} className="sm:w-6 sm:h-6" />
                 </Link>
@@ -167,7 +176,7 @@ export default function LoginPage() {
                   href="https://www.univalle.edu/"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="hover:scale-110 ease-in-out duration-300 p-2 sm:p-3 rounded-lg hover:rotate-6 transition-all"
+                  className="hover:scale-110 ease-in-out duration-300 p-2 sm:p-3 rounded-xl hover:rotate-6 transition-all bg-white/10 hover:bg-white/20 backdrop-blur-sm shadow-lg"
                 >
                   <Image
                     src="/logo.png"
@@ -181,7 +190,7 @@ export default function LoginPage() {
               </div>
 
               <div
-                className="text-orange-200 flex text-center flex-col mt-4 sm:mt-6 items-center text-xs sm:text-sm animate-fade-in"
+                className="text-red-200 flex text-center flex-col mt-4 sm:mt-6 items-center text-xs sm:text-sm animate-fade-in"
                 style={{ animationDelay: "0.6s" }}
               >
                 <p className="cursor-default px-2">Bienvenido al sistema de entrenamiento para la selección de voley</p>
@@ -284,6 +293,67 @@ export default function LoginPage() {
           }
         }
 
+        @keyframes float-slow {
+          0%, 100% {
+            transform: translate(0, 0) scale(1);
+          }
+          33% {
+            transform: translate(30px, -30px) scale(1.1);
+          }
+          66% {
+            transform: translate(-20px, 20px) scale(0.9);
+          }
+        }
+
+        @keyframes float-slower {
+          0%, 100% {
+            transform: translate(0, 0) scale(1);
+          }
+          50% {
+            transform: translate(-40px, -40px) scale(1.15);
+          }
+        }
+
+        @keyframes pulse-glow {
+          0%, 100% {
+            opacity: 0.3;
+            transform: scale(1);
+          }
+          50% {
+            opacity: 0.6;
+            transform: scale(1.2);
+          }
+        }
+
+        @keyframes spin-slow {
+          from {
+            transform: rotate(0deg);
+          }
+          to {
+            transform: rotate(360deg);
+          }
+        }
+
+        @keyframes fade-in-delayed {
+          0% {
+            opacity: 0;
+            transform: translateY(10px);
+          }
+          100% {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+
+        @keyframes shimmer {
+          0% {
+            background-position: -200% center;
+          }
+          100% {
+            background-position: 200% center;
+          }
+        }
+
         .animate-fade-in-up {
           animation: fade-in-up 0.8s ease-out forwards;
         }
@@ -321,6 +391,31 @@ export default function LoginPage() {
 
         .animate-pulse-slow {
           animation: pulse-slow 2s ease-in-out infinite;
+        }
+
+        .animate-float-slow {
+          animation: float-slow 20s ease-in-out infinite;
+        }
+
+        .animate-float-slower {
+          animation: float-slower 25s ease-in-out infinite;
+        }
+
+        .animate-pulse-glow {
+          animation: pulse-glow 6s ease-in-out infinite;
+        }
+
+        .animate-spin-slow {
+          animation: spin-slow 1s linear infinite;
+        }
+
+        .animate-fade-in-delayed {
+          animation: fade-in-delayed 1s ease-out 0.3s forwards;
+          opacity: 0;
+        }
+
+        .animate-shimmer {
+          animation: shimmer 3s linear infinite;
         }
       `}</style>
     </div>
