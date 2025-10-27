@@ -10,6 +10,7 @@ export const getPositionIcon = (position: string | null | undefined): string => 
     líbero: "/zorro.png",
     nexo: "/tigre.png",
     punta: "/puma.png",
+    receptor: "/puma.png",
   }
 
   return positionMap[normalizedPosition] || "/oso.png"

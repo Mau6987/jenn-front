@@ -34,6 +34,8 @@ export default function Perfil() {
   const [uploadingImage, setUploadingImage] = useState(false)
   const [rankingStats, setRankingStats] = useState(null)
   const [loadingStats, setLoadingStats] = useState(false)
+  const [rankingPosition, setRankingPosition] = useState(null)
+  const [loadingPosition, setLoadingPosition] = useState(false)
 
   useEffect(() => {
     console.log("[v0] Perfil page - Auth state:", {
@@ -84,6 +86,32 @@ export default function Perfil() {
     }
   }
 
+  const obtenerPosicionRanking = async () => {
+    try {
+      setLoadingPosition(true)
+      const response = await fetch(
+        `https://jenn-back-reac.onrender.com/api/ranking/posicion/${idUser}?periodo=general`,
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        },
+      )
+
+      const data = await response.json()
+
+      if (data.success) {
+        setRankingPosition(data.data)
+      }
+    } catch (error) {
+      console.error("Error al obtener posición de ranking:", error)
+    } finally {
+      setLoadingPosition(false)
+    }
+  }
+
   const obtenerPerfil = async () => {
     try {
       setLoading(true)
@@ -104,6 +132,7 @@ export default function Perfil() {
         initializeFormData(data.data)
         if (data.data.rol === "jugador") {
           obtenerEstadisticasRanking()
+          obtenerPosicionRanking()
         }
         setNotification({
           type: "success",
@@ -121,24 +150,40 @@ export default function Perfil() {
   }
 
   const initializeFormData = (perfilData) => {
+    const tipoUsuario = perfilData.rol
     const datosEspecificos = perfilData.jugador || perfilData.entrenador || perfilData.tecnico
-    setFormData({
+
+    const baseData = {
       usuario: perfilData.usuario || "",
       nombres: datosEspecificos?.nombres || "",
       apellidos: datosEspecificos?.apellidos || "",
-      correo_electronico: datosEspecificos?.correo_electronico || "",
-      correo_institucional: datosEspecificos?.correo_institucional || "",
       numero_celular: datosEspecificos?.numero_celular || "",
       fecha_nacimiento: datosEspecificos?.fecha_nacimiento ? datosEspecificos.fecha_nacimiento.split("T")[0] : "",
-      carrera: datosEspecificos?.carrera || "",
-      posicion_principal: datosEspecificos?.posicion_principal || "",
-      altura: datosEspecificos?.altura || "",
-      anos_experiencia_voley:
-        datosEspecificos?.anos_experiencia_voley !== undefined
-          ? datosEspecificos.anos_experiencia_voley.toString()
-          : "",
-      imagen: datosEspecificos?.imagen || "",
-    })
+    }
+
+    if (tipoUsuario === "jugador") {
+      setFormData({
+        ...baseData,
+        correo_institucional: datosEspecificos?.correo_institucional || "",
+        carrera: datosEspecificos?.carrera || "",
+        posicion_principal: datosEspecificos?.posicion_principal || "",
+        altura: datosEspecificos?.altura || "",
+        anos_experiencia_voley: datosEspecificos?.anos_experiencia_voley?.toString() || "",
+        imagen: datosEspecificos?.imagen || "",
+      })
+    } else if (tipoUsuario === "entrenador") {
+      setFormData({
+        ...baseData,
+        correo_electronico: datosEspecificos?.correo_electronico || "",
+        anos_experiencia_voley: datosEspecificos?.anos_experiencia_voley?.toString() || "",
+        imagen: datosEspecificos?.imagen || "",
+      })
+    } else if (tipoUsuario === "tecnico") {
+      setFormData({
+        ...baseData,
+        correo_institucional: datosEspecificos?.correo_institucional || "",
+      })
+    }
   }
 
   const handleInputChange = (field, value) => {
@@ -354,7 +399,7 @@ export default function Perfil() {
                   {/* Avatar */}
                   <div className="relative group mb-6">
                     <div className="w-48 h-48 mx-auto rounded-full overflow-hidden border-4 border-red-500 shadow-2xl transform transition-all duration-500 group-hover:scale-105 group-hover:rotate-3 group-hover:border-red-400">
-                      {datosEspecificos?.imagen ? (
+                      {(tipoUsuario === "jugador" || tipoUsuario === "entrenador") && datosEspecificos?.imagen ? (
                         <img
                           src={datosEspecificos.imagen || "/placeholder.svg"}
                           alt="Profile"
@@ -367,12 +412,17 @@ export default function Perfil() {
                       ) : null}
                       <div
                         className="w-full h-full bg-gradient-to-br from-red-900 to-red-700 flex items-center justify-center"
-                        style={{ display: datosEspecificos?.imagen ? "none" : "flex" }}
+                        style={{
+                          display:
+                            (tipoUsuario === "jugador" || tipoUsuario === "entrenador") && datosEspecificos?.imagen
+                              ? "none"
+                              : "flex",
+                        }}
                       >
                         <User className="h-24 w-24 text-white" />
                       </div>
                     </div>
-                    {isEditing && (
+                    {isEditing && (tipoUsuario === "jugador" || tipoUsuario === "entrenador") && (
                       <label className="absolute bottom-2 right-1/2 transform translate-x-1/2 bg-red-600 hover:bg-red-700 text-white p-3 rounded-full cursor-pointer shadow-lg transition-all duration-300 hover:scale-110">
                         <Camera className="h-5 w-5" />
                         <input type="file" accept="image/*" onChange={handleImageChange} className="hidden" />
@@ -404,50 +454,7 @@ export default function Perfil() {
                         {datosEspecificos?.nombres} {datosEspecificos?.apellidos}
                       </h2>
                     )}
-                    <div className="inline-block bg-gradient-to-r from-red-600 to-red-500 text-white px-4 py-2 rounded-full text-sm font-semibold shadow-lg animate-pulse-slow">
-                      {tipoUsuario}
-                    </div>
                   </div>
-
-                  {tipoUsuario === "jugador" && datosEspecificos?.posicion_principal && (
-                    <div
-                      className="mt-6 flex flex-col items-center space-y-3 animate-fade-in-up"
-                      style={{ animationDelay: "0.15s" }}
-                    >
-                      <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-red-500/50 shadow-xl transform transition-all duration-500 hover:scale-110 hover:rotate-6">
-                        <img
-                          src={getPositionIcon(datosEspecificos.posicion_principal) || "/placeholder.svg"}
-                          alt={datosEspecificos.posicion_principal}
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
-                      <p className="text-lg font-semibold text-white capitalize">
-                        {getPositionName(datosEspecificos.posicion_principal)}
-                      </p>
-                    </div>
-                  )}
-
-                  {tipoUsuario === "jugador" && (
-                    <div className="grid grid-cols-3 gap-3 mt-6 animate-fade-in-up" style={{ animationDelay: "0.2s" }}>
-                      <div className="bg-gradient-to-br from-blue-600/20 to-blue-500/20 border border-blue-500/30 rounded-xl p-3 text-center transform transition-all duration-300 hover:scale-105 hover:shadow-lg hover:shadow-blue-500/20">
-                        <Trophy className="h-6 w-6 text-blue-400 mx-auto mb-1" />
-                        <p className="text-2xl font-bold text-white">{rankingStats?.posicion || "-"}</p>
-                        <p className="text-xs text-gray-400">Ranking</p>
-                      </div>
-                      <div className="bg-gradient-to-br from-green-600/20 to-green-500/20 border border-green-500/30 rounded-xl p-3 text-center transform transition-all duration-300 hover:scale-105 hover:shadow-lg hover:shadow-green-500/20">
-                        <Target className="h-6 w-6 text-green-400 mx-auto mb-1" />
-                        <p className="text-2xl font-bold text-white">
-                          {rankingStats?.precisionPromedio?.toFixed(0) || "0"}%
-                        </p>
-                        <p className="text-xs text-gray-400">Precisión</p>
-                      </div>
-                      <div className="bg-gradient-to-br from-purple-600/20 to-purple-500/20 border border-purple-500/30 rounded-xl p-3 text-center transform transition-all duration-300 hover:scale-105 hover:shadow-lg hover:shadow-purple-500/20">
-                        <Award className="h-6 w-6 text-purple-400 mx-auto mb-1" />
-                        <p className="text-2xl font-bold text-white">{rankingStats?.totalIntentos || "0"}</p>
-                        <p className="text-xs text-gray-400">Intentos</p>
-                      </div>
-                    </div>
-                  )}
                 </div>
               </div>
 
@@ -473,6 +480,64 @@ export default function Perfil() {
                     <div className="mb-6 bg-red-500/20 border border-red-500/50 text-red-300 px-4 py-3 rounded-lg flex items-center animate-shake">
                       <AlertCircle className="h-5 w-5 mr-2 flex-shrink-0" />
                       <span className="text-sm">{error}</span>
+                    </div>
+                  )}
+
+                  {/* Position Icon & Stats for Players */}
+                  {tipoUsuario === "jugador" && (
+                    <div className="mb-6 space-y-6">
+                      {datosEspecificos?.posicion_principal && (
+                        <div
+                          className="flex flex-col items-center space-y-3 animate-fade-in-up"
+                          style={{ animationDelay: "0.35s" }}
+                        >
+                          <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-red-500/50 shadow-xl transform transition-all duration-500 hover:scale-110 hover:rotate-6">
+                            <img
+                              src={getPositionIcon(datosEspecificos.posicion_principal) || "/placeholder.svg"}
+                              alt={datosEspecificos.posicion_principal}
+                              className="w-full h-full object-cover"
+                            />
+                          </div>
+                          <p className="text-lg font-semibold text-white capitalize">
+                            {getPositionName(datosEspecificos.posicion_principal)}
+                          </p>
+                        </div>
+                      )}
+
+                      {/* Stats Grid */}
+                      <div className="grid grid-cols-3 gap-3 animate-fade-in-up" style={{ animationDelay: "0.4s" }}>
+                        <div className="bg-gradient-to-br from-blue-600/20 to-blue-500/20 border border-blue-500/30 rounded-xl p-4 text-center transform transition-all duration-300 hover:scale-105 hover:shadow-lg hover:shadow-blue-500/20">
+                          <Trophy className="h-6 w-6 text-blue-400 mx-auto mb-2" />
+                          {loadingPosition ? (
+                            <Loader2 className="h-6 w-6 animate-spin text-blue-400 mx-auto" />
+                          ) : (
+                            <p className="text-2xl font-bold text-white">{rankingPosition?.posicion_ranking || "-"}</p>
+                          )}
+                          <p className="text-xs text-gray-400 mt-1">Ranking</p>
+                        </div>
+                        <div className="bg-gradient-to-br from-green-600/20 to-green-500/20 border border-green-500/30 rounded-xl p-4 text-center transform transition-all duration-300 hover:scale-105 hover:shadow-lg hover:shadow-green-500/20">
+                          <Target className="h-6 w-6 text-green-400 mx-auto mb-2" />
+                          {loadingStats ? (
+                            <Loader2 className="h-6 w-6 animate-spin text-green-400 mx-auto" />
+                          ) : (
+                            <p className="text-2xl font-bold text-white">
+                              {rankingStats?.totales_generales?.total_aciertos || "0"}
+                            </p>
+                          )}
+                          <p className="text-xs text-gray-400 mt-1">Aciertos</p>
+                        </div>
+                        <div className="bg-gradient-to-br from-purple-600/20 to-purple-500/20 border border-purple-500/30 rounded-xl p-4 text-center transform transition-all duration-300 hover:scale-105 hover:shadow-lg hover:shadow-purple-500/20">
+                          <Award className="h-6 w-6 text-purple-400 mx-auto mb-2" />
+                          {loadingStats ? (
+                            <Loader2 className="h-6 w-6 animate-spin text-purple-400 mx-auto" />
+                          ) : (
+                            <p className="text-2xl font-bold text-white">
+                              {rankingStats?.totales_generales?.total_pruebas || "0"}
+                            </p>
+                          )}
+                          <p className="text-xs text-gray-400 mt-1">Pruebas</p>
+                        </div>
+                      </div>
                     </div>
                   )}
 
@@ -519,8 +584,8 @@ export default function Perfil() {
                       ) : (
                         <p className="text-white font-medium">
                           {tipoUsuario === "entrenador"
-                            ? datosEspecificos?.correo_electronico
-                            : datosEspecificos?.correo_institucional}
+                            ? datosEspecificos?.correo_electronico || "-"
+                            : datosEspecificos?.correo_institucional || "-"}
                         </p>
                       )}
                     </div>
@@ -539,7 +604,7 @@ export default function Perfil() {
                           className="w-full bg-gray-700/50 text-white border border-gray-600 rounded-lg px-4 py-2 focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all"
                         />
                       ) : (
-                        <p className="text-white font-medium">{datosEspecificos?.numero_celular}</p>
+                        <p className="text-white font-medium">{datosEspecificos?.numero_celular || "-"}</p>
                       )}
                     </div>
 
@@ -558,12 +623,14 @@ export default function Perfil() {
                         />
                       ) : (
                         <p className="text-white font-medium">
-                          {calcularEdad(datosEspecificos?.fecha_nacimiento)} años
+                          {calcularEdad(datosEspecificos?.fecha_nacimiento)
+                            ? `${calcularEdad(datosEspecificos?.fecha_nacimiento)} años`
+                            : "-"}
                         </p>
                       )}
                     </div>
 
-                    {/* Career */}
+                    {/* Career - Only for jugador */}
                     {tipoUsuario === "jugador" && (
                       <div className="space-y-2 animate-fade-in-up" style={{ animationDelay: "0.8s" }}>
                         <label className="text-sm text-gray-400 flex items-center gap-2">
@@ -578,12 +645,12 @@ export default function Perfil() {
                             className="w-full bg-gray-700/50 text-white border border-gray-600 rounded-lg px-4 py-2 focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all"
                           />
                         ) : (
-                          <p className="text-white font-medium">{datosEspecificos?.carrera}</p>
+                          <p className="text-white font-medium">{datosEspecificos?.carrera || "-"}</p>
                         )}
                       </div>
                     )}
 
-                    {/* Experience */}
+                    {/* Experience - Only for entrenador and jugador */}
                     {(tipoUsuario === "entrenador" || tipoUsuario === "jugador") && (
                       <div className="space-y-2 animate-fade-in-up" style={{ animationDelay: "0.9s" }}>
                         <label className="text-sm text-gray-400 flex items-center gap-2">
@@ -598,14 +665,42 @@ export default function Perfil() {
                             className="w-full bg-gray-700/50 text-white border border-gray-600 rounded-lg px-4 py-2 focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all"
                           />
                         ) : (
-                          <p className="text-white font-medium">{datosEspecificos?.anos_experiencia_voley} años</p>
+                          <p className="text-white font-medium">
+                            {datosEspecificos?.anos_experiencia_voley
+                              ? `${datosEspecificos.anos_experiencia_voley} años`
+                              : "-"}
+                          </p>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Height - Only for jugador */}
+                    {tipoUsuario === "jugador" && (
+                      <div className="space-y-2 animate-fade-in-up" style={{ animationDelay: "1s" }}>
+                        <label className="text-sm text-gray-400 flex items-center gap-2">
+                          <User className="h-4 w-4" />
+                          Altura
+                        </label>
+                        {isEditing ? (
+                          <input
+                            type="number"
+                            step="0.01"
+                            value={formData.altura}
+                            onChange={(e) => handleInputChange("altura", e.target.value)}
+                            className="w-full bg-gray-700/50 text-white border border-gray-600 rounded-lg px-4 py-2 focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all"
+                            placeholder="1.75"
+                          />
+                        ) : (
+                          <p className="text-white font-medium">
+                            {datosEspecificos?.altura ? `${datosEspecificos.altura} m` : "-"}
+                          </p>
                         )}
                       </div>
                     )}
                   </div>
 
                   {/* Action Button */}
-                  <div className="mt-8 flex justify-center animate-fade-in-up" style={{ animationDelay: "1s" }}>
+                  <div className="mt-8 flex justify-center animate-fade-in-up" style={{ animationDelay: "1.1s" }}>
                     <button
                       onClick={handleActualizarPerfil}
                       disabled={updating}

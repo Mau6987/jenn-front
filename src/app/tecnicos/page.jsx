@@ -36,7 +36,7 @@ export default function TecnicosPage() {
 
   // Estados para paginación
   const [currentPage, setCurrentPage] = useState(1)
-  const [itemsPerPage] = useState(10)
+  const [itemsPerPage] = useState(6)
 
   const [formData, setFormData] = useState({
     nombres: "",
@@ -210,7 +210,7 @@ export default function TecnicosPage() {
     } else {
       const birthDate = new Date(formData.fecha_nacimiento)
       const today = new Date()
-      let age = today.getFullYear() - birthDate.getFullYear() // Use let instead of const
+      let age = today.getFullYear() - birthDate.getFullYear()
       const monthDiff = today.getMonth() - birthDate.getMonth()
 
       if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
@@ -327,7 +327,7 @@ export default function TecnicosPage() {
   const totalPages = Math.ceil(tecnicosFiltrados.length / itemsPerPage)
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-red-50/30 to-gray-50">
       {/* Notificación emergente */}
       {notification.show && (
         <div className="fixed top-20 right-6 z-50 animate-fade-in">
@@ -362,27 +362,30 @@ export default function TecnicosPage() {
         <div className="p-4 lg:p-6 max-w-full">
           <div className="max-w-7xl mx-auto">
             {/* Header */}
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6">
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900">Técnicos</h1>
-                <p className="text-gray-600 text-sm">Gestiona el personal técnico del equipo de volleyball</p>
-              </div>
+            <div className="mb-10 text-center animate-fade-in-up">
+              <h1 className="text-5xl font-black bg-gradient-to-r from-red-900 via-red-700 to-red-900 bg-clip-text text-transparent mb-3 tracking-tight">
+                Técnicos
+              </h1>
+              <div className="w-32 h-1.5 bg-gradient-to-r from-transparent via-red-800 to-transparent mx-auto mb-4 rounded-full"></div>
+              <p className="text-gray-600 text-base font-medium">
+                Gestiona el personal técnico del equipo de volleyball
+              </p>
             </div>
 
             {/* Search Bar */}
-            <div className="relative mb-6">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+            <div className="relative mb-8 animate-fade-in-up" style={{ animationDelay: "0.1s" }}>
+              <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5 transition-all duration-200" />
               <input
                 type="text"
                 placeholder="Buscar técnicos por nombre, email o usuario..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-900 focus:border-transparent"
+                className="w-full pl-12 pr-4 py-4 border-2 border-gray-200 rounded-2xl focus:ring-4 focus:ring-red-900/20 focus:border-red-900 transition-all duration-300 shadow-sm hover:shadow-md bg-white"
               />
             </div>
 
             {/* Action Buttons */}
-            <div className="flex flex-col sm:flex-row gap-3 mb-6">
+            <div className="flex flex-col sm:flex-row gap-4 mb-8 animate-fade-in-up" style={{ animationDelay: "0.2s" }}>
               <button
                 onClick={() => {
                   setFormMode("create")
@@ -398,41 +401,46 @@ export default function TecnicosPage() {
                   setValidationErrors({})
                   setShowForm(true)
                 }}
-                className="flex items-center justify-center space-x-2 px-4 py-2 bg-red-900 text-white rounded-lg hover:bg-red-800 transition-colors font-medium"
+                className="flex items-center justify-center space-x-2 px-6 py-3.5 bg-gradient-to-r from-green-700 to-green-600 text-white rounded-xl hover:from-green-800 hover:to-green-700 transition-all duration-300 font-bold shadow-lg hover:shadow-xl"
                 disabled={loading}
               >
-                <UserPlus className="h-4 w-4" />
+                <UserPlus className="h-5 w-5" />
                 <span>Agregar nuevo</span>
               </button>
-              <button className="flex items-center justify-center space-x-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors font-medium">
-                <Filter className="h-4 w-4" />
+              <button className="flex items-center justify-center space-x-2 px-6 py-3.5 bg-white text-gray-700 rounded-xl hover:bg-gray-50 transition-all duration-300 font-bold w-full sm:w-auto shadow-md hover:shadow-lg border-2 border-gray-200">
+                <Filter className="h-5 w-5" />
                 <span>Filtrar</span>
               </button>
             </div>
 
             {/* Mensaje de error */}
             {error && (
-              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6 flex items-center">
-                <AlertCircle className="h-5 w-5 mr-2 flex-shrink-0" />
-                {error}
+              <div className="bg-gradient-to-r from-red-50 to-red-100 border-2 border-red-300 text-red-800 px-6 py-4 rounded-2xl mb-8 flex items-center shadow-lg animate-scale-in">
+                <div className="h-10 w-10 rounded-full bg-red-200 flex items-center justify-center mr-4">
+                  <AlertCircle className="h-6 w-6 text-red-700" />
+                </div>
+                <span className="font-semibold">{error}</span>
               </div>
             )}
 
-            <div className="bg-white rounded-2xl shadow-xl border border-slate-200/60 overflow-hidden backdrop-blur-sm">
+            <div className="bg-white rounded-3xl shadow-2xl border-2 border-gray-100 overflow-hidden backdrop-blur-sm">
               {loading && !showForm && !showDeleteModal ? (
-                <div className="p-12 text-center">
-                  <Loader2 className="h-8 w-8 animate-spin text-slate-600 mx-auto mb-4" />
-                  <p className="text-slate-600 font-medium">Cargando técnicos...</p>
+                <div className="p-16 text-center">
+                  <div className="relative w-20 h-20 mx-auto mb-6">
+                    <div className="absolute inset-0 border-4 border-red-200 rounded-full"></div>
+                    <div className="absolute inset-0 border-4 border-red-900 rounded-full border-t-transparent animate-spin"></div>
+                  </div>
+                  <p className="text-gray-700 font-bold text-lg">Cargando técnicos...</p>
                 </div>
               ) : tecnicosFiltrados.length === 0 ? (
-                <div className="p-12 text-center">
-                  <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <Users className="h-8 w-8 text-slate-400" />
+                <div className="p-16 text-center animate-scale-in">
+                  <div className="w-24 h-24 bg-gradient-to-br from-gray-100 to-gray-200 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg">
+                    <Users className="h-12 w-12 text-gray-400" />
                   </div>
-                  <h3 className="text-lg font-medium text-slate-900 mb-2">
+                  <h3 className="text-2xl font-bold text-gray-900 mb-3">
                     {searchTerm ? "No se encontraron técnicos" : "No hay técnicos registrados"}
                   </h3>
-                  <p className="text-slate-500 mb-6">
+                  <p className="text-gray-600 mb-8 text-lg">
                     {searchTerm
                       ? "Intenta con otros términos de búsqueda."
                       : "Comienza agregando tu primer técnico al sistema."}
@@ -453,121 +461,98 @@ export default function TecnicosPage() {
                         setValidationErrors({})
                         setShowForm(true)
                       }}
-                      className="flex items-center space-x-2 px-6 py-3 bg-gradient-to-r from-red-800 to-red-900 text-white rounded-xl hover:from-red-900 hover:to-red-800 transition-all duration-300 font-medium mx-auto shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+                      className="flex items-center space-x-3 px-8 py-4 bg-gradient-to-r from-green-700 to-green-600 text-white rounded-2xl hover:from-green-800 hover:to-green-700 transition-all duration-300 font-bold mx-auto shadow-xl hover:shadow-2xl transform hover:-translate-y-1"
                     >
-                      <UserPlus className="h-4 w-4" />
+                      <UserPlus className="h-5 w-5" />
                       <span>Agregar primer técnico</span>
                     </button>
                   )}
                 </div>
               ) : (
                 <>
-                  <div className="bg-gradient-to-r from-red-800 via-red-900 to-red-800 px-8 py-6 border-b border-red-700/50 relative overflow-hidden">
-                    <div className="absolute inset-0 bg-gradient-to-r from-red-700/10 via-transparent to-red-700/10"></div>
-                    <div className="relative grid grid-cols-12 gap-6 text-sm font-bold text-white uppercase tracking-wider">
-                      <div className="col-span-3 flex items-center space-x-2">
-                        <div className="w-1 h-6 bg-white/80 rounded-full"></div>
-                        <span>Técnico</span>
-                      </div>
-                      <div className="col-span-2 flex items-center space-x-2">
-                        <div className="w-1 h-6 bg-white/80 rounded-full"></div>
-                        <span>Usuario</span>
-                      </div>
-                      <div className="col-span-2 flex items-center space-x-2">
-                        <div className="w-1 h-6 bg-white/80 rounded-full"></div>
-                        <span>Contacto</span>
-                      </div>
-                      <div className="col-span-4 flex items-center space-x-2">
-                        <div className="w-1 h-6 bg-white/80 rounded-full"></div>
-                        <span>Correo Institucional</span>
-                      </div>
-                      <div className="col-span-1 text-center flex items-center justify-center space-x-2">
-                        <div className="w-1 h-6 bg-white/80 rounded-full"></div>
-                        <span>Acciones</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="divide-y divide-slate-100/80">
+                  <div className="p-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                     {currentItems.map((tecnico, index) => (
                       <div
                         key={tecnico.id}
-                        className={`px-8 py-6 hover:bg-gradient-to-r hover:from-red-50/30 hover:to-red-50/10 transition-all duration-300 transform hover:scale-[1.002] hover:shadow-sm group ${
-                          index % 2 === 0 ? "bg-white" : "bg-gray-50/50"
-                        } border-l-4 border-transparent hover:border-l-red-400`}
+                        className="bg-white border-3 border-red-900 rounded-3xl overflow-hidden hover:border-red-700 transition-all duration-300 shadow-lg hover:shadow-2xl transform hover:-translate-y-2"
+                        style={{ animationDelay: `${index * 0.1}s` }}
                       >
-                        <div className="grid grid-cols-12 gap-6 items-center">
-                          <div className="col-span-3">
-                            <div>
-                              <p className="text-sm font-bold text-slate-900 group-hover:text-slate-700 transition-colors">
-                                {tecnico.nombres} {tecnico.apellidos}
-                              </p>
-                              <p className="text-xs text-slate-500 bg-slate-100 px-2 py-1 rounded-md mt-1 font-medium">
-                                Personal técnico
-                              </p>
-                            </div>
+                        <div className="flex p-6 gap-5">
+                          <div className="w-32 h-32 rounded-2xl bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center overflow-hidden flex-shrink-0 border-3 border-red-200 shadow-md">
+                            <Users className="h-14 w-14 text-gray-400" />
                           </div>
 
-                          <div className="col-span-2">
-                            <div className="bg-blue-50/50 px-3 py-2 rounded-lg border border-blue-200/30">
-                              <p className="text-sm font-semibold text-blue-800">{tecnico.usuario}</p>
-                            </div>
-                          </div>
+                          <div className="flex-1 min-w-0">
+                            <h3 className="text-lg font-black text-gray-900 leading-tight mb-2 truncate">
+                              {tecnico.nombres} {tecnico.apellidos}
+                            </h3>
+                            <p className="text-sm text-red-800 font-bold capitalize mb-4 bg-red-50 px-3 py-1 rounded-lg inline-block">
+                              Personal técnico
+                            </p>
 
-                          <div className="col-span-2">
-                            <div className="bg-slate-50 px-3 py-2 rounded-lg border border-slate-200/50">
-                              <p className="text-sm text-slate-800 font-medium">{tecnico.numero_celular}</p>
+                            <div className="space-y-2.5">
+                              <div className="flex items-center text-xs">
+                                <Users className="h-4 w-4 text-gray-500 mr-2 flex-shrink-0" />
+                                <span className="text-gray-700 font-bold truncate">{tecnico.usuario}</span>
+                              </div>
+                              <div className="flex items-center text-xs">
+                                <span className="text-gray-500 mr-2 text-base">📞</span>
+                                <span className="text-gray-700 font-semibold truncate">{tecnico.numero_celular}</span>
+                              </div>
+                              <div className="flex items-center text-xs">
+                                <span className="text-gray-500 mr-2 text-base">📧</span>
+                                <span className="text-gray-700 font-semibold truncate">
+                                  {tecnico.correo_institucional}
+                                </span>
+                              </div>
                             </div>
                           </div>
+                        </div>
 
-                          <div className="col-span-4">
-                            <div className="bg-gray-50 px-3 py-2 rounded-lg border border-gray-200/50">
-                              <p className="text-sm text-gray-700 font-medium">{tecnico.correo_institucional}</p>
-                            </div>
-                          </div>
-
-                          <div className="col-span-1">
-                            <div className="flex items-center justify-center space-x-1">
-                              <button
-                                onClick={() => handleViewTecnico(tecnico)}
-                                className="p-2.5 text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition-all duration-300 border border-slate-200 hover:border-slate-300 hover:shadow-sm group/btn"
-                                title="Ver detalles"
-                              >
-                                <Eye className="h-4 w-4" />
-                              </button>
-                              <button
-                                onClick={() => {
-                                  setFormMode("update")
-                                  setSelectedTecnico(tecnico)
-                                  setFormData({
-                                    nombres: tecnico.nombres || "",
-                                    apellidos: tecnico.apellidos || "",
-                                    fecha_nacimiento: tecnico.fecha_nacimiento || "",
-                                    numero_celular: tecnico.numero_celular || "",
-                                    correo_institucional: tecnico.correo_institucional || "",
-                                    usuario: tecnico.usuario || "",
-                                    contraseña: "",
-                                  })
-                                  setValidationErrors({})
-                                  setShowForm(true)
-                                }}
-                                className="p-2.5 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-xl transition-all duration-300 border border-red-200 hover:border-red-300 hover:shadow-sm group/btn"
-                                title="Editar"
-                              >
-                                <Edit className="h-4 w-4" />
-                              </button>
-                              <button
-                                onClick={() => {
-                                  setSelectedTecnico(tecnico)
-                                  setShowDeleteModal(true)
-                                }}
-                                className="p-2.5 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-xl transition-all duration-300 border border-red-200 hover:border-red-300 hover:shadow-sm group/btn"
-                                title="Eliminar"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </button>
-                            </div>
-                          </div>
+                        <div className="flex items-center justify-around px-6 py-4 bg-gradient-to-r from-gray-50 to-gray-100 border-t-2 border-gray-200">
+                          <button
+                            onClick={() => handleViewTecnico(tecnico)}
+                            className="flex items-center space-x-2 px-4 py-2.5 text-blue-700 hover:bg-blue-100 rounded-xl transition-all duration-200 text-sm font-bold"
+                            title="Ver detalles"
+                          >
+                            <Eye className="h-4 w-4" />
+                            <span>Ver</span>
+                          </button>
+                          <button
+                            onClick={() => {
+                              setFormMode("update")
+                              setSelectedTecnico(tecnico)
+                              setFormData({
+                                nombres: tecnico.nombres || "",
+                                apellidos: tecnico.apellidos || "",
+                                fecha_nacimiento: tecnico.fecha_nacimiento
+                                  ? tecnico.fecha_nacimiento.split("T")[0]
+                                  : "",
+                                numero_celular: tecnico.numero_celular || "",
+                                correo_institucional: tecnico.correo_institucional || "",
+                                usuario: tecnico.usuario || "",
+                                contraseña: "",
+                              })
+                              setValidationErrors({})
+                              setShowForm(true)
+                            }}
+                            className="flex items-center space-x-2 px-4 py-2.5 text-yellow-700 hover:bg-yellow-100 rounded-xl transition-all duration-200 text-sm font-bold"
+                            title="Editar"
+                          >
+                            <Edit className="h-4 w-4" />
+                            <span>Editar</span>
+                          </button>
+                          <button
+                            onClick={() => {
+                              setSelectedTecnico(tecnico)
+                              setShowDeleteModal(true)
+                            }}
+                            className="flex items-center space-x-2 px-4 py-2.5 text-red-700 hover:bg-red-100 rounded-xl transition-all duration-200 text-sm font-bold"
+                            title="Eliminar"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                            <span>Eliminar</span>
+                          </button>
                         </div>
                       </div>
                     ))}
@@ -575,29 +560,29 @@ export default function TecnicosPage() {
 
                   {/* Pagination */}
                   {totalPages > 1 && (
-                    <div className="bg-gradient-to-r from-slate-50 to-slate-100 px-8 py-6 border-t border-slate-200">
+                    <div className="bg-gradient-to-r from-gray-50 via-gray-100 to-gray-50 px-8 py-8 border-t-2 border-gray-200">
                       <div className="flex items-center justify-between">
-                        <div className="text-sm text-slate-700 font-medium bg-white px-4 py-2 rounded-lg shadow-sm border border-slate-200">
-                          Mostrando <span className="font-bold text-slate-900">{indexOfFirstItem + 1}</span> a{" "}
-                          <span className="font-bold text-slate-900">
+                        <div className="text-sm text-gray-800 font-bold bg-white px-6 py-3 rounded-xl shadow-md border-2 border-gray-200">
+                          Mostrando <span className="font-black text-red-900">{indexOfFirstItem + 1}</span> a{" "}
+                          <span className="font-black text-red-900">
                             {Math.min(indexOfLastItem, tecnicosFiltrados.length)}
                           </span>{" "}
-                          de <span className="font-bold text-slate-900">{tecnicosFiltrados.length}</span> técnicos
+                          de <span className="font-black text-red-900">{tecnicosFiltrados.length}</span> técnicos
                         </div>
-                        <div className="flex items-center space-x-2">
+                        <div className="flex items-center space-x-3">
                           <button
                             onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
                             disabled={currentPage === 1}
-                            className={`px-4 py-2 rounded-xl text-sm font-bold transition-all duration-300 ${
+                            className={`px-5 py-3 rounded-xl text-sm font-black transition-all duration-300 ${
                               currentPage === 1
-                                ? "bg-slate-100 text-slate-400 cursor-not-allowed"
-                                : "bg-white text-slate-700 hover:bg-slate-800 hover:text-white border-2 border-slate-200 hover:border-slate-800 transform hover:scale-105 shadow-md hover:shadow-lg"
+                                ? "bg-gray-200 text-gray-400 cursor-not-allowed"
+                                : "bg-white text-gray-800 hover:bg-red-900 hover:text-white border-2 border-gray-300 hover:border-red-900 transform hover:scale-105 shadow-md hover:shadow-xl"
                             }`}
                           >
-                            <ChevronLeft className="h-4 w-4" />
+                            <ChevronLeft className="h-5 w-5" />
                           </button>
 
-                          <div className="flex items-center space-x-1">
+                          <div className="flex items-center space-x-2">
                             {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
                               let page
                               if (totalPages <= 5) {
@@ -614,10 +599,10 @@ export default function TecnicosPage() {
                                 <button
                                   key={page}
                                   onClick={() => setCurrentPage(page)}
-                                  className={`px-4 py-2 rounded-xl text-sm font-bold transition-all duration-300 transform hover:scale-105 ${
+                                  className={`px-5 py-3 rounded-xl text-sm font-black transition-all duration-300 transform hover:scale-105 ${
                                     currentPage === page
-                                      ? "bg-gradient-to-r from-slate-800 to-slate-900 text-white shadow-lg"
-                                      : "bg-white text-slate-700 hover:bg-slate-800 hover:text-white border-2 border-slate-200 hover:border-slate-800 shadow-md hover:shadow-lg"
+                                      ? "bg-gradient-to-r from-red-900 to-red-800 text-white shadow-xl scale-110"
+                                      : "bg-white text-gray-800 hover:bg-red-900 hover:text-white border-2 border-gray-300 hover:border-red-900 shadow-md hover:shadow-xl"
                                   }`}
                                 >
                                   {page}
@@ -629,13 +614,13 @@ export default function TecnicosPage() {
                           <button
                             onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
                             disabled={currentPage === totalPages}
-                            className={`px-4 py-2 rounded-xl text-sm font-bold transition-all duration-300 ${
+                            className={`px-5 py-3 rounded-xl text-sm font-black transition-all duration-300 ${
                               currentPage === totalPages
-                                ? "bg-slate-100 text-slate-400 cursor-not-allowed"
-                                : "bg-white text-slate-700 hover:bg-slate-800 hover:text-white border-2 border-slate-200 hover:border-slate-800 transform hover:scale-105 shadow-md hover:shadow-lg"
+                                ? "bg-gray-200 text-gray-400 cursor-not-allowed"
+                                : "bg-white text-gray-800 hover:bg-red-900 hover:text-white border-2 border-gray-300 hover:border-red-900 transform hover:scale-105 shadow-md hover:shadow-xl"
                             }`}
                           >
-                            <ChevronRight className="h-4 w-4" />
+                            <ChevronRight className="h-5 w-5" />
                           </button>
                         </div>
                       </div>
@@ -695,6 +680,7 @@ export default function TecnicosPage() {
                             : "border-gray-200 hover:border-gray-300"
                         }`}
                         required={formMode !== "view"}
+                        disabled={formMode === "view"}
                       />
                       {validationErrors.nombres ? (
                         <p className="text-red-500 text-sm font-medium flex items-center mt-2">
@@ -721,6 +707,7 @@ export default function TecnicosPage() {
                             : "border-gray-200 hover:border-gray-300"
                         }`}
                         required={formMode !== "view"}
+                        disabled={formMode === "view"}
                       />
                       {validationErrors.apellidos ? (
                         <p className="text-red-500 text-sm font-medium flex items-center mt-2">
@@ -750,6 +737,7 @@ export default function TecnicosPage() {
                             : "border-gray-200 hover:border-gray-300"
                         }`}
                         required={formMode !== "view"}
+                        disabled={formMode === "view"}
                       />
                       {validationErrors.usuario ? (
                         <p className="text-red-500 text-sm font-medium flex items-center mt-2">
@@ -775,6 +763,7 @@ export default function TecnicosPage() {
                             : "border-gray-200 hover:border-gray-300"
                         }`}
                         required={formMode !== "view"}
+                        disabled={formMode === "view"}
                       />
                       {validationErrors.fecha_nacimiento ? (
                         <p className="text-red-500 text-sm font-medium flex items-center mt-2">
@@ -804,6 +793,7 @@ export default function TecnicosPage() {
                             : "border-gray-200 hover:border-gray-300"
                         }`}
                         required={formMode !== "view"}
+                        disabled={formMode === "view"}
                       />
                       {validationErrors.correo_institucional ? (
                         <p className="text-red-500 text-sm font-medium flex items-center mt-2">
@@ -830,6 +820,7 @@ export default function TecnicosPage() {
                             : "border-gray-200 hover:border-gray-300"
                         }`}
                         required={formMode !== "view"}
+                        disabled={formMode === "view"}
                       />
                       {validationErrors.numero_celular ? (
                         <p className="text-red-500 text-sm font-medium flex items-center mt-2">
@@ -868,6 +859,7 @@ export default function TecnicosPage() {
                           : "border-gray-200 hover:border-gray-300"
                       }`}
                       required={formMode === "create"}
+                      disabled={formMode === "view"}
                     />
                     {validationErrors.contraseña ? (
                       <p className="text-red-500 text-sm font-medium flex items-center mt-2">

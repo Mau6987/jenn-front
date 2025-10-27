@@ -6,7 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/ta
 import { Badge } from "../../components/ui/badge"
 import { Trophy, TrendingUp, Target, Zap, Calendar, User, GraduationCap, MapPin } from "lucide-react"
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts"
-import { getPositionIcon, getPositionName } from "../../lib/position-icons"
+import { getPositionIcon, getPositionName } from "../lib/position-icons"
 import Image from "next/image"
 
 const BACKEND_URL = "https://jenn-back-reac.onrender.com"
@@ -29,28 +29,6 @@ export default function ResultadosPersonalPage() {
     cargarDatos()
   }, [periodoActual])
 
-  const calcularRangoFechas = (periodo) => {
-    const hoy = new Date()
-    let fechaInicio, fechaFin
-
-    if (periodo === "semanal") {
-      fechaInicio = new Date(hoy)
-      fechaInicio.setDate(hoy.getDate() - 7)
-      fechaFin = hoy
-    } else if (periodo === "mensual") {
-      fechaInicio = new Date(hoy)
-      fechaInicio.setDate(hoy.getDate() - 30)
-      fechaFin = hoy
-    } else {
-      return { fechaInicio: null, fechaFin: null }
-    }
-
-    return {
-      fechaInicio: fechaInicio.toISOString().split("T")[0],
-      fechaFin: fechaFin.toISOString().split("T")[0],
-    }
-  }
-
   const cargarDatos = async () => {
     try {
       setLoading(true)
@@ -68,18 +46,12 @@ export default function ResultadosPersonalPage() {
         setJugadorData(cuentaData.data)
       }
 
-      const { fechaInicio, fechaFin } = calcularRangoFechas(periodoActual)
-      const params = new URLSearchParams()
-
-      if (fechaInicio && fechaFin) {
-        params.append("fechaInicio", fechaInicio)
-        params.append("fechaFin", fechaFin)
-      }
-
-      const rankingUrl = `${BACKEND_URL}/api/ranking/personal/${userId}${params.toString() ? `?${params.toString()}` : ""}`
+      const rankingUrl = `${BACKEND_URL}/api/ranking/personal/${userId}?periodo=${periodoActual}`
 
       const rankingResponse = await fetch(rankingUrl)
       const rankingDataRes = await rankingResponse.json()
+
+      console.log("[v0] Ranking data received:", rankingDataRes)
 
       if (rankingDataRes.success) {
         setRankingData(rankingDataRes.data)
@@ -137,16 +109,39 @@ export default function ResultadosPersonalPage() {
   const jugador = jugadorData.jugador || jugadorData.entrenador || jugadorData.tecnico
 
   const tiposPrueba = ["secuencial", "aleatorio", "manual"]
+
   const chartDataPorTipo = tiposPrueba.map((tipo) => {
-    const datos = rankingData.resumenPorTipo[tipo]
+    const datos = rankingData?.por_tipo_prueba?.[tipo]
+
+    const aciertos = datos?.total_aciertos || 0
+    const errores = datos?.total_errores || 0
+    const intentos = aciertos + errores // Intentos = aciertos + errores
+    const porcentaje = intentos > 0 ? (aciertos / intentos) * 100 : 0
+
+    const mejorPrueba = datos?.mejor_prueba
+    let mejorPruebaFormateada = null
+
+    if (mejorPrueba) {
+      const mpAciertos = mejorPrueba.aciertos || 0
+      const mpErrores = mejorPrueba.errores || 0
+      const mpIntentos = mpAciertos + mpErrores // Intentos = aciertos + errores
+      const mpPorcentaje = mpIntentos > 0 ? (mpAciertos / mpIntentos) * 100 : 0
+
+      mejorPruebaFormateada = {
+        ...mejorPrueba,
+        intentos: mpIntentos,
+        porcentaje: mpPorcentaje.toFixed(1),
+      }
+    }
+
     return {
       tipo,
-      intentos: datos?.totalIntentos || 0,
-      aciertos: datos?.totalAciertos || 0,
-      errores: datos?.totalErrores || 0,
-      porcentaje: Number.parseFloat(datos?.porcentajePromedio || 0),
-      cantidadPruebas: datos?.cantidadPruebas || 0,
-      mejorPrueba: datos?.mejorPrueba || null,
+      intentos,
+      aciertos,
+      errores,
+      porcentaje,
+      cantidadPruebas: datos?.total_realizadas || 0,
+      mejorPrueba: mejorPruebaFormateada,
     }
   })
 
@@ -157,6 +152,13 @@ export default function ResultadosPersonalPage() {
       value: d.cantidadPruebas,
       color: COLORS[d.tipo],
     }))
+
+  const totalIntentos =
+    rankingData?.totales_generales?.total_intentos ||
+    (rankingData?.totales_generales?.total_aciertos || 0) + (rankingData?.totales_generales?.total_errores || 0)
+  const totalAciertos = rankingData?.totales_generales?.total_aciertos || 0
+  const totalErrores = rankingData?.totales_generales?.total_errores || 0
+  const precisionPromedio = totalIntentos > 0 ? ((totalAciertos / totalIntentos) * 100).toFixed(1) : 0
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 p-6">
@@ -171,7 +173,7 @@ export default function ResultadosPersonalPage() {
                   <div className="relative w-40 h-40 rounded-full overflow-hidden border-8 border-white shadow-2xl transform transition-all duration-500 group-hover:scale-110 animate-float bg-gradient-to-br from-gray-100 to-gray-200">
                     <Image
                       src={getPositionIcon(jugador.posicion_principal) || "/placeholder.svg"}
-                      alt={jugador.posicion_principal}
+                      alt={getPositionName(jugador.posicion_principal)}
                       width={160}
                       height={160}
                       className="w-full h-full object-cover"
@@ -241,13 +243,61 @@ export default function ResultadosPersonalPage() {
           </TabsList>
 
           <TabsContent value={periodoActual} className="space-y-6 mt-6">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            {distribucionPruebas.length > 0 && (
+              <Card className="shadow-lg bg-white border-2 border-gray-200 backdrop-blur-sm animate-fade-in-up">
+                <CardHeader>
+                  <CardTitle className="text-center text-gray-900">Distribución de Pruebas por Tipo</CardTitle>
+                  <p className="text-center text-sm text-gray-600 mt-2">
+                    Total de pruebas realizadas:{" "}
+                    <span className="font-bold text-[#800020] text-lg">
+                      {distribucionPruebas.reduce((acc, curr) => acc + curr.value, 0)}
+                    </span>
+                  </p>
+                </CardHeader>
+                <CardContent>
+                  <div className="h-80">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={distribucionPruebas}
+                          cx="50%"
+                          cy="50%"
+                          labelLine={false}
+                          label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                          outerRadius={100}
+                          dataKey="value"
+                        >
+                          {distribucionPruebas.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={entry.color} />
+                          ))}
+                        </Pie>
+                        <Tooltip />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+
+                  <div className="mt-6 grid grid-cols-3 gap-4">
+                    {distribucionPruebas.map((tipo) => (
+                      <div key={tipo.name} className="text-center p-3 bg-gray-50 rounded-lg border border-gray-200">
+                        <p className="text-xs text-gray-600">{tipo.name}</p>
+                        <p className="text-2xl font-bold" style={{ color: tipo.color }}>
+                          {tipo.value}
+                        </p>
+                        <p className="text-xs text-gray-500">pruebas</p>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
               <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-2 border-blue-200 backdrop-blur-sm transform transition-all duration-300 hover:scale-105 hover:shadow-lg animate-fade-in-up">
                 <CardContent className="p-4">
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-xs text-blue-700 font-medium">Total Intentos</p>
-                      <p className="text-2xl font-bold text-blue-900">{rankingData.totalIntentos}</p>
+                      <p className="text-2xl font-bold text-blue-900">{totalIntentos}</p>
                     </div>
                     <Target className="h-8 w-8 text-blue-600" />
                   </div>
@@ -262,7 +312,7 @@ export default function ResultadosPersonalPage() {
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-xs text-green-700 font-medium">Total Aciertos</p>
-                      <p className="text-2xl font-bold text-green-900">{rankingData.totalAciertos}</p>
+                      <p className="text-2xl font-bold text-green-900">{totalAciertos}</p>
                     </div>
                     <TrendingUp className="h-8 w-8 text-green-600" />
                   </div>
@@ -277,7 +327,7 @@ export default function ResultadosPersonalPage() {
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-xs text-red-700 font-medium">Total Errores</p>
-                      <p className="text-2xl font-bold text-red-900">{rankingData.totalErrores}</p>
+                      <p className="text-2xl font-bold text-red-900">{totalErrores}</p>
                     </div>
                     <Zap className="h-8 w-8 text-red-600" />
                   </div>
@@ -292,7 +342,7 @@ export default function ResultadosPersonalPage() {
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-xs text-purple-700 font-medium">Precisión Promedio</p>
-                      <p className="text-2xl font-bold text-purple-900">{rankingData.porcentajePromedio}%</p>
+                      <p className="text-2xl font-bold text-purple-900">{precisionPromedio}%</p>
                     </div>
                     <Trophy className="h-8 w-8 text-purple-600" />
                   </div>
@@ -320,8 +370,8 @@ export default function ResultadosPersonalPage() {
                         <PieChart>
                           <Pie
                             data={[
-                              { name: "Aciertos", value: datos.aciertos, color: COLORS.aciertos },
-                              { name: "Errores", value: datos.errores, color: COLORS.errores },
+                              { name: "Aciertos", value: datos.aciertos || 1, color: COLORS.aciertos },
+                              { name: "Errores", value: datos.errores || 1, color: COLORS.errores },
                             ]}
                             cx="50%"
                             cy="50%"
@@ -417,48 +467,6 @@ export default function ResultadosPersonalPage() {
                 </Card>
               ))}
             </div>
-
-            {distribucionPruebas.length > 0 && (
-              <Card className="shadow-lg bg-white border-2 border-gray-200 backdrop-blur-sm animate-fade-in-up">
-                <CardHeader>
-                  <CardTitle className="text-center text-gray-900">Distribución de Pruebas por Tipo</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="h-80">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                        <Pie
-                          data={distribucionPruebas}
-                          cx="50%"
-                          cy="50%"
-                          labelLine={false}
-                          label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                          outerRadius={100}
-                          dataKey="value"
-                        >
-                          {distribucionPruebas.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={entry.color} />
-                          ))}
-                        </Pie>
-                        <Tooltip />
-                      </PieChart>
-                    </ResponsiveContainer>
-                  </div>
-
-                  <div className="mt-6 grid grid-cols-3 gap-4">
-                    {distribucionPruebas.map((tipo) => (
-                      <div key={tipo.name} className="text-center p-3 bg-gray-50 rounded-lg border border-gray-200">
-                        <p className="text-xs text-gray-600">{tipo.name}</p>
-                        <p className="text-2xl font-bold" style={{ color: tipo.color }}>
-                          {tipo.value}
-                        </p>
-                        <p className="text-xs text-gray-500">pruebas</p>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
           </TabsContent>
         </Tabs>
       </div>

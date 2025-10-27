@@ -53,6 +53,9 @@ export default function Navbar() {
           src={getPositionIcon(posicion) || "/placeholder.svg"}
           alt={posicion}
           className="w-full h-full object-cover"
+          onError={(e) => {
+            console.log("[v0] Error loading position icon:", getPositionIcon(posicion))
+          }}
         />
       )
     }
@@ -148,12 +151,9 @@ export default function Navbar() {
           <span className="hidden sm:inline text-base">Volver</span>
         </Link>
         <div className="flex items-center space-x-3 mx-auto">
-          <div className="w-12 h-12 bg-[#800020] rounded-lg flex items-center justify-center">
-            <div className="w-7 h-7 bg-white rounded"></div>
-          </div>
+          
           <div className="hidden sm:block">
-            <h1 className="text-[#800020] font-bold text-xl">Univalle</h1>
-            <p className="text-[#a64d66] text-sm">Volleyball System</p>
+            <h1 className="text-[#800020] font-bold text-xl">Volleyball </h1>
           </div>
         </div>
       </header>
@@ -180,12 +180,8 @@ export default function Navbar() {
 
         <div className="flex-1 flex justify-center">
           <div className="flex items-center space-x-3 cursor-default">
-            <div className="w-14 h-14 bg-[#800020] rounded-lg flex items-center justify-center">
-              <div className="w-8 h-8 bg-white rounded"></div>
-            </div>
             <div className="hidden sm:block">
-              <h1 className="text-[#800020] font-bold text-2xl">Univalle</h1>
-              <p className="text-[#a64d66] text-base">Volleyball System</p>
+              <h1 className="text-[#800020] font-bold text-2xl">Volleyball System</h1>
             </div>
           </div>
         </div>
@@ -198,7 +194,7 @@ export default function Navbar() {
             <div className="w-12 h-12 bg-[#800020] rounded-full flex items-center justify-center group-hover:bg-[#a64d66] transition-colors overflow-hidden">
               {getRoleIconComponent()}
             </div>
-            <div className="hidden sm:block text-left">
+            <div className="hidden sm:flex items-center gap-2 text-left">
               <p className="text-base font-medium text-[#800020] capitalize group-hover:text-[#a64d66] transition-colors">
                 {rol}
               </p>

@@ -39,7 +39,7 @@ export default function EntrenadoresPage() {
 
   // Estados para paginación
   const [currentPage, setCurrentPage] = useState(1)
-  const [itemsPerPage] = useState(5)
+  const [itemsPerPage] = useState(6)
 
   const [formData, setFormData] = useState({
     nombres: "",
@@ -50,7 +50,7 @@ export default function EntrenadoresPage() {
     correo_electronico: "",
     usuario: "",
     contraseña: "",
-    imagen: "", // Added imagen field
+    imagen: "",
   })
 
   const [validationErrors, setValidationErrors] = useState({})
@@ -117,7 +117,7 @@ export default function EntrenadoresPage() {
             id: cuenta.entrenador.id,
             usuario: cuenta.usuario,
             cuentaId: cuenta.id,
-            imagen: cuenta.entrenador.imagen || "", // Added imagen field
+            imagen: cuenta.entrenador.imagen || "",
           }))
 
         setEntrenadores(entrenadores)
@@ -155,7 +155,7 @@ export default function EntrenadoresPage() {
       correo_electronico: "",
       usuario: "",
       contraseña: "",
-      imagen: "", // Added imagen field
+      imagen: "",
     })
     setFormMode("create")
     setShowForm(true)
@@ -172,7 +172,7 @@ export default function EntrenadoresPage() {
       correo_electronico: entrenador.correo_electronico || "",
       usuario: entrenador.usuario || "",
       contraseña: "",
-      imagen: entrenador.imagen || "", // Added imagen field
+      imagen: entrenador.imagen || "",
     })
     setFormMode("view")
     setShowForm(true)
@@ -189,7 +189,7 @@ export default function EntrenadoresPage() {
       correo_electronico: entrenador.correo_electronico || "",
       usuario: entrenador.usuario || "",
       contraseña: "",
-      imagen: entrenador.imagen || "", // Added imagen field
+      imagen: entrenador.imagen || "",
     })
     setFormMode("update")
     setShowForm(true)
@@ -198,21 +198,18 @@ export default function EntrenadoresPage() {
   const validateForm = () => {
     const errors = {}
 
-    // Validate nombres
     if (!formData.nombres.trim()) {
       errors.nombres = "Los nombres son requeridos"
     } else if (formData.nombres.trim().length < 2) {
       errors.nombres = "Los nombres deben tener al menos 2 caracteres"
     }
 
-    // Validate apellidos
     if (!formData.apellidos.trim()) {
       errors.apellidos = "Los apellidos son requeridos"
     } else if (formData.apellidos.trim().length < 2) {
       errors.apellidos = "Los apellidos deben tener al menos 2 caracteres"
     }
 
-    // Validate fecha_nacimiento and calculate age
     if (!formData.fecha_nacimiento) {
       errors.fecha_nacimiento = "La fecha de nacimiento es requerida"
     } else {
@@ -230,7 +227,6 @@ export default function EntrenadoresPage() {
       }
     }
 
-    // Validate anos_experiencia_voley
     if (!formData.anos_experiencia_voley) {
       errors.anos_experiencia_voley = "Los años de experiencia son requeridos"
     } else {
@@ -240,35 +236,30 @@ export default function EntrenadoresPage() {
       }
     }
 
-    // Validate numero_celular
     if (!formData.numero_celular.trim()) {
       errors.numero_celular = "El número de celular es requerido"
     } else if (!/^\d{8,15}$/.test(formData.numero_celular.replace(/\s/g, ""))) {
       errors.numero_celular = "El número de celular debe tener entre 8 y 15 dígitos"
     }
 
-    // Validate correo_electronico
     if (!formData.correo_electronico.trim()) {
       errors.correo_electronico = "El correo electrónico es requerido"
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.correo_electronico)) {
       errors.correo_electronico = "El formato del correo electrónico no es válido"
     }
 
-    // Validate usuario
     if (!formData.usuario.trim()) {
       errors.usuario = "El usuario es requerido"
     } else if (formData.usuario.trim().length < 3) {
       errors.usuario = "El usuario debe tener al menos 3 caracteres"
     }
 
-    // Validate contraseña
     if (formMode === "create" && !formData.contraseña) {
       errors.contraseña = "La contraseña es requerida"
     } else if (formData.contraseña && formData.contraseña.length < 6) {
       errors.contraseña = "La contraseña debe tener al menos 6 caracteres"
     }
 
-    // Validate imagen URL (optional, but good practice)
     if (formData.imagen && !/^(https?:\/\/)?([\da-z.-]+)\.([a-z.]{2,6})([/\w .-]*)*\/?$/.test(formData.imagen)) {
       errors.imagen = "La URL de la imagen no es válida"
     }
@@ -278,13 +269,11 @@ export default function EntrenadoresPage() {
 
   const convertToBase64 = (file) => {
     return new Promise((resolve, reject) => {
-      // Validate file size (max 2MB)
       if (file.size > 2 * 1024 * 1024) {
         reject(new Error("La imagen debe ser menor a 2MB"))
         return
       }
 
-      // Validate file type
       if (!file.type.startsWith("image/")) {
         reject(new Error("El archivo debe ser una imagen"))
         return
@@ -401,16 +390,13 @@ export default function EntrenadoresPage() {
         return
       }
 
-      const response = await fetch(
-        `https://jenn-back-reac.onrender.com/api/cuentas/${selectedEntrenador.cuentaId}`,
-        {
-          method: "DELETE",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
+      const response = await fetch(`https://jenn-back-reac.onrender.com/api/cuentas/${selectedEntrenador.cuentaId}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
         },
-      )
+      })
 
       const data = await response.json()
 
@@ -447,7 +433,7 @@ export default function EntrenadoresPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-red-50/30 to-gray-50">
       {/* Notificación emergente */}
       {notification && (
         <div className="fixed top-20 right-6 z-50 animate-fade-in">
@@ -483,64 +469,73 @@ export default function EntrenadoresPage() {
         <div className="p-4 lg:p-6 max-w-full">
           <div className="max-w-7xl mx-auto">
             {/* Header */}
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6">
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900">Entrenadores</h1>
-                <p className="text-gray-600 text-sm">Gestiona los entrenadores de la selección de volleyball</p>
-              </div>
+            <div className="mb-10 text-center animate-fade-in-up">
+              <h1 className="text-5xl font-black bg-gradient-to-r from-red-900 via-red-700 to-red-900 bg-clip-text text-transparent mb-3 tracking-tight">
+                Entrenadores
+              </h1>
+              <div className="w-32 h-1.5 bg-gradient-to-r from-transparent via-red-800 to-transparent mx-auto mb-4 rounded-full"></div>
+              <p className="text-gray-600 text-base font-medium">
+                Gestiona los entrenadores de la selección de volleyball
+              </p>
             </div>
 
             {/* Search Bar */}
-            <div className="relative mb-6">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+            <div className="relative mb-8 animate-fade-in-up" style={{ animationDelay: "0.1s" }}>
+              <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5 transition-all duration-200" />
               <input
                 type="text"
                 placeholder="Buscar entrenadores por nombre, email o usuario..."
                 value={busqueda}
                 onChange={(e) => setBusqueda(e.target.value)}
-                className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-900 focus:border-transparent"
+                className="w-full pl-12 pr-4 py-4 border-2 border-gray-200 rounded-2xl focus:ring-4 focus:ring-red-900/20 focus:border-red-900 transition-all duration-300 shadow-sm hover:shadow-md bg-white"
               />
             </div>
 
             {/* Action Buttons */}
-            <div className="flex flex-col sm:flex-row gap-3 mb-6">
+            <div className="flex flex-col sm:flex-row gap-4 mb-8 animate-fade-in-up" style={{ animationDelay: "0.2s" }}>
               <button
                 onClick={handleOpenCreateForm}
-                className="flex items-center justify-center space-x-2 px-4 py-2 bg-green-700/80 text-white rounded-lg hover:bg-green-800/90 transition-colors font-medium"
+                className="flex items-center justify-center space-x-2 px-6 py-3.5 bg-gradient-to-r from-green-700 to-green-600 text-white rounded-xl hover:from-green-800 hover:to-green-700 transition-all duration-300 font-bold shadow-lg hover:shadow-xl"
                 disabled={loading}
               >
-                <UserPlus className="h-4 w-4" />
+                <UserPlus className="h-5 w-5" />
                 <span>Agregar nuevo</span>
               </button>
-              <button className="flex items-center justify-center space-x-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors font-medium">
-                <Filter className="h-4 w-4" />
+              <button className="flex items-center justify-center space-x-2 px-6 py-3.5 bg-white text-gray-700 rounded-xl hover:bg-gray-50 transition-all duration-300 font-bold w-full sm:w-auto shadow-md hover:shadow-lg border-2 border-gray-200">
+                <Filter className="h-5 w-5" />
                 <span>Filtrar</span>
               </button>
             </div>
 
             {/* Mensaje de error */}
             {error && (
-              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6 flex items-center">
-                <AlertCircle className="h-5 w-5 mr-2 flex-shrink-0" />
-                {error}
+              <div className="bg-gradient-to-r from-red-50 to-red-100 border-2 border-red-300 text-red-800 px-6 py-4 rounded-2xl mb-8 flex items-center shadow-lg animate-scale-in">
+                <div className="h-10 w-10 rounded-full bg-red-200 flex items-center justify-center mr-4">
+                  <AlertCircle className="h-6 w-6 text-red-700" />
+                </div>
+                <span className="font-semibold">{error}</span>
               </div>
             )}
 
-            <div className="bg-white rounded-2xl shadow-xl border border-slate-200/60 overflow-hidden backdrop-blur-sm">
+            {/* Card grid layout */}
+            <div className="bg-white rounded-3xl shadow-2xl border-2 border-gray-100 overflow-hidden backdrop-blur-sm">
               {loading && !showForm && !showDeleteModal ? (
-                <div className="p-12 text-center">
-                  <Loader2 className="h-8 w-8 animate-spin text-slate-600 mx-auto mb-4" />
-                  <p className="text-slate-600 font-medium">Cargando entrenadores...</p>
+                <div className="p-16 text-center">
+                  <div className="relative w-20 h-20 mx-auto mb-6">
+                    <div className="absolute inset-0 border-4 border-red-200 rounded-full"></div>
+                    <div className="absolute inset-0 border-4 border-red-900 rounded-full border-t-transparent animate-spin"></div>
+                  </div>
+                  <p className="text-gray-700 font-bold text-lg">Cargando entrenadores...</p>
                 </div>
               ) : entrenadoresFiltrados.length === 0 ? (
-                <div className="p-12 text-center">
-                  <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <Users className="h-8 w-8 text-slate-400" />
+                <div className="p-16 text-center animate-scale-in">
+                  <div className="w-24 h-24 bg-gradient-to-br from-gray-100 to-gray-200 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg">
+                    <Users className="h-12 w-12 text-gray-400" />
                   </div>
-                  <h3 className="text-lg font-medium text-slate-900 mb-2">
+                  <h3 className="text-2xl font-bold text-gray-900 mb-3">
                     {busqueda ? "No se encontraron entrenadores" : "No hay entrenadores registrados"}
                   </h3>
-                  <p className="text-slate-500 mb-6">
+                  <p className="text-gray-600 mb-8 text-lg">
                     {busqueda
                       ? "Intenta con otros términos de búsqueda."
                       : "Comienza agregando tu primer entrenador al sistema."}
@@ -548,124 +543,95 @@ export default function EntrenadoresPage() {
                   {!busqueda && (
                     <button
                       onClick={handleOpenCreateForm}
-                      className="flex items-center space-x-2 px-6 py-3 bg-gradient-to-r from-green-700/80 to-green-800/80 text-white rounded-xl hover:from-green-800/90 hover:to-green-900/90 transition-all duration-300 font-medium mx-auto shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+                      className="flex items-center space-x-3 px-8 py-4 bg-gradient-to-r from-green-700 to-green-600 text-white rounded-2xl hover:from-green-800 hover:to-green-700 transition-all duration-300 font-bold mx-auto shadow-xl hover:shadow-2xl transform hover:-translate-y-1"
                     >
-                      <UserPlus className="h-4 w-4" />
+                      <UserPlus className="h-5 w-5" />
                       <span>Agregar primer entrenador</span>
                     </button>
                   )}
                 </div>
               ) : (
                 <>
-                  <div className="bg-slate-600 px-8 py-6 border-2 border-gray-900 relative overflow-hidden">
-                    <div className="relative grid grid-cols-12 gap-6 text-sm font-bold text-white uppercase tracking-wider">
-                      <div className="col-span-3 flex items-center space-x-2">
-                        <div className="w-1 h-6 bg-white rounded-full"></div>
-                        <span>Entrenador</span>
-                      </div>
-                      <div className="col-span-2 flex items-center space-x-2">
-                        <div className="w-1 h-6 bg-white rounded-full"></div>
-                        <span>Usuario</span>
-                      </div>
-                      <div className="col-span-2 flex items-center space-x-2">
-                        <div className="w-1 h-6 bg-white rounded-full"></div>
-                        <span>Contacto</span>
-                      </div>
-
-                      <div className="col-span-2 flex items-center space-x-2">
-                        <div className="w-1 h-6 bg-white rounded-full"></div>
-                        <span>Experiencia</span>
-                      </div>
-                      <div className="col-span-1 text-center flex items-center justify-center space-x-2">
-                        <div className="w-1 h-6 bg-white rounded-full"></div>
-                        <span>Acciones</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="divide-y divide-slate-100/80">
+                  <div className="p-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                     {currentItems.map((entrenador, index) => (
                       <div
                         key={entrenador.id}
-                        className={`px-8 py-6 hover:bg-gradient-to-r hover:from-red-50/30 hover:to-red-50/10 transition-all duration-300 transform hover:scale-[1.002] hover:shadow-sm group ${
-                          index % 2 === 0 ? "bg-white" : "bg-gray-50/50"
-                        } border-l-4 border-transparent hover:border-l-red-400`}
+                        className="bg-white border-3 border-red-900 rounded-3xl overflow-hidden hover:border-red-700 transition-all duration-300 shadow-lg hover:shadow-2xl transform hover:-translate-y-2"
+                        style={{ animationDelay: `${index * 0.1}s` }}
                       >
-                        <div className="grid grid-cols-12 gap-6 items-center">
-                          <div className="col-span-3">
-                            <div className="flex items-center space-x-3">
-                              <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden flex-shrink-0">
-                                {entrenador.imagen ? (
-                                  <img
-                                    src={entrenador.imagen || "/placeholder.svg"}
-                                    alt={`${entrenador.nombres} ${entrenador.apellidos}`}
-                                    className="w-full h-full object-cover"
-                                    onError={(e) => {
-                                      e.target.style.display = "none"
-                                      e.target.nextSibling.style.display = "flex"
-                                    }}
-                                  />
-                                ) : null}
-                                <Users
-                                  className="h-5 w-5 text-gray-400"
-                                  style={{ display: entrenador.imagen ? "none" : "block" }}
-                                />
+                        <div className="flex p-6 gap-5">
+                          <div className="w-32 h-32 rounded-2xl bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center overflow-hidden flex-shrink-0 border-3 border-red-200 shadow-md">
+                            {entrenador.imagen ? (
+                              <img
+                                src={entrenador.imagen || "/placeholder.svg"}
+                                alt={`${entrenador.nombres} ${entrenador.apellidos}`}
+                                className="w-full h-full object-cover transition-transform duration-300 hover:scale-110"
+                                onError={(e) => {
+                                  e.target.style.display = "none"
+                                  e.target.nextSibling.style.display = "flex"
+                                }}
+                              />
+                            ) : null}
+                            <Users
+                              className="h-14 w-14 text-gray-400"
+                              style={{ display: entrenador.imagen ? "none" : "block" }}
+                            />
+                          </div>
+
+                          <div className="flex-1 min-w-0">
+                            <h3 className="text-lg font-black text-gray-900 leading-tight mb-2 truncate">
+                              {entrenador.nombres} {entrenador.apellidos}
+                            </h3>
+                            <p className="text-sm text-red-800 font-bold capitalize mb-4 bg-red-50 px-3 py-1 rounded-lg inline-block">
+                              Entrenador
+                            </p>
+
+                            <div className="space-y-2.5">
+                              <div className="flex items-center text-xs">
+                                <Users className="h-4 w-4 text-gray-500 mr-2 flex-shrink-0" />
+                                <span className="text-gray-700 font-bold truncate">{entrenador.usuario}</span>
                               </div>
-                              <div>
-                                <p className="text-sm font-bold text-slate-900 group-hover:text-slate-700 transition-colors">
-                                  {entrenador.nombres} {entrenador.apellidos}
-                                </p>
-                                <p className="text-xs text-slate-500 bg-slate-100 px-2 py-1 rounded-md mt-1 font-medium">
-                                  {entrenador.edad} años
-                                </p>
+                              <div className="flex items-center text-xs">
+                                <span className="text-gray-500 mr-2 text-base">📞</span>
+                                <span className="text-gray-700 font-semibold truncate">
+                                  {entrenador.numero_celular}
+                                </span>
+                              </div>
+                              <div className="flex items-center text-xs">
+                                <span className="text-gray-500 mr-2 text-base">⭐</span>
+                                <span className="text-gray-700 font-semibold">
+                                  {entrenador.anos_experiencia_voley} años exp.
+                                </span>
                               </div>
                             </div>
                           </div>
+                        </div>
 
-                          <div className="col-span-2">
-                            <div className="bg-blue-50/50 px-3 py-2 rounded-lg border border-blue-200/30">
-                              <p className="text-sm font-semibold text-blue-800">{entrenador.usuario}</p>
-                            </div>
-                          </div>
-
-                          <div className="col-span-2">
-                            <div className="bg-slate-50 px-3 py-2 rounded-lg border border-slate-200/50">
-                              <p className="text-sm font-bold text-slate-800">{entrenador.numero_celular}</p>
-                            </div>
-                          </div>
-
-                          <div className="col-span-2">
-                            <div className="bg-red-50/80 px-3 py-2 rounded-lg border border-red-200/50 text-center">
-                              <p className="text-sm font-bold text-red-800">{entrenador.anos_experiencia_voley}</p>
-                              <p className="text-xs text-red-600 font-medium">años exp.</p>
-                            </div>
-                          </div>
-
-                          <div className="col-span-1">
-                            <div className="flex items-center justify-center space-x-1">
-                              <button
-                                onClick={() => handleViewEntrenador(entrenador)}
-                                className="p-2.5 text-blue-500 hover:text-blue-700 hover:bg-blue-50 rounded-xl transition-all duration-300 border border-blue-200 hover:border-blue-300 hover:shadow-sm group/btn"
-                                title="Ver detalles"
-                              >
-                                <Eye className="h-4 w-4" />
-                              </button>
-                              <button
-                                onClick={() => handleEdit(entrenador)}
-                                className="p-2.5 text-yellow-500 hover:text-yellow-700 hover:bg-yellow-50 rounded-xl transition-all duration-300 border border-yellow-200 hover:border-yellow-300 hover:shadow-sm group/btn"
-                                title="Editar"
-                              >
-                                <Edit className="h-4 w-4" />
-                              </button>
-                              <button
-                                onClick={() => handleDeleteEntrenador(entrenador)}
-                                className="p-2.5 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-xl transition-all duration-300 border border-red-200 hover:border-red-300 hover:shadow-sm group/btn"
-                                title="Eliminar"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </button>
-                            </div>
-                          </div>
+                        <div className="flex items-center justify-around px-6 py-4 bg-gradient-to-r from-gray-50 to-gray-100 border-t-2 border-gray-200">
+                          <button
+                            onClick={() => handleViewEntrenador(entrenador)}
+                            className="flex items-center space-x-2 px-4 py-2.5 text-blue-700 hover:bg-blue-100 rounded-xl transition-all duration-200 text-sm font-bold"
+                            title="Ver detalles"
+                          >
+                            <Eye className="h-4 w-4" />
+                            <span>Ver</span>
+                          </button>
+                          <button
+                            onClick={() => handleEdit(entrenador)}
+                            className="flex items-center space-x-2 px-4 py-2.5 text-yellow-700 hover:bg-yellow-100 rounded-xl transition-all duration-200 text-sm font-bold"
+                            title="Editar"
+                          >
+                            <Edit className="h-4 w-4" />
+                            <span>Editar</span>
+                          </button>
+                          <button
+                            onClick={() => handleDeleteEntrenador(entrenador)}
+                            className="flex items-center space-x-2 px-4 py-2.5 text-red-700 hover:bg-red-100 rounded-xl transition-all duration-200 text-sm font-bold"
+                            title="Eliminar"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                            <span>Eliminar</span>
+                          </button>
                         </div>
                       </div>
                     ))}
@@ -673,30 +639,30 @@ export default function EntrenadoresPage() {
 
                   {/* Pagination */}
                   {totalPages > 1 && (
-                    <div className="bg-gradient-to-r from-slate-50 to-slate-100 px-8 py-6 border-t border-slate-200">
+                    <div className="bg-gradient-to-r from-gray-50 via-gray-100 to-gray-50 px-8 py-8 border-t-2 border-gray-200">
                       <div className="flex items-center justify-between">
-                        <div className="text-sm text-slate-700 font-medium bg-white px-4 py-2 rounded-lg shadow-sm border border-slate-200">
-                          Mostrando <span className="font-bold text-slate-900">{indexOfFirstItem + 1}</span> a{" "}
-                          <span className="font-bold text-slate-900">
+                        <div className="text-sm text-gray-800 font-bold bg-white px-6 py-3 rounded-xl shadow-md border-2 border-gray-200">
+                          Mostrando <span className="font-black text-red-900">{indexOfFirstItem + 1}</span> a{" "}
+                          <span className="font-black text-red-900">
                             {Math.min(indexOfLastItem, entrenadoresFiltrados.length)}
                           </span>{" "}
-                          de <span className="font-bold text-slate-900">{entrenadoresFiltrados.length}</span>{" "}
+                          de <span className="font-black text-red-900">{entrenadoresFiltrados.length}</span>{" "}
                           entrenadores
                         </div>
-                        <div className="flex items-center space-x-2">
+                        <div className="flex items-center space-x-3">
                           <button
                             onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
                             disabled={currentPage === 1}
-                            className={`px-4 py-2 rounded-xl text-sm font-bold transition-all duration-300 ${
+                            className={`px-5 py-3 rounded-xl text-sm font-black transition-all duration-300 ${
                               currentPage === 1
-                                ? "bg-slate-100 text-slate-400 cursor-not-allowed"
-                                : "bg-white text-slate-700 hover:bg-slate-800 hover:text-white border-2 border-slate-200 hover:border-slate-800 transform hover:scale-105 shadow-md hover:shadow-lg"
+                                ? "bg-gray-200 text-gray-400 cursor-not-allowed"
+                                : "bg-white text-gray-800 hover:bg-red-900 hover:text-white border-2 border-gray-300 hover:border-red-900 transform hover:scale-105 shadow-md hover:shadow-xl"
                             }`}
                           >
-                            <ChevronLeft className="h-4 w-4" />
+                            <ChevronLeft className="h-5 w-5" />
                           </button>
 
-                          <div className="flex items-center space-x-1">
+                          <div className="flex items-center space-x-2">
                             {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
                               let page
                               if (totalPages <= 5) {
@@ -713,10 +679,10 @@ export default function EntrenadoresPage() {
                                 <button
                                   key={page}
                                   onClick={() => setCurrentPage(page)}
-                                  className={`px-4 py-2 rounded-xl text-sm font-bold transition-all duration-300 transform hover:scale-105 ${
+                                  className={`px-5 py-3 rounded-xl text-sm font-black transition-all duration-300 transform hover:scale-105 ${
                                     currentPage === page
-                                      ? "bg-gradient-to-r from-slate-800 to-slate-900 text-white shadow-lg"
-                                      : "bg-white text-slate-700 hover:bg-slate-800 hover:text-white border-2 border-slate-200 hover:border-slate-800 shadow-md hover:shadow-lg"
+                                      ? "bg-gradient-to-r from-red-900 to-red-800 text-white shadow-xl scale-110"
+                                      : "bg-white text-gray-800 hover:bg-red-900 hover:text-white border-2 border-gray-300 hover:border-red-900 shadow-md hover:shadow-xl"
                                   }`}
                                 >
                                   {page}
@@ -728,13 +694,13 @@ export default function EntrenadoresPage() {
                           <button
                             onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
                             disabled={currentPage === totalPages}
-                            className={`px-4 py-2 rounded-xl text-sm font-bold transition-all duration-300 ${
+                            className={`px-5 py-3 rounded-xl text-sm font-black transition-all duration-300 ${
                               currentPage === totalPages
-                                ? "bg-slate-100 text-slate-400 cursor-not-allowed"
-                                : "bg-white text-slate-700 hover:bg-slate-800 hover:text-white border-2 border-slate-200 hover:border-slate-800 transform hover:scale-105 shadow-md hover:shadow-lg"
+                                ? "bg-gray-200 text-gray-400 cursor-not-allowed"
+                                : "bg-white text-gray-800 hover:bg-red-900 hover:text-white border-2 border-gray-300 hover:border-red-900 transform hover:scale-105 shadow-md hover:shadow-xl"
                             }`}
                           >
-                            <ChevronRight className="h-4 w-4" />
+                            <ChevronRight className="h-5 w-5" />
                           </button>
                         </div>
                       </div>

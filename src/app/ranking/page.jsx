@@ -38,11 +38,17 @@ export default function ResultadosGeneralPage() {
       const data = await response.json()
 
       if (data.success) {
-        setRankingData(data.data || [])
+        // The API returns { success: true, data: { top_5: [...] } }
+        // We need to extract the top_5 array
+        const rankingArray = data.data?.top_5 || data.data || []
+        setRankingData(Array.isArray(rankingArray) ? rankingArray : [])
         setUserPosition(data.userPosition || null)
+      } else {
+        setRankingData([])
       }
     } catch (error) {
       console.error("Error loading ranking:", error)
+      setRankingData([])
     } finally {
       setLoading(false)
     }
@@ -95,8 +101,9 @@ export default function ResultadosGeneralPage() {
     )
   }
 
-  const top3 = rankingData.slice(0, 3)
-  const rest = rankingData.slice(3)
+  const safeRankingData = Array.isArray(rankingData) ? rankingData : []
+  const top3 = safeRankingData.slice(0, 3)
+  const rest = safeRankingData.slice(3)
 
   return (
     <div className="min-h-screen bg-gray-100">
@@ -158,7 +165,7 @@ export default function ResultadosGeneralPage() {
             {top3.length > 0 && (
               <div className="flex items-end justify-center gap-4 px-4">
                 {/* 2nd Place */}
-                {top3[1] && (
+                {top3.length > 1 && top3[1] && top3[1].nombre && (
                   <div
                     className="flex-1 max-w-[140px] cursor-pointer group animate-slide-up"
                     style={{ animationDelay: "0.2s" }}
@@ -203,7 +210,7 @@ export default function ResultadosGeneralPage() {
                 )}
 
                 {/* 1st Place */}
-                {top3[0] && (
+                {top3.length > 0 && top3[0] && top3[0].nombre && (
                   <div
                     className="flex-1 max-w-[160px] cursor-pointer group animate-slide-up"
                     style={{ animationDelay: "0.1s" }}
@@ -253,7 +260,7 @@ export default function ResultadosGeneralPage() {
                 )}
 
                 {/* 3rd Place */}
-                {top3[2] && (
+                {top3.length > 2 && top3[2] && top3[2].nombre && (
                   <div
                     className="flex-1 max-w-[140px] cursor-pointer group animate-slide-up"
                     style={{ animationDelay: "0.3s" }}
@@ -334,47 +341,51 @@ export default function ResultadosGeneralPage() {
 
             {rest.length > 0 ? (
               <div className="space-y-3">
-                {rest.map((player, index) => (
-                  <div
-                    key={player.cuentaId}
-                    className="flex items-center gap-4 p-4 bg-white hover:bg-gray-50 rounded-2xl transition-all duration-300 cursor-pointer border border-gray-100 hover:border-[#800020] hover:shadow-lg group animate-fade-in-up"
-                    style={{ animationDelay: `${0.4 + index * 0.05}s` }}
-                    onClick={() => handlePlayerClick(player)}
-                  >
-                    {/* Avatar */}
-                    <Avatar className="w-12 h-12 border-2 border-gray-200 shadow-md group-hover:border-[#800020] transition-all duration-300">
-                      <AvatarImage src={player.imagen || "/placeholder.svg"} />
-                      <AvatarFallback className="bg-gradient-to-br from-teal-400 to-teal-600 text-white font-bold text-lg">
-                        {player.nombre.charAt(0)}
-                      </AvatarFallback>
-                    </Avatar>
+                {rest.map((player, index) => {
+                  if (!player || !player.nombre) return null
 
-                    {/* Player Info */}
-                    <div className="flex-1">
-                      <p className="font-bold text-gray-900 group-hover:text-[#800020] transition-colors duration-300">
-                        {player.nombre}
-                      </p>
-                      <p className="text-sm text-gray-500 font-medium">paun: {player.totalIntentos}</p>
-                    </div>
-
-                    {/* Score */}
-                    <div className="text-right mr-2">
-                      <p className="text-2xl font-black text-[#d946ef]">{player.porcentajePromedio}%</p>
-                    </div>
-
-                    {/* Position Badge */}
+                  return (
                     <div
-                      className={`w-12 h-12 rounded-full ${getBadgeColor(player.posicion)} flex items-center justify-center font-black text-lg shrink-0`}
+                      key={player.cuentaId || index}
+                      className="flex items-center gap-4 p-4 bg-white hover:bg-gray-50 rounded-2xl transition-all duration-300 cursor-pointer border border-gray-100 hover:border-[#800020] hover:shadow-lg group animate-fade-in-up"
+                      style={{ animationDelay: `${0.4 + index * 0.05}s` }}
+                      onClick={() => handlePlayerClick(player)}
                     >
-                      {player.posicion <= 5 && (
-                        <Star className="absolute h-4 w-4 text-yellow-400 fill-yellow-400 -top-1 -right-1" />
-                      )}
-                      {player.posicion}
+                      {/* Avatar */}
+                      <Avatar className="w-12 h-12 border-2 border-gray-200 shadow-md group-hover:border-[#800020] transition-all duration-300">
+                        <AvatarImage src={player.imagen || "/placeholder.svg"} />
+                        <AvatarFallback className="bg-gradient-to-br from-teal-400 to-teal-600 text-white font-bold text-lg">
+                          {player.nombre?.charAt(0) || "?"}
+                        </AvatarFallback>
+                      </Avatar>
+
+                      {/* Player Info */}
+                      <div className="flex-1">
+                        <p className="font-bold text-gray-900 group-hover:text-[#800020] transition-colors duration-300">
+                          {player.nombre || "Jugador"}
+                        </p>
+                        <p className="text-sm text-gray-500 font-medium">paun: {player.totalIntentos || 0}</p>
+                      </div>
+
+                      {/* Score */}
+                      <div className="text-right mr-2">
+                        <p className="text-2xl font-black text-[#d946ef]">{player.porcentajePromedio || 0}%</p>
+                      </div>
+
+                      {/* Position Badge */}
+                      <div
+                        className={`w-12 h-12 rounded-full ${getBadgeColor(player.posicion || 999)} flex items-center justify-center font-black text-lg shrink-0`}
+                      >
+                        {(player.posicion || 0) <= 5 && (
+                          <Star className="absolute h-4 w-4 text-yellow-400 fill-yellow-400 -top-1 -right-1" />
+                        )}
+                        {player.posicion || "-"}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
-            ) : rankingData.length === 0 ? (
+            ) : safeRankingData.length === 0 ? (
               <div className="text-center py-12">
                 <Trophy className="h-16 w-16 text-gray-300 mx-auto mb-4" />
                 <p className="text-gray-500 text-lg font-medium">No hay datos disponibles</p>
@@ -405,11 +416,11 @@ export default function ResultadosGeneralPage() {
                 <Avatar className="w-16 h-16 border-4 border-white shadow-lg">
                   <AvatarImage src={playerDetails.imagen || "/placeholder.svg"} />
                   <AvatarFallback className="bg-white text-[#800020] font-bold text-xl">
-                    {playerDetails.nombre.charAt(0)}
+                    {playerDetails.nombre?.charAt(0) || "?"}
                   </AvatarFallback>
                 </Avatar>
                 <div>
-                  <p className="font-bold text-xl text-white">{playerDetails.nombre}</p>
+                  <p className="font-bold text-xl text-white">{playerDetails.nombre || "Jugador"}</p>
                   <p className="text-sm text-white/80">
                     {playerDetails.jugador?.carrera || "N/A"} • {playerDetails.jugador?.posicion_principal || "N/A"}
                   </p>
@@ -442,7 +453,7 @@ export default function ResultadosGeneralPage() {
                   </CardContent>
                 </Card>
 
-                <Card className="bg-gradient-to-br from-red-50 to-red-100 border-red-200 hover:scale-105 transition-transform duration-300">
+                <Card className="bg-gradient-to-br from-red-50 to-red-100 border-red-200 hover:scale-[1.02] transition-transform duration-300">
                   <CardContent className="p-4 text-center">
                     <div className="text-2xl font-bold text-red-600 mx-auto mb-2">✕</div>
                     <p className="text-2xl font-bold text-gray-900">{playerDetails.totalErrores}</p>
@@ -452,44 +463,48 @@ export default function ResultadosGeneralPage() {
               </div>
 
               {/* Test Type Breakdown */}
-              <div className="space-y-3">
-                <h3 className="font-bold text-gray-900">Rendimiento por Tipo</h3>
+              {playerDetails.resumenPorTipo && (
+                <div className="space-y-3">
+                  <h3 className="font-bold text-gray-900">Rendimiento por Tipo</h3>
 
-                {["secuencial", "aleatorio", "manual"].map((tipo) => {
-                  const data = playerDetails.resumenPorTipo[tipo]
-                  const colors = {
-                    secuencial: { bg: "from-blue-50 to-blue-100", border: "border-blue-200", text: "text-blue-600" },
-                    aleatorio: {
-                      bg: "from-yellow-50 to-yellow-100",
-                      border: "border-yellow-200",
-                      text: "text-yellow-600",
-                    },
-                    manual: { bg: "from-green-50 to-green-100", border: "border-green-200", text: "text-green-600" },
-                  }
-                  const color = colors[tipo]
+                  {["secuencial", "aleatorio", "manual"].map((tipo) => {
+                    const data = playerDetails.resumenPorTipo[tipo]
+                    if (!data) return null
 
-                  return (
-                    <Card
-                      key={tipo}
-                      className={`bg-gradient-to-br ${color.bg} border ${color.border} hover:scale-[1.02] transition-transform duration-300`}
-                    >
-                      <CardContent className="p-3">
-                        <div className="flex justify-between items-center">
-                          <div>
-                            <p className="font-bold text-gray-900 capitalize">{tipo}</p>
-                            <p className="text-sm text-gray-600">
-                              {data.totalAciertos}/{data.totalIntentos} aciertos
-                            </p>
+                    const colors = {
+                      secuencial: { bg: "from-blue-50 to-blue-100", border: "border-blue-200", text: "text-blue-600" },
+                      aleatorio: {
+                        bg: "from-yellow-50 to-yellow-100",
+                        border: "border-yellow-200",
+                        text: "text-yellow-600",
+                      },
+                      manual: { bg: "from-green-50 to-green-100", border: "border-green-200", text: "text-green-600" },
+                    }
+                    const color = colors[tipo]
+
+                    return (
+                      <Card
+                        key={tipo}
+                        className={`bg-gradient-to-br ${color.bg} border ${color.border} hover:scale-[1.02] transition-transform duration-300`}
+                      >
+                        <CardContent className="p-3">
+                          <div className="flex justify-between items-center">
+                            <div>
+                              <p className="font-bold text-gray-900 capitalize">{tipo}</p>
+                              <p className="text-sm text-gray-600">
+                                {data.totalAciertos}/{data.totalIntentos} aciertos
+                              </p>
+                            </div>
+                            <div className="text-right">
+                              <p className={`text-2xl font-bold ${color.text}`}>{data.porcentajePromedio}%</p>
+                            </div>
                           </div>
-                          <div className="text-right">
-                            <p className={`text-2xl font-bold ${color.text}`}>{data.porcentajePromedio}%</p>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  )
-                })}
-              </div>
+                        </CardContent>
+                      </Card>
+                    )
+                  })}
+                </div>
+              )}
             </div>
           ) : null}
         </DialogContent>
