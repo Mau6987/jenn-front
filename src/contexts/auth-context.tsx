@@ -4,7 +4,7 @@ import { createContext, useContext, useState, useEffect, useCallback, useRef } f
 
 const AuthContext = createContext(undefined)
 
-const INACTIVITY_TIMEOUT = 10 * 60 * 1000
+const INACTIVITY_TIMEOUT = 10 * 60 * 6000
 
 export function AuthProvider({ children }) {
   const [idUser, setIdUser] = useState(null)

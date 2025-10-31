@@ -2,7 +2,20 @@
 
 import { useState, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
-import { AlertCircle, CheckCircle, X, Users, Play, Clock, List, Shuffle, Hand } from "lucide-react"
+import {
+  AlertCircle,
+  CheckCircle,
+  X,
+  Users,
+  Play,
+  Clock,
+  List,
+  Shuffle,
+  Hand,
+  ChevronDown,
+  Info,
+  Copy,
+} from "lucide-react"
 
 const BACKEND_URL = "https://jenn-back-reac.onrender.com"
 
@@ -11,6 +24,10 @@ export default function PruebasPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const [notification, setNotification] = useState(null)
+
+  // Modal resumen al finalizar
+  const [showSummary, setShowSummary] = useState(false)
+  const [summaryData, setSummaryData] = useState(null)
 
   // Sequential mode variables
   const [testActiveSequential, setTestActiveSequential] = useState(false)
@@ -53,6 +70,8 @@ export default function PruebasPage() {
 
   // Shared variables
   const [modoActual, setModoActual] = useState("secuencial")
+
+  const [tiempoReaccion, setTiempoReaccion] = useState(3.0)
 
   const [tiempoTranscurrido, setTiempoTranscurrido] = useState(0)
   const [timerGeneralInterval, setTimerGeneralInterval] = useState(null)
@@ -303,6 +322,8 @@ export default function PruebasPage() {
   const sendCommandToESP = async (espId, command) => {
     try {
       const deviceId = `ESP-${espId}`
+      const commandToSend = command?.command === "ON" ? `ON:${tiempoReaccion}` : command?.command || "ON"
+
       const response = await fetch(`${BACKEND_URL}/api/pusher/send-command`, {
         method: "POST",
         headers: {
@@ -310,7 +331,7 @@ export default function PruebasPage() {
         },
         body: JSON.stringify({
           deviceId: deviceId,
-          command: command?.command || "ON",
+          command: commandToSend,
           channel: `private-device-${deviceId}`,
         }),
       })
@@ -340,6 +361,7 @@ export default function PruebasPage() {
     }
   }
 
+  // ====== INICIO / RESPUESTA / FINALIZAR - SECUENCIAL ======
   const iniciarPruebaSecuencial = async () => {
     if (!selectedPlayer) {
       showNotification("error", "Debe seleccionar un jugador")
@@ -406,9 +428,10 @@ export default function PruebasPage() {
     const command = { command: "ON", from: "server" }
     sendCommandToESP(espId, command)
 
+    const timeoutMs = (tiempoReaccion + 2) * 1000
     responseTimeoutSequentialRef.current = setTimeout(() => {
       handleSequentialResponse(espId, "error")
-    }, 10000)
+    }, timeoutMs)
   }
 
   const handleSequentialResponse = (espId, responseType) => {
@@ -472,6 +495,32 @@ export default function PruebasPage() {
     }, 1500)
   }
 
+  const abrirResumen = (tipo, stats) => {
+    // Capturamos un snapshot de los datos que se guardan
+    const payload = {
+      tipo,
+      jugador: selectedPlayer
+        ? {
+            id: selectedPlayer.id,
+            nombres: selectedPlayer.nombres,
+            apellidos: selectedPlayer.apellidos,
+            posicion: selectedPlayer.posicion_principal,
+            cuentaId: selectedPlayer.cuentaId,
+          }
+        : null,
+      tiempo_transcurrido: tiempoTranscurrido,
+      parametros: {
+        tiempo_reaccion: tiempoReaccion,
+        rondas: tipo === "secuencial" ? totalRounds : undefined,
+        duracion: tipo === "aleatorio" ? tiempoPrueba : undefined,
+      },
+      resultados: stats,
+      timestamp: new Date().toISOString(),
+    }
+    setSummaryData(payload)
+    setShowSummary(true)
+  }
+
   const finalizarPruebaSecuencial = async () => {
     detenerCronometroGeneral()
 
@@ -498,6 +547,7 @@ export default function PruebasPage() {
       }
     }
 
+    abrirResumen("secuencial", { ...estadisticasSequential })
     limpiarPruebaSecuencial()
   }
 
@@ -551,6 +601,7 @@ export default function PruebasPage() {
     processingResponseSequentialRef.current = false
   }
 
+  // ====== INICIO / RESPUESTA / FINALIZAR - ALEATORIO ======
   const iniciarPruebaAleatoria = async () => {
     if (!selectedPlayer) {
       showNotification("error", "Debe seleccionar un jugador")
@@ -634,9 +685,10 @@ export default function PruebasPage() {
     const command = { command: "ON", from: "server" }
     sendCommandToESP(randomEspId, command)
 
+    const timeoutMs = (tiempoReaccion + 2) * 1000
     responseTimeoutRandomRef.current = setTimeout(() => {
       handleRandomResponse(randomEspId, "error")
-    }, 10000)
+    }, timeoutMs)
   }
 
   const handleRandomResponse = (espId, responseType) => {
@@ -709,6 +761,7 @@ export default function PruebasPage() {
       }
     }
 
+    abrirResumen("aleatorio", { ...estadisticasRandom })
     limpiarPruebaAleatoria()
   }
 
@@ -720,7 +773,6 @@ export default function PruebasPage() {
     setEstadisticasRandom({ intentos: 0, aciertos: 0, errores: 0 })
 
     setTiempoRestante(0)
-    setTiempoTranscurrido(0)
 
     if (timerInterval) {
       clearInterval(timerInterval)
@@ -744,6 +796,7 @@ export default function PruebasPage() {
     processingResponseRandomRef.current = false
   }
 
+  // ====== INICIO / RESPUESTA / FINALIZAR - MANUAL ======
   const iniciarPruebaManual = async () => {
     if (!selectedPlayer) {
       showNotification("error", "Debe seleccionar un jugador")
@@ -808,9 +861,10 @@ export default function PruebasPage() {
     const command = { command: "ON", from: "server" }
     sendCommandToESP(espId, command)
 
+    const timeoutMs = (tiempoReaccion + 2) * 1000
     responseTimeoutManualRef.current = setTimeout(() => {
       handleManualResponse(espId, "error")
-    }, 10000)
+    }, timeoutMs)
   }
 
   const handleManualResponse = (espId, responseType) => {
@@ -874,6 +928,7 @@ export default function PruebasPage() {
       }
     }
 
+    abrirResumen("manual", { ...estadisticasManual })
     limpiarSistemaManual()
   }
 
@@ -883,8 +938,6 @@ export default function PruebasPage() {
     setWaitingForResponseManual(false)
     setPruebaActualManual(null)
     setEstadisticasManual({ intentos: 0, aciertos: 0, errores: 0 })
-
-    setTiempoTranscurrido(0)
 
     if (responseTimeoutManualRef.current) {
       clearTimeout(responseTimeoutManualRef.current)
@@ -931,20 +984,30 @@ export default function PruebasPage() {
     return "/gris.png"
   }
 
+  const copySummary = async () => {
+    if (!summaryData) return
+    try {
+      await navigator.clipboard.writeText(JSON.stringify(summaryData, null, 2))
+      showNotification("success", "Resumen copiado al portapapeles")
+    } catch (e) {
+      showNotification("error", "No se pudo copiar")
+    }
+  }
+
   const testActive = testActiveSequential || testActiveRandom || testActiveManual
   const currentActiveESP = testActiveSequential
     ? currentActiveESPSequential
     : testActiveRandom
-      ? currentActiveESPRandom
-      : currentActiveESPManual
+    ? currentActiveESPRandom
+    : currentActiveESPManual
   const estadisticas = testActiveSequential
     ? estadisticasSequential
     : testActiveRandom
-      ? estadisticasRandom
-      : estadisticasManual
+    ? estadisticasRandom
+    : estadisticasManual
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
       {/* Notification */}
       {notification && (
         <div className="fixed top-20 right-6 z-50 animate-fade-in">
@@ -967,7 +1030,9 @@ export default function PruebasPage() {
             </span>
             <button
               onClick={() => setNotification(null)}
-              className={`ml-4 ${notification.type === "success" ? "text-green-600 hover:text-green-800" : "text-red-600 hover:text-red-800"}`}
+              className={`ml-4 ${
+                notification.type === "success" ? "text-green-600 hover:text-green-800" : "text-red-600 hover:text-red-800"
+              }`}
             >
               <X className="h-4 w-4" />
             </button>
@@ -975,107 +1040,126 @@ export default function PruebasPage() {
         </div>
       )}
 
+      {/* Header */}
+      <header className="sticky top-0 z-30 backdrop-blur bg-white/70 border-b border-slate-200">
+        <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div>
+              <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight text-slate-900">Pruebas de reaccion</h1>
+            </div>
+          </div>
+          <div className={`text-xs px-2 py-1 rounded-full border ${pusherConnected ? "bg-green-50 border-green-200 text-green-700" : "bg-amber-50 border-amber-200 text-amber-700"}`}>
+            {pusherConnected ? "Pusher: Conectado" : "Pusher: Reconectando..."}
+          </div>
+        </div>
+      </header>
+
       {/* Main Content */}
       <div className="w-full p-4 lg:p-6">
-        <div className="max-w-7xl mx-auto">
-          {/* Header */}
-          <div className="mb-8 text-center">
-            <h1 className="text-4xl font-bold bg-gradient-to-r from-red-900 via-red-800 to-red-900 bg-clip-text text-transparent mb-2">
-              Pruebas de Rendimiento
-            </h1>
-            <div className="w-24 h-1 bg-gradient-to-r from-transparent via-red-800 to-transparent mx-auto mb-3"></div>
-            <p className="text-gray-600 text-sm">Sistema de evaluación de jugadores</p>
-          </div>
-
+        <div className="max-w-7xl mx-auto space-y-6">
           {/* Player Selection */}
-          <div className="bg-white rounded-2xl shadow-xl border border-slate-200/60 p-6 mb-6">
-            <h2 className="text-xl font-bold text-gray-900 mb-4 uppercase tracking-wide">Seleccionar Jugador</h2>
-            <select
-              value={selectedPlayer?.id || ""}
-              onChange={(e) => {
-                const player = jugadores.find((j) => j.id === Number.parseInt(e.target.value))
-                setSelectedPlayer(player)
-              }}
-              className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-red-900 focus:border-transparent"
-              disabled={testActive}
-            >
-              <option value="">Selecciona un jugador</option>
-              {jugadores.map((jugador) => (
-                <option key={jugador.id} value={jugador.id}>
-                  {jugador.nombres} {jugador.apellidos} - {jugador.posicion_principal}
-                </option>
-              ))}
-            </select>
+          <div className="bg-white rounded-2xl shadow-xl border border-slate-200/60 p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-bold text-gray-900 uppercase tracking-wide">Seleccionar Jugador</h2>
+             
+            </div>
+            <div className="relative">
+              <select
+                value={selectedPlayer?.id || ""}
+                onChange={(e) => {
+                  const player = jugadores.find((j) => j.id === Number.parseInt(e.target.value))
+                  setSelectedPlayer(player)
+                }}
+                className="w-full appearance-none px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-red-900 focus:border-transparent pr-10"
+                disabled={testActive}
+              >
+                <option value="">Selecciona un jugador</option>
+                {jugadores.map((jugador) => (
+                  <option key={jugador.id} value={jugador.id}>
+                    {jugador.nombres} {jugador.apellidos} — {jugador.posicion_principal}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400 pointer-events-none" />
+            </div>
           </div>
 
           {/* Two Column Layout */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-            {/* Left Column: Player Info */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Left Column: Player Info (mejorado) */}
             <div className="bg-white rounded-2xl shadow-xl border border-slate-200/60 p-6">
-              <h2 className="text-xl font-bold text-gray-900 mb-4 uppercase tracking-wide">Datos del Jugador</h2>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-bold text-gray-900 uppercase tracking-wide">Datos del Jugador</h2>
+                
+              </div>
               {selectedPlayer ? (
-                <div className="flex gap-6">
-                  {/* Left side: Photo and name */}
-                  <div className="flex flex-col items-center">
-                    <div className="w-32 h-32 rounded-lg overflow-hidden border-2 border-red-900 shadow-lg mb-2">
+                <div className="flex flex-col sm:flex-row gap-6">
+                  {/* Left: avatar */}
+                  <div className="flex flex-col items-center sm:items-start">
+                    <div className="w-32 h-32 rounded-2xl overflow-hidden ring-2 ring-red-900 shadow-md mb-3">
                       {selectedPlayer.imagen ? (
                         <img
-                          src={selectedPlayer.imagen || "/placeholder.svg"}
+                          src={selectedPlayer.imagen}
                           alt={`${selectedPlayer.nombres} ${selectedPlayer.apellidos}`}
                           className="w-full h-full object-cover"
                         />
                       ) : (
-                        <div className="w-full h-full bg-gray-200 flex items-center justify-center">
-                          <Users className="h-16 w-16 text-gray-400" />
+                        <div className="w-full h-full bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center">
+                          <Users className="h-14 w-14 text-slate-400" />
                         </div>
                       )}
                     </div>
-                    <p className="text-sm font-bold text-gray-900 text-center">
-                      {selectedPlayer.nombres} {selectedPlayer.apellidos}
-                    </p>
+                    <div className="text-center sm:text-left">
+                      <p className="text-base font-extrabold text-gray-900">
+                        {selectedPlayer.nombres} {selectedPlayer.apellidos}
+                      </p>
+                    
+                    </div>
                   </div>
 
-                  {/* Right side: Data fields stacked vertically */}
-                  <div className="flex-1 space-y-3">
+                  {/* Right: chips */}
+                  <div className="flex-1 grid grid-cols-2 gap-3">
                     {selectedPlayer.fecha_nacimiento && (
-                      <div className="bg-gray-50 px-3 py-2 rounded border">
-                        <p className="text-xs text-gray-500 mb-1">Edad</p>
-                        <p className="text-sm font-semibold text-gray-900">
+                      <div className="rounded-xl border bg-slate-50 px-3 py-2">
+                        <p className="text-[11px] text-slate-500 mb-1">Edad</p>
+                        <p className="text-sm font-semibold text-slate-900">
                           {calcularEdad(selectedPlayer.fecha_nacimiento)} años
                         </p>
                       </div>
                     )}
-                    <div className="bg-gray-50 px-3 py-2 rounded border">
-                      <p className="text-xs text-gray-500 mb-1">Carrera</p>
-                      <p className="text-sm font-semibold text-gray-900">{selectedPlayer.carrera}</p>
+                    <div className="rounded-xl border bg-slate-50 px-3 py-2">
+                      <p className="text-[11px] text-slate-500 mb-1">Carrera</p>
+                      <p className="text-sm font-semibold text-slate-900 truncate" title={selectedPlayer.carrera}>
+                        {selectedPlayer.carrera || "—"}
+                      </p>
                     </div>
-                    <div className="bg-gray-50 px-3 py-2 rounded border">
-                      <p className="text-xs text-gray-500 mb-1">Posición</p>
+                    <div className="rounded-xl border bg-slate-50 px-3 py-2">
+                      <p className="text-[11px] text-slate-500 mb-1">Posición</p>
                       <p className="text-sm font-semibold text-red-700 capitalize">
                         {selectedPlayer.posicion_principal}
                       </p>
                     </div>
-                    <div className="bg-gray-50 px-3 py-2 rounded border">
-                      <p className="text-xs text-gray-500 mb-1">Altura</p>
-                      <p className="text-sm font-semibold text-gray-900">{selectedPlayer.altura} m</p>
+                    <div className="rounded-xl border bg-slate-50 px-3 py-2">
+                      <p className="text-[11px] text-slate-500 mb-1">Altura</p>
+                      <p className="text-sm font-semibold text-slate-900">{selectedPlayer.altura} m</p>
                     </div>
                   </div>
                 </div>
               ) : (
-                <div className="text-center py-8 text-gray-500">
-                  <Users className="h-12 w-12 mx-auto mb-2 text-gray-400" />
-                  <p>No hay jugador seleccionado</p>
+                <div className="text-center py-10 text-gray-500">
+                  <Users className="h-12 w-12 mx-auto mb-3 text-gray-400" />
+                  <p>Selecciona un jugador para ver sus datos</p>
                 </div>
               )}
             </div>
 
             {/* Right Column: Test Progress */}
             <div className="bg-white rounded-2xl shadow-xl border border-slate-200/60 p-6">
-              <h2 className="text-xl font-bold text-gray-900 mb-4 uppercase tracking-wide">Progreso de la Prueba</h2>
+              <h2 className="text-lg font-bold text-gray-900 mb-4 uppercase tracking-wide">Progreso de la Prueba</h2>
               <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="bg-blue-50 rounded-xl p-4 border-2 border-blue-300">
-                    <p className="text-xs text-gray-600 mb-1 text-center">tipo de prueba</p>
+                  <div className="bg-gradient-to-br from-blue-50 to-white rounded-xl p-4 border-2 border-blue-200">
+                    <p className="text-[11px] text-gray-600 mb-1 text-center">Tipo de prueba</p>
                     <p className="text-lg font-bold text-blue-900 capitalize text-center flex items-center justify-center gap-2">
                       {modoActual === "secuencial" && <List className="h-5 w-5" />}
                       {modoActual === "aleatorio" && <Shuffle className="h-5 w-5" />}
@@ -1084,36 +1168,34 @@ export default function PruebasPage() {
                     </p>
                   </div>
 
-                  <div className="bg-gray-50 rounded-xl p-4 border-2 border-gray-300">
-                    <p className="text-xs text-gray-600 mb-2 text-center font-semibold">Intentos aciertos y errores</p>
+                  <div className="bg-gradient-to-br from-slate-50 to-white rounded-xl p-4 border-2 border-slate-200">
+                    <p className="text-[11px] text-gray-600 mb-2 text-center font-semibold">Intentos / Aciertos / Errores</p>
                     <div className="grid grid-cols-3 gap-2 text-center">
                       <div>
-                        <p className="text-xs text-gray-500">Int</p>
-                        <p className="text-lg font-bold text-blue-600">{estadisticas.intentos}</p>
+                        <p className="text-[11px] text-gray-500">Int</p>
+                        <p className="text-lg font-bold">{estadisticas.intentos}</p>
                       </div>
                       <div>
-                        <p className="text-xs text-gray-500">Aci</p>
-                        <p className="text-lg font-bold text-green-600">{estadisticas.aciertos}</p>
+                        <p className="text-[11px] text-gray-500">Aci</p>
+                        <p className="text-lg font-bold">{estadisticas.aciertos}</p>
                       </div>
                       <div>
-                        <p className="text-xs text-gray-500">Err</p>
-                        <p className="text-lg font-bold text-red-600">{estadisticas.errores}</p>
+                        <p className="text-[11px] text-gray-500">Err</p>
+                        <p className="text-lg font-bold">{estadisticas.errores}</p>
                       </div>
                     </div>
                   </div>
                 </div>
 
-                <div className="bg-gray-50 rounded-xl p-4 border-2 border-gray-300">
-                  <p className="text-xs text-gray-600 mb-3 text-center font-semibold">
-                    cronometro, y datos del progreso de la prueba
-                  </p>
+                <div className="rounded-xl p-4 border-2 border-slate-200 bg-white">
+                  <p className="text-[11px] text-gray-600 mb-3 text-center font-semibold">Cronómetro y progreso</p>
                   <div className="space-y-2">
                     {testActive && (
                       <div className="flex justify-center mb-3">
-                        <div className="bg-white px-6 py-3 rounded-lg border-2 border-blue-300 shadow-sm">
+                        <div className="bg-white px-6 py-3 rounded-lg border-2 border-blue-200 shadow-sm">
                           <div className="flex items-center gap-2">
-                            <Clock className="h-6 w-6 text-blue-600" />
-                            <span className="text-3xl font-bold text-blue-900">{formatTime(tiempoTranscurrido)}</span>
+                            <Clock className="h-6 w-6" />
+                            <span className="text-3xl font-bold">{formatTime(tiempoTranscurrido)}</span>
                           </div>
                         </div>
                       </div>
@@ -1121,14 +1203,14 @@ export default function PruebasPage() {
 
                     {modoActual === "secuencial" && testActive && (
                       <>
-                        <div className="flex justify-between items-center bg-white px-3 py-2 rounded border">
-                          <span className="text-sm text-gray-600">Ronda:</span>
+                        <div className="flex justify-between items-center bg-slate-50 px-3 py-2 rounded border">
+                          <span className="text-sm text-gray-600">Ronda</span>
                           <span className="text-sm font-bold">
                             {currentRound}/{totalRounds}
                           </span>
                         </div>
-                        <div className="flex justify-between items-center bg-white px-3 py-2 rounded border">
-                          <span className="text-sm text-gray-600">Secuencia:</span>
+                        <div className="flex justify-between items-center bg-slate-50 px-3 py-2 rounded border">
+                          <span className="text-sm text-gray-600">Secuencia</span>
                           <span className="text-sm font-bold">{currentSequence}/5</span>
                         </div>
                       </>
@@ -1136,8 +1218,8 @@ export default function PruebasPage() {
 
                     {currentActiveESP && testActive && (
                       <div className="flex justify-between items-center bg-green-50 px-3 py-2 rounded border border-green-200">
-                        <span className="text-sm text-gray-600">ESP Activo:</span>
-                        <span className="text-sm font-bold text-green-600">ESP-{currentActiveESP}</span>
+                        <span className="text-sm text-gray-600">ESP Activo</span>
+                        <span className="text-sm font-bold text-green-700">ESP-{currentActiveESP}</span>
                       </div>
                     )}
 
@@ -1153,8 +1235,8 @@ export default function PruebasPage() {
           </div>
 
           {/* Test Configuration */}
-          <div className="bg-white rounded-2xl shadow-xl border border-slate-200/60 p-6 mb-6">
-            <h2 className="text-xl font-bold text-gray-900 mb-4 uppercase tracking-wide">Configuración de Pruebas</h2>
+          <div className="bg-white rounded-2xl shadow-xl border border-slate-200/60 p-6">
+            <h2 className="text-lg font-bold text-gray-900 mb-4 uppercase tracking-wide">Configuración de Pruebas</h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">Tipo de Prueba</label>
@@ -1163,9 +1245,7 @@ export default function PruebasPage() {
                     onClick={() => setModoActual("secuencial")}
                     disabled={testActive}
                     className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors flex items-center justify-center gap-2 ${
-                      modoActual === "secuencial"
-                        ? "bg-red-900 text-white"
-                        : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                      modoActual === "secuencial" ? "bg-red-900 text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                     } disabled:opacity-50`}
                   >
                     <List className="h-4 w-4" />
@@ -1175,9 +1255,7 @@ export default function PruebasPage() {
                     onClick={() => setModoActual("aleatorio")}
                     disabled={testActive}
                     className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors flex items-center justify-center gap-2 ${
-                      modoActual === "aleatorio"
-                        ? "bg-red-900 text-white"
-                        : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                      modoActual === "aleatorio" ? "bg-red-900 text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                     } disabled:opacity-50`}
                   >
                     <Shuffle className="h-4 w-4" />
@@ -1226,6 +1304,20 @@ export default function PruebasPage() {
                 </div>
               )}
 
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Tiempo de Reacción (segundos)</label>
+                <input
+                  type="number"
+                  step="0.1"
+                  value={tiempoReaccion}
+                  onChange={(e) => setTiempoReaccion(Number.parseFloat(e.target.value) || 3.0)}
+                  min="0.5"
+                  max="10"
+                  disabled={testActive}
+                  className="w-full px-4 py-2 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-red-900 focus:border-transparent disabled:opacity-50"
+                />
+              </div>
+
               <div className="flex items-end">
                 {!testActive ? (
                   <button
@@ -1234,7 +1326,7 @@ export default function PruebasPage() {
                       else if (modoActual === "aleatorio") iniciarPruebaAleatoria()
                       else iniciarPruebaManual()
                     }}
-                    className="w-full px-6 py-2 bg-red-900 text-white rounded-lg hover:bg-red-800 transition-colors font-semibold flex items-center justify-center space-x-2"
+                    className="w-full px-6 py-3 bg-red-900 text-white rounded-xl hover:bg-red-800 transition-colors font-semibold flex items-center justify-center gap-2 shadow"
                   >
                     <Play className="h-5 w-5" />
                     <span>Iniciar Prueba</span>
@@ -1246,7 +1338,7 @@ export default function PruebasPage() {
                       else if (modoActual === "aleatorio") finalizarPruebaAleatoria()
                       else finalizarPruebaManual()
                     }}
-                    className="w-full px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-semibold"
+                    className="w-full px-6 py-3 bg-red-600 text-white rounded-xl hover:bg-red-700 transition-colors font-semibold shadow"
                   >
                     Finalizar Prueba
                   </button>
@@ -1257,9 +1349,10 @@ export default function PruebasPage() {
 
           {/* Microcontroller Status */}
           <div className="bg-white rounded-2xl shadow-xl border border-slate-200/60 p-6">
-            <h2 className="text-xl font-bold text-gray-900 mb-6 uppercase tracking-wide">
-              Estado de Microcontroladores
-            </h2>
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-lg font-bold text-gray-900 uppercase tracking-wide">Estado de Microcontroladores</h2>
+              <span className="text-xs text-slate-500">Tiempo total: {formatTime(tiempoTranscurrido)}</span>
+            </div>
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
               {microControllers.map((mc, index) => (
                 <div
@@ -1278,19 +1371,15 @@ export default function PruebasPage() {
                       !testActive
                         ? "border-gray-300"
                         : mc.active
-                          ? "border-blue-500 animate-pulse"
-                          : mc.lastResponse === "acierto"
-                            ? "border-green-500"
-                            : mc.lastResponse === "error"
-                              ? "border-red-500"
-                              : "border-gray-300"
+                        ? "border-blue-500 animate-pulse"
+                        : mc.lastResponse === "acierto"
+                        ? "border-green-500"
+                        : mc.lastResponse === "error"
+                        ? "border-red-500"
+                        : "border-gray-300"
                     }`}
                   >
-                    <img
-                      src={getMicroImage(mc) || "/placeholder.svg"}
-                      alt={`ESP-${mc.id}`}
-                      className="w-full h-full object-contain p-4"
-                    />
+                    <img src={getMicroImage(mc)} alt={`ESP-${mc.id}`} className="w-full h-full object-contain p-4" />
                   </div>
                   <div className="text-center">
                     <p className="font-bold text-gray-900">ESP-{mc.id}</p>
@@ -1298,12 +1387,12 @@ export default function PruebasPage() {
                       {!testActive
                         ? "Esperando"
                         : mc.active
-                          ? "Procesando..."
-                          : mc.lastResponse === "acierto"
-                            ? "Correcto"
-                            : mc.lastResponse === "error"
-                              ? "Incorrecto"
-                              : "Esperando"}
+                        ? "Procesando..."
+                        : mc.lastResponse === "acierto"
+                        ? "Correcto"
+                        : mc.lastResponse === "error"
+                        ? "Incorrecto"
+                        : "Esperando"}
                     </p>
                   </div>
                   {testActiveManual && mc.connected && (
@@ -1321,6 +1410,74 @@ export default function PruebasPage() {
           </div>
         </div>
       </div>
+
+      {/* MODAL DE RESUMEN FINAL */}
+      {showSummary && summaryData && (
+        <div className="fixed inset-0 z-50 grid place-items-center p-4">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setShowSummary(false)} />
+          <div className="relative w-full max-w-2xl bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden animate-in fade-in zoom-in duration-150">
+            <div className="px-6 py-4 border-b bg-gradient-to-r from-red-900 to-red-800 text-white">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <CheckCircle className="h-5 w-5" />
+                  <h3 className="font-bold">Prueba finalizada — Resumen guardado</h3>
+                </div>
+                <button onClick={() => setShowSummary(false)} className="opacity-90 hover:opacity-100">
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="rounded-xl border bg-slate-50 p-3">
+                  <p className="text-[11px] text-slate-500">Tipo</p>
+                  <p className="text-sm font-semibold capitalize">{summaryData.tipo}</p>
+                </div>
+                <div className="rounded-xl border bg-slate-50 p-3">
+                  <p className="text-[11px] text-slate-500">Tiempo transcurrido</p>
+                  <p className="text-sm font-semibold">{formatTime(summaryData.tiempo_transcurrido || 0)}</p>
+                </div>
+                <div className="rounded-xl border bg-slate-50 p-3">
+                  <p className="text-[11px] text-slate-500">Jugador</p>
+                  <p className="text-sm font-semibold">
+                    {summaryData.jugador
+                      ? `${summaryData.jugador.nombres} ${summaryData.jugador.apellidos}`
+                      : "—"}
+                  </p>
+                </div>
+                <div className="rounded-xl border bg-slate-50 p-3">
+                  <p className="text-[11px] text-slate-500">Resultados</p>
+                  <p className="text-sm font-semibold">
+                    {summaryData.resultados?.aciertos || 0} aciertos · {summaryData.resultados?.errores || 0} errores · {summaryData.resultados?.intentos || 0} intentos
+                  </p>
+                </div>
+              </div>
+
+              <details className="rounded-xl border bg-white p-3">
+                <summary className="cursor-pointer list-none flex items-center gap-2 text-sm font-semibold">
+                  <Info className="h-4 w-4" /> Datos enviados (payload)
+                </summary>
+                <pre className="mt-3 text-xs bg-slate-900 text-slate-50 p-3 rounded-lg overflow-auto max-h-64">{JSON.stringify(summaryData, null, 2)}</pre>
+                <div className="mt-3 flex justify-end gap-2">
+                  <button
+                    onClick={copySummary}
+                    className="inline-flex items-center gap-2 px-3 py-2 text-xs rounded-md border bg-white hover:bg-slate-50"
+                  >
+                    <Copy className="h-4 w-4" /> Copiar JSON
+                  </button>
+                  <button
+                    onClick={() => setShowSummary(false)}
+                    className="inline-flex items-center gap-2 px-3 py-2 text-xs rounded-md bg-red-900 text-white hover:bg-red-800"
+                  >
+                    Cerrar
+                  </button>
+                </div>
+              </details>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

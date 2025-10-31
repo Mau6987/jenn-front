@@ -3,10 +3,25 @@
 import { useState } from "react"
 import Link from "next/link"
 import { useRouter, usePathname } from "next/navigation"
-import { SidebarTrigger } from "../../components/ui/sidebar"
-import { Separator } from "../../components/ui/separator"
-import { useSidebar } from "../../components/ui/sidebar"
-import { ArrowLeft, Menu, X, User, Briefcase, Shield } from "lucide-react"
+import {
+  ArrowLeft,
+  Menu,
+  X,
+  User,
+  Briefcase,
+  Shield,
+  Activity,
+  TrendingUp,
+  Trophy,
+  ClipboardList,
+  Calendar,
+  Users,
+  UserCheck,
+  Home,
+  Clock,
+  Award,
+  LogOut,
+} from "lucide-react"
 import { Button } from "../../components/ui/button"
 import { useAuth } from "../../contexts/auth-context"
 import { getPositionIcon } from "../../lib/position-icons"
@@ -19,7 +34,6 @@ export default function Navbar() {
   const pathname = usePathname()
   const { idUser, rol, posicion, token, isAuthenticated, logout } = useAuth()
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
-  const { state: sidebarState, toggleSidebar } = useSidebar()
   const [showLogoutDialog, setShowLogoutDialog] = useState(false)
   const [isLoggingOut, setIsLoggingOut] = useState(false)
 
@@ -69,69 +83,120 @@ export default function Navbar() {
     return iconMap[rol] || <User className="w-5 h-5 text-white" />
   }
 
+  const getMenuItems = () => {
+    switch (rol) {
+      case "jugador":
+        return [
+          { icon: Activity, label: "Resultados Reacción", href: "/resultados-reaccion" },
+          { icon: TrendingUp, label: "Resultados Salto", href: "/resultados-salto" },
+          { icon: Trophy, label: "Ranking Reacción", href: "/ranking-reaccion" },
+          { icon: Award, label: "Ranking Salto", href: "/ranking-salto" },
+          { icon: User, label: "Perfil", href: "/perfil" },
+        ]
+      case "entrenador":
+        return [
+          { icon: ClipboardList, label: "Pruebas", href: "/pruebas" },
+          { icon: Activity, label: "Pliometría", href: "/pliometria" },
+          { icon: Calendar, label: "Horarios", href: "/horarios" },
+          { icon: Users, label: "Jugadores", href: "/jugadores" },
+          { icon: User, label: "Perfil", href: "/perfil" },
+        ]
+      case "tecnico":
+        return [
+          { icon: Users, label: "Jugadores", href: "/jugadores" },
+          { icon: UserCheck, label: "Entrenadores", href: "/entrenadores" },
+          { icon: Shield, label: "Técnicos", href: "/tecnicos" },
+          { icon: Activity, label: "Monitoreo", href: "/monitoreo" },
+          { icon: User, label: "Perfil", href: "/perfil" },
+        ]
+      default:
+        return []
+    }
+  }
+
   if (!isAuthenticated) {
     return (
-      <header className="relative z-50 px-6 py-6 bg-white shadow-sm border-b border-gray-200">
+      <header className="sticky top-0 z-50 px-6 py-6 bg-white shadow-md border-b border-gray-200">
         <nav className="flex items-center justify-between max-w-7xl mx-auto">
-          <div className="flex items-center space-x-2">
-            <div className="w-14 h-14 rounded-full flex items-center justify-center overflow-hidden">
+          <div className="flex items-center space-x-3 group">
+            <div className="w-14 h-14 rounded-full flex items-center justify-center overflow-hidden transition-transform duration-300 group-hover:scale-110">
               <Image src="/puma.png" alt="Puma" width={56} height={56} className="w-full h-full object-cover" />
             </div>
-            <span className="text-[#800020] font-bold text-2xl">Voley</span>
+            <span className="text-[#800020] font-bold text-2xl transition-colors duration-300 group-hover:text-[#a64d66]">
+              Voley
+            </span>
           </div>
 
           <div className="hidden md:flex items-center space-x-8">
-            <Link href="/" className="text-[#800020] hover:text-[#a64d66] font-medium text-lg">
-              Inicio
+            <Link
+              href="/"
+              className="flex items-center gap-2 text-[#800020] hover:text-[#a64d66] font-medium text-lg transition-all duration-300 hover:scale-105"
+            >
+              <Home className="w-5 h-5" />
+              <span>Inicio</span>
             </Link>
 
-            <Link href="/horarios-entrenamiento" className="text-gray-700 hover:text-[#800020] text-lg">
-              Horarios
+            <Link
+              href="/horarios-entrenamiento"
+              className="flex items-center gap-2 text-gray-700 hover:text-[#800020] text-lg transition-all duration-300 hover:scale-105"
+            >
+              <Clock className="w-5 h-5" />
+              <span>Horarios</span>
             </Link>
 
-            <Link href="/campeonatos" className="text-gray-700 hover:text-[#800020] text-lg">
-              Campeonatos
+            <Link
+              href="/campeonatos"
+              className="flex items-center gap-2 text-gray-700 hover:text-[#800020] text-lg transition-all duration-300 hover:scale-105"
+            >
+              <Award className="w-5 h-5" />
+              <span>Campeonatos</span>
             </Link>
           </div>
 
           <div className="flex items-center space-x-4">
             <button
               onClick={toggleMobileMenu}
-              className="md:hidden p-2 rounded-lg text-[#800020] hover:bg-[#800020] hover:text-white transition-colors"
+              className="md:hidden p-2 rounded-lg text-[#800020] hover:bg-[#800020] hover:text-white transition-all duration-300 hover:scale-110"
               aria-label="Toggle mobile menu"
             >
               {isMobileMenuOpen ? <X className="w-7 h-7" /> : <Menu className="w-7 h-7" />}
             </button>
-            <Button asChild className="bg-[#800020] hover:bg-[#a64d66] text-white h-11 px-6 text-base">
+            <Button
+              asChild
+              className="bg-[#800020] hover:bg-[#a64d66] text-white h-11 px-6 text-base shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105"
+            >
               <Link href="/login">Iniciar Sesión</Link>
             </Button>
           </div>
         </nav>
         {isMobileMenuOpen && (
-          <div className="md:hidden absolute top-full left-0 right-0 bg-white border-b border-gray-200 shadow-lg">
-            <div className="px-6 py-4 space-y-4">
+          <div className="md:hidden absolute top-full left-0 right-0 bg-white border-b border-gray-200 shadow-lg animate-slide-down">
+            <div className="px-6 py-4 space-y-2">
               <Link
                 href="/"
-                className="block text-[#800020] hover:text-[#a64d66] font-medium py-2 text-lg"
+                className="flex items-center gap-3 text-[#800020] hover:text-[#a64d66] font-medium py-3 text-lg transition-colors duration-300 hover:bg-gray-50 px-3 rounded-lg"
                 onClick={closeMobileMenu}
               >
-                Inicio
+                <Home className="w-5 h-5" />
+                <span>Inicio</span>
               </Link>
 
               <Link
                 href="/horarios-entrenamiento"
-                className="block text-gray-700 hover:text-[#800020] py-2 text-lg"
+                className="flex items-center gap-3 text-gray-700 hover:text-[#800020] py-3 text-lg transition-colors duration-300 hover:bg-gray-50 px-3 rounded-lg"
                 onClick={closeMobileMenu}
               >
-                Horarios
+                <Clock className="w-5 h-5" />
+                <span>Horarios</span>
               </Link>
 
               <Link
                 href="/campeonatos"
-                className="block text-gray-700 hover:text-[#800020] py-2 text-lg"
+                className="flex items-center gap-3 text-gray-700 hover:text-[#800020] py-3 text-lg transition-colors duration-300 hover:bg-gray-50 px-3 rounded-lg"
                 onClick={closeMobileMenu}
               >
-                Campeonatos
+                <Award className="w-5 h-5" />
+                <span>Campeonatos</span>
               </Link>
             </div>
           </div>
@@ -142,73 +207,132 @@ export default function Navbar() {
 
   if (pathname === "/login") {
     return (
-      <header className="flex h-20 items-center gap-2 border-b border-gray-300 bg-white px-6 shadow-lg">
+      <header className="sticky top-0 z-50 flex h-20 items-center gap-2 border-b border-gray-300 bg-white px-6 shadow-lg">
         <Link
           href="/"
-          className="flex items-center gap-2 p-2 rounded-lg text-[#800020] hover:bg-[#800020] hover:text-white"
+          className="flex items-center gap-2 p-2 rounded-lg text-[#800020] hover:bg-[#800020] hover:text-white transition-all duration-300 hover:scale-105"
         >
           <ArrowLeft className="h-6 w-6" />
           <span className="hidden sm:inline text-base">Volver</span>
         </Link>
         <div className="flex items-center space-x-3 mx-auto">
-          
           <div className="hidden sm:block">
-            <h1 className="text-[#800020] font-bold text-xl">Volleyball </h1>
+            <h1 className="text-[#800020] font-bold text-xl">VolleyValle </h1>
           </div>
         </div>
       </header>
     )
   }
 
+  const menuItems = getMenuItems()
+
   return (
     <>
-      <header className="flex h-24 items-center gap-2 border-b border-gray-300 bg-white px-6 shadow-lg">
-        <button
-          onClick={toggleSidebar}
-          className="lg:hidden p-2 rounded-lg text-[#800020] hover:bg-[#800020] hover:text-white transition-colors"
-          aria-label="Toggle sidebar"
-        >
-          <Menu className="w-6 h-6" />
-        </button>
+      <header className="sticky top-0 z-50 flex h-24 items-center gap-4 border-b border-gray-300 bg-white px-6 shadow-lg relative">
+        <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-[#800020] via-[#a64d66] to-[#800020] opacity-50"></div>
 
-        {sidebarState === "collapsed" && (
-          <>
-            <SidebarTrigger className="-ml-1 text-[#800020] hover:bg-[#800020] hover:text-white hidden lg:flex" />
-            <Separator orientation="vertical" className="mr-2 h-6 hidden lg:block" />
-          </>
-        )}
-
-        <div className="flex-1 flex justify-center">
-          <div className="flex items-center space-x-3 cursor-default">
-            <div className="hidden sm:block">
-              <h1 className="text-[#800020] font-bold text-2xl">Volleyball System</h1>
-            </div>
+        <div className="flex items-center space-x-3 group">
+          <div className="w-12 h-12 rounded-full flex items-center justify-center overflow-hidden transition-transform duration-300 group-hover:scale-110 group-hover:rotate-12">
+            <Image src="/puma.png" alt="Puma" width={48} height={48} className="w-full h-full object-cover" />
           </div>
+          <h1 className="text-[#800020] font-bold text-xl hidden sm:block transition-colors duration-300 group-hover:text-[#a64d66]">
+            VolleyValle
+          </h1>
         </div>
 
-        <div className="flex items-center space-x-3">
+        {/* Desktop Menu */}
+        <nav className="hidden lg:flex flex-1 items-center justify-center gap-2">
+          {menuItems.map((item) => {
+            const Icon = item.icon
+            const isActive = pathname === item.href
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all duration-300 hover:scale-105 ${
+                  isActive
+                    ? "bg-[#800020] text-white shadow-lg"
+                    : "text-gray-700 hover:bg-[#800020] hover:text-white hover:shadow-md"
+                }`}
+              >
+                <Icon className="w-5 h-5" />
+                <span className="text-sm font-medium">{item.label}</span>
+              </Link>
+            )
+          })}
+        </nav>
+
+        {/* Mobile Menu Button */}
+        <button
+          onClick={toggleMobileMenu}
+          className="lg:hidden ml-auto p-2 rounded-lg text-[#800020] hover:bg-[#800020] hover:text-white transition-all duration-300 hover:scale-110 hover:rotate-90"
+          aria-label="Toggle mobile menu"
+        >
+          {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+        </button>
+
+        {/* User Profile & Logout */}
+        <div className="hidden lg:flex items-center space-x-3">
           <Link
             href="/perfil"
-            className="flex items-center space-x-2 px-4 py-2 rounded-lg hover:bg-gray-100 transition-colors group"
+            className="flex items-center space-x-2 px-4 py-2 rounded-lg hover:bg-gray-100 transition-all duration-300 group hover:scale-105"
           >
-            <div className="w-12 h-12 bg-[#800020] rounded-full flex items-center justify-center group-hover:bg-[#a64d66] transition-colors overflow-hidden">
+            <div className="w-10 h-10 bg-[#800020] rounded-full flex items-center justify-center group-hover:bg-[#a64d66] transition-all duration-300 overflow-hidden group-hover:scale-110">
               {getRoleIconComponent()}
             </div>
-            <div className="hidden sm:flex items-center gap-2 text-left">
-              <p className="text-base font-medium text-[#800020] capitalize group-hover:text-[#a64d66] transition-colors">
-                {rol}
-              </p>
-            </div>
+            <p className="text-sm font-medium text-[#800020] capitalize group-hover:text-[#a64d66] transition-colors">
+              {rol}
+            </p>
           </Link>
 
           <button
             onClick={handleLogoutClick}
-            className="px-4 py-2 text-base rounded-lg text-[#800020] hover:bg-[#800020] hover:text-white transition-colors"
+            className="flex items-center gap-2 px-4 py-2 text-sm rounded-lg text-[#800020] hover:bg-[#800020] hover:text-white transition-all duration-300 hover:scale-105 hover:shadow-md"
           >
-            Cerrar Sesión
+            <LogOut className="w-4 h-4" />
+            <span>Cerrar Sesión</span>
           </button>
         </div>
       </header>
+
+      {/* Mobile Menu Dropdown */}
+      {isMobileMenuOpen && (
+        <div className="lg:hidden absolute top-24 left-0 right-0 bg-white border-b border-gray-200 shadow-lg z-40 animate-slide-down">
+          <div className="px-6 py-4 space-y-2">
+            {menuItems.map((item) => {
+              const Icon = item.icon
+              const isActive = pathname === item.href
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-300 ${
+                    isActive
+                      ? "bg-[#800020] text-white shadow-md"
+                      : "text-gray-700 hover:bg-[#800020] hover:text-white hover:shadow-sm"
+                  }`}
+                  onClick={closeMobileMenu}
+                >
+                  <Icon className="w-5 h-5" />
+                  <span className="font-medium">{item.label}</span>
+                </Link>
+              )
+            })}
+            <div className="pt-4 border-t border-gray-200 mt-4">
+              <button
+                onClick={() => {
+                  closeMobileMenu()
+                  handleLogoutClick()
+                }}
+                className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-[#800020] hover:bg-[#800020] hover:text-white transition-all duration-300 hover:shadow-sm"
+              >
+                <LogOut className="w-5 h-5" />
+                <span className="font-medium">Cerrar Sesión</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <LogoutDialog open={showLogoutDialog} onOpenChange={setShowLogoutDialog} onConfirm={handleLogoutConfirm} />
 

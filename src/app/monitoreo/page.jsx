@@ -7,7 +7,20 @@ import { Badge } from "../../components/ui/badge"
 import { Input } from "../../components/ui/input"
 import { Label } from "../../components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs"
-import { Activity, Lightbulb, Volume2, Wifi, TestTube, Zap, Settings, Power, PowerOff } from "lucide-react"
+import {
+  Activity,
+  Lightbulb,
+  Volume2,
+  Wifi,
+  TestTube,
+  Zap,
+  Settings,
+  Power,
+  PowerOff,
+  CheckCircle2,
+  XCircle,
+  Loader2,
+} from "lucide-react"
 
 const BACKEND_URL = "https://jenn-back-reac.onrender.com"
 
@@ -130,7 +143,6 @@ export default function ESPMonitoringDashboard() {
         const espId = Number.parseInt(channelName.split("-").pop())
         const responseMessage = data.message?.toLowerCase() || ""
 
-        // Handle connection test responses
         if (
           responseMessage.includes("ok") ||
           responseMessage.includes("vivo") ||
@@ -149,7 +161,6 @@ export default function ESPMonitoringDashboard() {
           }
         }
 
-        // Handle sensor test responses
         if (responseMessage.includes("sensor_ok")) {
           setSensorTestStates((prev) => ({ ...prev, [espId]: "success" }))
           if (sensorTestTimeouts[espId]) {
@@ -160,7 +171,6 @@ export default function ESPMonitoringDashboard() {
               return newTimeouts
             })
           }
-          // Reset state after 3 seconds
           setTimeout(() => {
             setSensorTestStates((prev) => ({ ...prev, [espId]: "idle" }))
           }, 3000)
@@ -176,11 +186,27 @@ export default function ESPMonitoringDashboard() {
           }
         }
 
-        addMessage(`ESP-${espId}`, "response", data.message, "info")
+        if (responseMessage.includes("led_on")) {
+          setMicroControllers((prev) => prev.map((mc) => (mc.id === espId ? { ...mc, ledOn: true } : mc)))
+        } else if (responseMessage.includes("led_off")) {
+          setMicroControllers((prev) => prev.map((mc) => (mc.id === espId ? { ...mc, ledOn: false } : mc)))
+        }
+
+        if (responseMessage.includes("buzzer")) {
+          // Visual feedback for buzzer activation
+        }
+
+        addMessage(`ESP-${espId}`, "response", data.message, "success")
       })
 
       channel.bind("client-status", (data) => {
-        addMessage(`ESP-${i}`, "status", data, "info")
+        const espId = Number.parseInt(channelName.split("-").pop())
+        addMessage(`ESP-${espId}`, "status", typeof data === "string" ? data : JSON.stringify(data), "info")
+      })
+
+      channel.bind("client-error", (data) => {
+        const espId = Number.parseInt(channelName.split("-").pop())
+        addMessage(`ESP-${espId}`, "error", data.message || "Error desconocido", "error")
       })
     }
   }
@@ -193,7 +219,7 @@ export default function ESPMonitoringDashboard() {
       type: type,
       status: status,
     }
-    setEspResponses((prev) => [...prev.slice(-9), message])
+    setEspResponses((prev) => [...prev.slice(-19), message])
   }
 
   const sendCommandToESP = async (espId, command) => {
@@ -244,7 +270,6 @@ export default function ESPMonitoringDashboard() {
       await sendCommandToESP(espId, ledCommand)
       setMicroControllers((prev) => prev.map((mc) => (mc.id === espId ? { ...mc, ledOn: !mc.ledOn } : mc)))
     } else {
-      // For all ESPs - Simplified to only send LED_ON or LED_OFF directly
       const ledCommand = {
         command: allLedsOn ? "LED_OFF" : "LED_ON",
         data: {},
@@ -271,14 +296,12 @@ export default function ESPMonitoringDashboard() {
   }
 
   const testMagneticSensor = async (espId) => {
-    // Set testing state
     setSensorTestStates((prev) => ({ ...prev, [espId]: "testing" }))
 
-    // Set timeout for sensor test
     const timeoutId = setTimeout(() => {
       setSensorTestStates((prev) => ({ ...prev, [espId]: "failed" }))
       addMessage(`ESP-${espId}`, "error", "Timeout - Sin respuesta del sensor magnético", "error")
-    }, 10000) // 10 second timeout to match Arduino
+    }, 10000)
 
     setSensorTestTimeouts((prev) => ({ ...prev, [espId]: timeoutId }))
 
@@ -294,6 +317,8 @@ export default function ESPMonitoringDashboard() {
         setSensorTestStates((prev) => ({ ...prev, [i]: "failed" }))
         addMessage(`ESP-${i}`, "error", "Timeout - Sin respuesta del sensor magnético", "error")
       }, 10000)
+
+      setSensorTestTimeouts((prev) => ({ ...prev, [i]: timeoutId }))
     }
 
     const command = { command: "TEST_SENSOR", data: {} }
@@ -309,7 +334,7 @@ export default function ESPMonitoringDashboard() {
       const timeoutId = setTimeout(() => {
         setMicroControllers((prev) => prev.map((mc) => (mc.id === espId ? { ...mc, connectionStatus: "failed" } : mc)))
         addMessage(`ESP-${espId}`, "error", "Timeout - Sin respuesta al comando STATE", "error")
-      }, 5000) // 5 second timeout
+      }, 5000)
 
       setConnectionTestTimeouts((prev) => ({ ...prev, [espId]: timeoutId }))
       await sendCommandToESP(espId, command)
@@ -321,6 +346,8 @@ export default function ESPMonitoringDashboard() {
           setMicroControllers((prev) => prev.map((mc) => (mc.id === i ? { ...mc, connectionStatus: "failed" } : mc)))
           addMessage(`ESP-${i}`, "error", "Timeout - Sin respuesta al comando STATE", "error")
         }, 5000)
+
+        setConnectionTestTimeouts((prev) => ({ ...prev, [i]: timeoutId }))
       }
       await sendCommandToAllESPs(command)
     }
@@ -347,13 +374,13 @@ export default function ESPMonitoringDashboard() {
   const getConnectionStatusDisplay = (status) => {
     switch (status) {
       case "online":
-        return { color: "bg-green-500", text: "En Línea" }
+        return { color: "bg-green-500", text: "En Línea", icon: CheckCircle2 }
       case "testing":
-        return { color: "bg-yellow-500", text: "Probando..." }
+        return { color: "bg-blue-500", text: "Probando...", icon: Loader2 }
       case "failed":
-        return { color: "bg-red-500", text: "Sin Respuesta" }
+        return { color: "bg-red-500", text: "Sin Respuesta", icon: XCircle }
       default:
-        return { color: "bg-gray-500", text: "Desconocido" }
+        return { color: "bg-gray-400", text: "Desconocido", icon: Activity }
     }
   }
 
@@ -361,254 +388,417 @@ export default function ESPMonitoringDashboard() {
     const status = sensorTestStates[espId] || "idle"
     switch (status) {
       case "testing":
-        return { color: "bg-yellow-500", text: "Probando..." }
+        return { color: "bg-blue-500", text: "Probando...", icon: Loader2, animate: true }
       case "success":
-        return { color: "bg-green-500", text: "OK" }
+        return { color: "bg-green-500", text: "OK", icon: CheckCircle2, animate: false }
       case "failed":
-        return { color: "bg-red-500", text: "Error" }
+        return { color: "bg-red-500", text: "Error", icon: XCircle, animate: false }
       default:
-        return { color: "bg-gray-500", text: "Listo" }
+        return { color: "bg-gray-400", text: "Listo", icon: TestTube, animate: false }
+    }
+  }
+
+  const getMessageColor = (status) => {
+    switch (status) {
+      case "success":
+        return "text-green-600"
+      case "error":
+        return "text-red-600"
+      case "info":
+        return "text-blue-600"
+      default:
+        return "text-gray-600"
     }
   }
 
   return (
-    <div className="space-y-6 p-6">
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Settings className="h-5 w-5" />
-            Monitoreo y Control de Componentes ESP32
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Tabs defaultValue="leds" className="w-full">
-            <TabsList className="grid w-full grid-cols-4">
-              <TabsTrigger value="leds" className="flex items-center gap-2">
-                <Lightbulb className="h-4 w-4" />
-                ANILLOS LED
-              </TabsTrigger>
-              <TabsTrigger value="sensors" className="flex items-center gap-2">
-                <TestTube className="h-4 w-4" />
-                SENSORES
-              </TabsTrigger>
-              <TabsTrigger value="buzzers" className="flex items-center gap-2">
-                <Volume2 className="h-4 w-4" />
-                BUZZERS
-              </TabsTrigger>
-              <TabsTrigger value="connection" className="flex items-center gap-2">
-                <Wifi className="h-4 w-4" />
-                CONEXIÓN
-              </TabsTrigger>
-            </TabsList>
+    <div className="min-h-screen bg-gray-50 p-4 md:p-6 lg:p-8">
+      <div className="max-w-7xl mx-auto space-y-6">
+        <div className="text-center space-y-2 animate-in fade-in slide-in-from-top duration-700">
+          <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold bg-gradient-to-r from-red-900 via-red-800 to-red-900 bg-clip-text text-transparent">
+            Monitoreo
+          </h1>
+          
+        </div>
 
-            <TabsContent value="leds" className="space-y-4 mt-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">Control Individual</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-5 gap-4 mb-4">
-                    {microControllers.map((mc) => (
-                      <div key={mc.id} className="text-center">
-                        <Button
-                          variant={mc.ledOn ? "default" : "outline"}
-                          size="lg"
-                          className="w-full h-16 flex flex-col items-center justify-center"
-                          onClick={() => toggleLEDRing(mc.id)}
-                        >
-                          <Lightbulb className={`h-6 w-6 ${mc.ledOn ? "text-yellow-400" : ""}`} />
-                          <span className="text-xs mt-1">{mc.label}</span>
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <Button variant="destructive" onClick={() => toggleLEDRing()} className="flex items-center gap-2">
-                      <PowerOff className="h-4 w-4" />
-                      Apagar Todos
-                    </Button>
-                    <Button variant="default" onClick={() => toggleLEDRing()} className="flex items-center gap-2">
-                      <Power className="h-4 w-4" />
-                      Encender Todos
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
+        <Card className="bg-white rounded-2xl shadow-xl border border-slate-200/60 animate-in fade-in slide-in-from-bottom duration-700">
+          <CardHeader className="border-b border-gray-200">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <CardTitle className="flex items-center gap-3 text-xl md:text-2xl text-gray-900">
+                <div className="p-2 rounded-lg bg-red-900">
+                  <Settings className="h-5 w-5 md:h-6 md:w-6 text-white" />
+                </div>
+                <span className="uppercase tracking-wide">Control de Componentes</span>
+              </CardTitle>
+              <Badge
+                variant={pusherConnected ? "default" : "destructive"}
+                className={`flex items-center gap-2 px-4 py-2 text-sm ${pusherConnected ? "bg-green-600 animate-pulse" : "bg-red-600"}`}
+              >
+                <div className={`w-2 h-2 rounded-full ${pusherConnected ? "bg-green-200" : "bg-red-200"}`} />
+                {pusherStatus}
+              </Badge>
+            </div>
+          </CardHeader>
+          <CardContent className="p-4 md:p-6">
+            <Tabs defaultValue="leds" className="w-full">
+              <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 gap-2 bg-gray-100 p-2 h-auto">
+                <TabsTrigger
+                  value="leds"
+                  className="flex items-center gap-2 data-[state=active]:bg-red-900 data-[state=active]:text-white transition-all duration-300 py-3"
+                >
+                  <Lightbulb className="h-4 w-4" />
+                  <span className="hidden sm:inline">ANILLOS LED</span>
+                  <span className="sm:hidden">LEDs</span>
+                </TabsTrigger>
+                <TabsTrigger
+                  value="sensors"
+                  className="flex items-center gap-2 data-[state=active]:bg-red-900 data-[state=active]:text-white transition-all duration-300 py-3"
+                >
+                  <TestTube className="h-4 w-4" />
+                  <span className="hidden sm:inline">SENSORES</span>
+                  <span className="sm:hidden">Sensores</span>
+                </TabsTrigger>
+                <TabsTrigger
+                  value="buzzers"
+                  className="flex items-center gap-2 data-[state=active]:bg-red-900 data-[state=active]:text-white transition-all duration-300 py-3"
+                >
+                  <Volume2 className="h-4 w-4" />
+                  <span className="hidden sm:inline">BUZZERS</span>
+                  <span className="sm:hidden">Buzzers</span>
+                </TabsTrigger>
+                <TabsTrigger
+                  value="connection"
+                  className="flex items-center gap-2 data-[state=active]:bg-red-900 data-[state=active]:text-white transition-all duration-300 py-3"
+                >
+                  <Wifi className="h-4 w-4" />
+                  <span className="hidden sm:inline">CONEXIÓN</span>
+                  <span className="sm:hidden">Conexión</span>
+                </TabsTrigger>
+              </TabsList>
 
-            <TabsContent value="sensors" className="space-y-4 mt-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">Test Sensores Magnéticos</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-5 gap-4 mb-4">
-                    {microControllers.map((mc) => {
-                      const statusDisplay = getSensorTestStatusDisplay(mc.id)
-                      return (
+              <TabsContent value="leds" className="space-y-4 mt-6 animate-in fade-in slide-in-from-right duration-500">
+                <Card className="bg-gray-50 rounded-xl border border-gray-200">
+                  <CardHeader>
+                    <CardTitle className="text-lg md:text-xl text-gray-900 flex items-center gap-2 uppercase tracking-wide">
+                      <Lightbulb className="h-5 w-5 text-red-900" />
+                      Control Individual
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 md:gap-4 mb-6">
+                      {microControllers.map((mc) => (
+                        <div key={mc.id} className="text-center group">
+                          <Button
+                            variant={mc.ledOn ? "default" : "outline"}
+                            size="lg"
+                            className={`w-full h-24 md:h-28 flex flex-col items-center justify-center gap-2 transition-all duration-300 transform hover:scale-105 ${
+                              mc.ledOn
+                                ? "bg-gradient-to-br from-yellow-400 to-amber-500 hover:from-yellow-500 hover:to-amber-600 shadow-lg shadow-yellow-500/50 animate-pulse border-0"
+                                : "bg-white hover:bg-gray-50 border-2 border-gray-300"
+                            }`}
+                            onClick={() => toggleLEDRing(mc.id)}
+                          >
+                            <Lightbulb
+                              className={`h-8 w-8 md:h-10 md:w-10 transition-all duration-300 ${mc.ledOn ? "text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.8)]" : "text-gray-400"}`}
+                            />
+                            <span className="text-xs md:text-sm font-semibold">{mc.label}</span>
+                            <span className="text-xs text-gray-600">{mc.ledOn ? "Encendido" : "Apagado"}</span>
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
+                      <Button
+                        variant="destructive"
+                        onClick={() => toggleLEDRing()}
+                        className="flex items-center justify-center gap-2 h-12 bg-red-600 hover:bg-red-700 transition-all duration-300 transform hover:scale-105"
+                      >
+                        <PowerOff className="h-5 w-5" />
+                        Apagar Todos
+                      </Button>
+                      <Button
+                        variant="default"
+                        onClick={() => toggleLEDRing()}
+                        className="flex items-center justify-center gap-2 h-12 bg-green-600 hover:bg-green-700 transition-all duration-300 transform hover:scale-105"
+                      >
+                        <Power className="h-5 w-5" />
+                        Encender Todos
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              <TabsContent
+                value="sensors"
+                className="space-y-4 mt-6 animate-in fade-in slide-in-from-right duration-500"
+              >
+                <Card className="bg-gray-50 rounded-xl border border-gray-200">
+                  <CardHeader>
+                    <CardTitle className="text-lg md:text-xl text-gray-900 flex items-center gap-2 uppercase tracking-wide">
+                      <TestTube className="h-5 w-5 text-red-900" />
+                      Test Sensores Magnéticos
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 md:gap-4 mb-6">
+                      {microControllers.map((mc) => {
+                        const statusDisplay = getSensorTestStatusDisplay(mc.id)
+                        const StatusIcon = statusDisplay.icon
+                        return (
+                          <div key={mc.id} className="text-center">
+                            <Button
+                              variant="outline"
+                              size="lg"
+                              className={`w-full h-24 md:h-28 flex flex-col items-center justify-center gap-2 bg-white border-2 border-gray-300 hover:bg-gray-50 transition-all duration-300 transform hover:scale-105 ${
+                                statusDisplay.animate ? "animate-pulse" : ""
+                              }`}
+                              onClick={() => testMagneticSensor(mc.id)}
+                              disabled={sensorTestStates[mc.id] === "testing"}
+                            >
+                              <div className="flex items-center gap-2">
+                                <div
+                                  className={`w-3 h-3 rounded-full ${statusDisplay.color} ${statusDisplay.animate ? "animate-ping absolute" : ""}`}
+                                />
+                                <div className={`w-3 h-3 rounded-full ${statusDisplay.color}`} />
+                                <StatusIcon
+                                  className={`h-6 w-6 md:h-8 md:w-8 text-gray-700 ${statusDisplay.animate ? "animate-spin" : ""}`}
+                                />
+                              </div>
+                              <span className="text-xs md:text-sm font-semibold text-gray-900">{mc.label}</span>
+                              <span className="text-xs text-gray-600">{statusDisplay.text}</span>
+                            </Button>
+                          </div>
+                        )
+                      })}
+                    </div>
+                    <Button
+                      variant="default"
+                      onClick={testAllSensors}
+                      className="w-full h-12 flex items-center justify-center gap-2 bg-red-900 hover:bg-red-800 transition-all duration-300 transform hover:scale-105"
+                    >
+                      <TestTube className="h-5 w-5" />
+                      Probar Todos los Sensores
+                    </Button>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              <TabsContent
+                value="buzzers"
+                className="space-y-4 mt-6 animate-in fade-in slide-in-from-right duration-500"
+              >
+                <Card className="bg-gray-50 rounded-xl border border-gray-200">
+                  <CardHeader>
+                    <CardTitle className="text-lg md:text-xl text-gray-900 flex items-center gap-2 uppercase tracking-wide">
+                      <Volume2 className="h-5 w-5 text-red-900" />
+                      Control Buzzers
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 md:gap-4 mb-6">
+                      {microControllers.map((mc) => (
                         <div key={mc.id} className="text-center">
                           <Button
                             variant="outline"
                             size="lg"
-                            className="w-full h-16 flex flex-col items-center justify-center bg-transparent"
-                            onClick={() => testMagneticSensor(mc.id)}
-                            disabled={sensorTestStates[mc.id] === "testing"}
+                            className="w-full h-24 md:h-28 flex flex-col items-center justify-center gap-2 bg-white border-2 border-gray-300 hover:bg-gray-50 transition-all duration-300 transform hover:scale-105 active:scale-95"
+                            onClick={() => toggleBuzzer(mc.id)}
                           >
-                            <div className="flex items-center gap-2">
-                              <div className={`w-2 h-2 rounded-full ${statusDisplay.color}`} />
-                              <TestTube className="h-6 w-6" />
-                            </div>
-                            <span className="text-xs mt-1">{mc.label}</span>
-                            <span className="text-xs text-muted-foreground">{statusDisplay.text}</span>
+                            <Volume2 className="h-8 w-8 md:h-10 md:w-10 text-red-900" />
+                            <span className="text-xs md:text-sm font-semibold text-gray-900">{mc.label}</span>
+                            <span className="text-xs text-gray-600">Probar</span>
                           </Button>
                         </div>
-                      )
-                    })}
-                  </div>
-                  <Button variant="default" onClick={testAllSensors} className="w-full flex items-center gap-2">
-                    <TestTube className="h-4 w-4" />
-                    Probar Todos los Sensores
-                  </Button>
-                </CardContent>
-              </Card>
-            </TabsContent>
+                      ))}
+                    </div>
+                    <Button
+                      variant="default"
+                      onClick={() => toggleBuzzer()}
+                      className="w-full h-12 flex items-center justify-center gap-2 bg-red-900 hover:bg-red-800 transition-all duration-300 transform hover:scale-105"
+                    >
+                      <Volume2 className="h-5 w-5" />
+                      Probar Todos los Buzzers (50ms)
+                    </Button>
+                  </CardContent>
+                </Card>
+              </TabsContent>
 
-            <TabsContent value="buzzers" className="space-y-4 mt-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">Control Buzzers</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-5 gap-4 mb-4">
-                    {microControllers.map((mc) => (
-                      <div key={mc.id} className="text-center">
-                        <Button
-                          variant="outline"
-                          size="lg"
-                          className="w-full h-16 flex flex-col items-center justify-center bg-transparent"
-                          onClick={() => toggleBuzzer(mc.id)}
-                        >
-                          <Volume2 className="h-6 w-6" />
-                          <span className="text-xs mt-1">{mc.label}</span>
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                  <Button variant="default" onClick={() => toggleBuzzer()} className="w-full flex items-center gap-2">
-                    <Volume2 className="h-4 w-4" />
-                    Probar Todos los Buzzers (50ms)
-                  </Button>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            <TabsContent value="connection" className="space-y-4 mt-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">Test de Conexión</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <Button onClick={() => testConnection()} variant="outline" className="w-full">
-                    <Wifi className="h-4 w-4 mr-2" />
-                    Probar Conexión de Todos
-                  </Button>
-                  <div className="grid grid-cols-5 gap-2">
-                    {microControllers.map((mc) => {
-                      const statusDisplay = getConnectionStatusDisplay(mc.connectionStatus)
-                      return (
-                        <Button
-                          key={mc.id}
-                          variant="outline"
-                          size="sm"
-                          onClick={() => testConnection(mc.id)}
-                          className="flex flex-col items-center gap-1 h-16"
-                        >
-                          <div className="flex items-center gap-2">
-                            <div className={`w-2 h-2 rounded-full ${statusDisplay.color}`} />
-                            <span className="text-xs">{mc.label}</span>
-                          </div>
-                          <span className="text-xs text-muted-foreground">{statusDisplay.text}</span>
-                        </Button>
-                      )
-                    })}
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-          </Tabs>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Zap className="h-5 w-5" />
-            Comando Personalizado
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div>
-            <Label htmlFor="custom-command">Comando</Label>
-            <Input
-              id="custom-command"
-              value={customCommand}
-              onChange={(e) => setCustomCommand(e.target.value)}
-              placeholder="Ej: RESET, INFO, DELAY_1000"
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <Button onClick={() => sendCustomCommand()} disabled={!customCommand.trim()} className="w-full">
-              <Zap className="h-4 w-4 mr-2" />
-              Enviar a Todos
-            </Button>
-            <Button variant="outline" onClick={() => setCustomCommand("")} className="w-full">
-              Limpiar
-            </Button>
-          </div>
-          <div className="grid grid-cols-5 gap-2">
-            {microControllers.map((mc) => (
-              <Button
-                key={mc.id}
-                variant="outline"
-                size="sm"
-                onClick={() => sendCustomCommand(mc.id)}
-                disabled={!customCommand.trim()}
+              <TabsContent
+                value="connection"
+                className="space-y-4 mt-6 animate-in fade-in slide-in-from-right duration-500"
               >
-                {mc.label}
-              </Button>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+                <Card className="bg-gray-50 rounded-xl border border-gray-200">
+                  <CardHeader>
+                    <CardTitle className="text-lg md:text-xl text-gray-900 flex items-center gap-2 uppercase tracking-wide">
+                      <Wifi className="h-5 w-5 text-red-900" />
+                      Test de Conexión
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <Button
+                      onClick={() => testConnection()}
+                      variant="outline"
+                      className="w-full h-12 bg-white border-2 border-gray-300 hover:bg-gray-50 transition-all duration-300 transform hover:scale-105"
+                    >
+                      <Wifi className="h-5 w-5 mr-2" />
+                      Probar Conexión de Todos
+                    </Button>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2 md:gap-3">
+                      {microControllers.map((mc) => {
+                        const statusDisplay = getConnectionStatusDisplay(mc.connectionStatus)
+                        const StatusIcon = statusDisplay.icon
+                        return (
+                          <Button
+                            key={mc.id}
+                            variant="outline"
+                            size="sm"
+                            onClick={() => testConnection(mc.id)}
+                            className={`flex flex-col items-center gap-2 h-20 md:h-24 bg-white border-2 border-gray-300 hover:bg-gray-50 transition-all duration-300 transform hover:scale-105 ${
+                              mc.connectionStatus === "testing" ? "animate-pulse" : ""
+                            }`}
+                          >
+                            <div className="flex items-center gap-2">
+                              <div
+                                className={`w-2 h-2 rounded-full ${statusDisplay.color} ${mc.connectionStatus === "testing" ? "animate-ping absolute" : ""}`}
+                              />
+                              <div className={`w-2 h-2 rounded-full ${statusDisplay.color}`} />
+                              <StatusIcon
+                                className={`h-5 w-5 text-gray-700 ${mc.connectionStatus === "testing" ? "animate-spin" : ""}`}
+                              />
+                            </div>
+                            <span className="text-xs font-semibold text-gray-900">{mc.label}</span>
+                            <span className="text-xs text-gray-600">{statusDisplay.text}</span>
+                          </Button>
+                        )
+                      })}
+                    </div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+            </Tabs>
+          </CardContent>
+        </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Activity className="h-5 w-5" />
-            Monitor de Comunicación
-            <Badge variant={pusherConnected ? "default" : "destructive"}>{pusherStatus}</Badge>
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="bg-gray-900 rounded-lg p-4 h-64 overflow-y-auto">
-            {espResponses.length === 0 ? (
-              <div className="text-gray-400 text-center py-8">
-                {pusherConnected ? "Esperando mensajes del ESP32..." : "Conectando a Pusher..."}
+        <Card className="bg-white rounded-2xl shadow-xl border border-slate-200/60 animate-in fade-in slide-in-from-bottom duration-700 delay-100">
+          <CardHeader className="border-b border-gray-200">
+            <CardTitle className="flex items-center gap-3 text-xl md:text-2xl text-gray-900">
+              <div className="p-2 rounded-lg bg-red-900">
+                <Zap className="h-5 w-5 md:h-6 md:w-6 text-white" />
               </div>
-            ) : (
-              <div className="space-y-1">
-                {espResponses.map((response, index) => (
-                  <div key={index} className="text-sm font-mono">
-                    <span className="text-green-400">[{new Date(response.timestamp).toLocaleTimeString()}]</span>
-                    <span className="text-blue-400 ml-2">{response.device}:</span>
-                    <span className="text-white ml-2">{response.message}</span>
-                  </div>
-                ))}
+              <span className="uppercase tracking-wide">Comando Personalizado</span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4 p-4 md:p-6">
+            <div>
+              <Label htmlFor="custom-command" className="text-gray-700 text-sm md:text-base font-semibold">
+                Comando
+              </Label>
+              <Input
+                id="custom-command"
+                value={customCommand}
+                onChange={(e) => setCustomCommand(e.target.value)}
+                placeholder="Ej: RESET, INFO, DELAY_1000"
+                className="mt-2 bg-white border-2 border-gray-200 text-gray-900 placeholder:text-gray-400 focus:ring-2 focus:ring-red-900 focus:border-transparent transition-colors h-12"
+              />
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
+              <Button
+                onClick={() => sendCustomCommand()}
+                disabled={!customCommand.trim()}
+                className="w-full h-12 bg-red-900 hover:bg-red-800 disabled:opacity-50 transition-all duration-300 transform hover:scale-105"
+              >
+                <Zap className="h-5 w-5 mr-2" />
+                Enviar a Todos
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => setCustomCommand("")}
+                className="w-full h-12 bg-white border-2 border-gray-300 hover:bg-gray-50 transition-all duration-300"
+              >
+                Limpiar
+              </Button>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
+              {microControllers.map((mc) => (
+                <Button
+                  key={mc.id}
+                  variant="outline"
+                  size="sm"
+                  onClick={() => sendCustomCommand(mc.id)}
+                  disabled={!customCommand.trim()}
+                  className="bg-white border-2 border-gray-300 hover:bg-gray-50 disabled:opacity-50 transition-all duration-300 transform hover:scale-105 h-10"
+                >
+                  {mc.label}
+                </Button>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-white rounded-2xl shadow-xl border border-slate-200/60 animate-in fade-in slide-in-from-bottom duration-700 delay-200">
+          <CardHeader className="border-b border-gray-200">
+            <CardTitle className="flex items-center gap-3 text-xl md:text-2xl text-gray-900">
+              <div className="p-2 rounded-lg bg-red-900">
+                <Activity className="h-5 w-5 md:h-6 md:w-6 text-white" />
               </div>
-            )}
-          </div>
-        </CardContent>
-      </Card>
+              <span className="uppercase tracking-wide">Monitor de Comunicación</span>
+              <Badge
+                variant={pusherConnected ? "default" : "destructive"}
+                className={`ml-auto ${pusherConnected ? "bg-green-600 animate-pulse" : "bg-red-600"}`}
+              >
+                {pusherStatus}
+              </Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-4 md:p-6">
+            <div className="bg-gray-50 rounded-lg p-4 h-80 md:h-96 overflow-y-auto border-2 border-gray-200 shadow-inner">
+              {espResponses.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-full text-gray-500 space-y-4">
+                  <Activity
+                    className={`h-12 w-12 md:h-16 md:w-16 ${pusherConnected ? "animate-pulse text-green-600" : "text-gray-400"}`}
+                  />
+                  <p className="text-center text-sm md:text-base">
+                    {pusherConnected ? "Esperando mensajes del ESP32..." : "Conectando a Pusher..."}
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {espResponses.map((response, index) => (
+                    <div
+                      key={index}
+                      className="text-xs md:text-sm font-mono bg-white p-3 rounded-lg border border-gray-200 hover:border-gray-300 transition-all duration-200 animate-in fade-in slide-in-from-bottom shadow-sm"
+                      style={{ animationDelay: `${index * 50}ms` }}
+                    >
+                      <div className="flex flex-wrap items-start gap-2">
+                        <span className="text-blue-600 font-semibold">
+                          [{new Date(response.timestamp).toLocaleTimeString()}]
+                        </span>
+                        <span className="text-red-900 font-semibold">{response.device}:</span>
+                        <span className={`flex-1 ${getMessageColor(response.status)} font-medium`}>
+                          {response.message}
+                        </span>
+                        <Badge
+                          variant="outline"
+                          className={`text-xs ${
+                            response.status === "success"
+                              ? "border-green-500 text-green-600 bg-green-50"
+                              : response.status === "error"
+                                ? "border-red-500 text-red-600 bg-red-50"
+                                : "border-blue-500 text-blue-600 bg-blue-50"
+                          }`}
+                        >
+                          {response.type}
+                        </Badge>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   )
 }

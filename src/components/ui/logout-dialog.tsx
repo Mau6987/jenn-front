@@ -1,4 +1,5 @@
 "use client"
+
 import {
   AlertDialog,
   AlertDialogAction,
@@ -19,17 +20,17 @@ interface LogoutDialogProps {
 export function LogoutDialog({ open, onOpenChange, onConfirm }: LogoutDialogProps) {
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
-      <AlertDialogContent className="animate-fade-in">
+      <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle className="text-2xl text-[#800020]">¿Cerrar sesión?</AlertDialogTitle>
-          <AlertDialogDescription className="text-base text-gray-600">
-            ¿Estás seguro que deseas cerrar sesión? Tendrás que volver a iniciar sesión para acceder a tu cuenta.
+          <AlertDialogTitle>¿Cerrar sesión?</AlertDialogTitle>
+          <AlertDialogDescription>
+            ¿Estás seguro de que deseas cerrar sesión? Tendrás que iniciar sesión nuevamente para acceder al sistema.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel className="text-base hover:bg-gray-100">Cancelar</AlertDialogCancel>
-          <AlertDialogAction onClick={onConfirm} className="bg-[#800020] hover:bg-[#a64d66] text-white text-base">
-            Sí, cerrar sesión
+          <AlertDialogCancel>Cancelar</AlertDialogCancel>
+          <AlertDialogAction onClick={onConfirm} className="bg-[#800020] hover:bg-[#a64d66]">
+            Cerrar Sesión
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

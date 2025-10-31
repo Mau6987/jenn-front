@@ -2,47 +2,170 @@
 
 import { useState, useEffect } from "react"
 import { Card, CardContent } from "../../components/ui/card"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../../components/ui/dialog"
 import { Avatar, AvatarFallback, AvatarImage } from "../../components/ui/avatar"
-import { ArrowLeft, Target, TrendingUp, Award, Trophy, Star } from "lucide-react"
+import { Trophy } from "lucide-react"
+import { getPositionIcon, getPositionName } from "../../lib/position-icons"
 
 const BACKEND_URL = "https://jenn-back-reac.onrender.com"
 
+const ProgressBar = ({ intentos, aciertos, errores }) => {
+  const aciertosPorcentaje = intentos > 0 ? (aciertos / intentos) * 100 : 0
+  const erroresPorcentaje = intentos > 0 ? (errores / intentos) * 100 : 0
+
+  return (
+    <div className="w-full">
+      <div className="flex items-center gap-2 mb-1">
+        <span className="text-sm text-gray-600 font-medium">Intentos: {intentos}</span>
+      </div>
+      <div className="relative w-full h-9 bg-gray-200 rounded-full overflow-hidden border-2 border-gray-300 shadow-inner">
+        <div
+          className="absolute left-0 top-0 h-full transition-all duration-500"
+          style={{ width: `${aciertosPorcentaje}%`, backgroundColor: "rgb(34 197 94)" }}
+        ></div>
+        <div
+          className="absolute top-0 h-full transition-all duration-500"
+          style={{ left: `${aciertosPorcentaje}%`, width: `${erroresPorcentaje}%`, backgroundColor: "rgb(239 68 68)" }}
+        ></div>
+        <div className="absolute inset-0 flex items-center justify-center">
+          <span className="text-xs font-bold text-white drop-shadow-md">
+            {aciertos} / {errores}
+          </span>
+        </div>
+      </div>
+      <div className="flex justify-between mt-1">
+        <span className="text-xs font-semibold" style={{ color: "rgb(22 163 74)" }}>✓ {aciertos} aciertos</span>
+        <span className="text-xs font-semibold" style={{ color: "rgb(220 38 38)" }}>✗ {errores} errores</span>
+      </div>
+    </div>
+  )
+}
+
+const Podium = ({ players, onPlayerClick }) => {
+  const [first, second, third] = players
+
+  const getPodiumHeight = (position) => {
+    if (position === 1) return "h-64"
+    if (position === 2) return "h-52"
+    return "h-44"
+  }
+
+  const getPodiumColor = (position) => {
+    if (position === 1) return "from-yellow-400 via-yellow-500 to-yellow-600"
+    if (position === 2) return "from-gray-300 via-gray-400 to-gray-500"
+    return "from-orange-400 via-orange-500 to-orange-600"
+  }
+
+  const renderPodiumPlayer = (player, position) => {
+    if (!player) return null
+
+    const handleOpen = () => onPlayerClick?.(player)
+    const handleKey = (e) => { if (e.key === "Enter" || e.key === " ") handleOpen() }
+
+    return (
+      <div
+        className="flex flex-col items-center animate-podium-rise"
+        style={{ animationDelay: `${position * 0.2}s` }}
+      >
+        {/* Avatar clickeable */}
+        <div
+          className="relative mb-4 group cursor-pointer transform transition-all duration-300 hover:scale-110"
+          role="button"
+          tabIndex={0}
+          title={`Ver detalles de ${player.nombre}`}
+          onClick={handleOpen}
+          onKeyDown={handleKey}
+        >
+          <div className="absolute inset-0 bg-gradient-to-br from-yellow-400/30 to-orange-400/30 rounded-full blur-xl group-hover:blur-2xl transition-all duration-300"></div>
+          <Avatar className="w-28 h-28 border-4 border-white shadow-2xl relative z-10">
+            <AvatarImage src={player.imagen || "/placeholder.svg"} />
+            <AvatarFallback className="bg-gradient-to-br from-blue-400 to-blue-600 text-white font-bold text-3xl">
+              {player.nombre?.charAt(0) || "?"}
+            </AvatarFallback>
+          </Avatar>
+        </div>
+
+        {/* Texto */}
+        <div className="text-center mb-3 px-2">
+          <p className="font-bold text-gray-900 text-base mb-1 line-clamp-1">{player.nombre}</p>
+          <p className="text-4xl font-black text-blue-600">{player.porcentajePromedio}%</p>
+          <p className="text-sm text-gray-500">precisión</p>
+        </div>
+
+        {/* Base del podio (también clickeable) */}
+        <div
+          className={`w-36 ${getPodiumHeight(position)} bg-gradient-to-b ${getPodiumColor(position)} rounded-t-2xl shadow-2xl flex items-center justify-center relative overflow-hidden transition-all duration-500 hover:shadow-3xl cursor-pointer`}
+          role="button"
+          tabIndex={0}
+          aria-label={`Ver detalles de ${player.nombre} (posición ${position})`}
+          onClick={handleOpen}
+          onKeyDown={handleKey}
+          title={`Ver detalles de ${player.nombre}`}
+        >
+          <div className="absolute inset-0 bg-white/10 backdrop-blur-sm"></div>
+          <div className="relative z-10">
+            <p className="text-white text-7xl font-black drop-shadow-lg">{position}</p>
+          </div>
+          <div className="absolute bottom-0 left-0 right-0 h-1 bg-white/30"></div>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex items-end justify-center gap-10 mb-10">
+      {second && renderPodiumPlayer(second, 2)}
+      {first && renderPodiumPlayer(first, 1)}
+      {third && renderPodiumPlayer(third, 3)}
+    </div>
+  )
+}
+
 export default function ResultadosGeneralPage() {
   const [rankingData, setRankingData] = useState([])
-  const [userPosition, setUserPosition] = useState(null)
   const [loading, setLoading] = useState(true)
   const [periodo, setPeriodo] = useState("general")
-  const [carrera, setCarrera] = useState("general")
-  const [posicion, setPosicion] = useState("general")
   const [selectedPlayer, setSelectedPlayer] = useState(null)
   const [playerDetails, setPlayerDetails] = useState(null)
   const [loadingDetails, setLoadingDetails] = useState(false)
 
   useEffect(() => {
     cargarRanking()
-  }, [periodo, carrera, posicion])
+  }, [periodo])
 
   const cargarRanking = async () => {
     try {
       setLoading(true)
       const userId = localStorage.getItem("idUser")
 
-      let url = `${BACKEND_URL}/api/ranking/general?periodo=${periodo}`
-      if (carrera !== "general") url += `&carrera=${carrera}`
-      if (posicion !== "general") url += `&posicion=${posicion}`
-      if (userId) url += `&idUser=${userId}`
+      const rankingResponse = await fetch(`${BACKEND_URL}/api/ranking/general?periodo=${periodo}`)
+      const rankingDataRes = await rankingResponse.json()
 
-      const response = await fetch(url)
-      const data = await response.json()
+      if (rankingDataRes.success) {
+        const top5 = rankingDataRes.data?.top_5 || []
 
-      if (data.success) {
-        // The API returns { success: true, data: { top_5: [...] } }
-        // We need to extract the top_5 array
-        const rankingArray = data.data?.top_5 || data.data || []
-        setRankingData(Array.isArray(rankingArray) ? rankingArray : [])
-        setUserPosition(data.userPosition || null)
+        const transformedData = top5.map((player, index) => ({
+          cuentaId: player.cuentaId,
+          nombre: `${player.jugador.nombres} ${player.jugador.apellidos}`,
+          imagen: getPositionIcon(player.jugador.posicion_principal),
+          posicion: index + 1,
+          totalIntentos: player.totales_generales.total_intentos,
+          totalAciertos: player.totales_generales.total_aciertos,
+          totalErrores: player.totales_generales.total_errores,
+          porcentajePromedio:
+            player.totales_generales.total_intentos > 0
+              ? ((player.totales_generales.total_aciertos / player.totales_generales.total_intentos) * 100).toFixed(1)
+              : 0,
+          jugador: player.jugador,
+          por_tipo_prueba: player.por_tipo_prueba,
+        }))
+
+        setRankingData(transformedData)
+
+        // (Se quitó el bloque de "Tu posición")
+        if (userId) {
+          // Si en el futuro quieres recuperar esto, puedes volver a llamar /posicion
+        }
       } else {
         setRankingData([])
       }
@@ -54,15 +177,29 @@ export default function ResultadosGeneralPage() {
     }
   }
 
-  const cargarDetallesJugador = async (cuentaId) => {
+  const cargarDetallesJugador = async (player) => {
     try {
       setLoadingDetails(true)
-      const response = await fetch(`${BACKEND_URL}/api/ranking/detalles/${cuentaId}?periodo=${periodo}`)
-      const data = await response.json()
+      const resumenPorTipo = {}
 
-      if (data.success) {
-        setPlayerDetails(data.data)
-      }
+      Object.keys(player.por_tipo_prueba || {}).forEach((tipo) => {
+        const data = player.por_tipo_prueba[tipo]
+        const totalIntentos = data.total_aciertos + data.total_errores
+
+        resumenPorTipo[tipo] = {
+          totalIntentos,
+          totalAciertos: data.total_aciertos,
+          totalErrores: data.total_errores,
+          porcentajePromedio: totalIntentos > 0 ? ((data.total_aciertos / totalIntentos) * 100).toFixed(1) : 0,
+        }
+      })
+
+      setPlayerDetails({
+        nombre: player.nombre,
+        imagen: player.imagen,
+        jugador: player.jugador,
+        resumenPorTipo,
+      })
     } catch (error) {
       console.error("Error loading player details:", error)
     } finally {
@@ -72,29 +209,14 @@ export default function ResultadosGeneralPage() {
 
   const handlePlayerClick = (player) => {
     setSelectedPlayer(player)
-    cargarDetallesJugador(player.cuentaId)
-  }
-
-  const getPodiumHeight = (position) => {
-    if (position === 1) return "h-40"
-    if (position === 2) return "h-32"
-    if (position === 3) return "h-28"
-    return "h-24"
-  }
-
-  const getBadgeColor = (position) => {
-    if (position === 1) return "bg-[#800020] text-white shadow-lg shadow-[#800020]/50"
-    if (position === 2) return "bg-[#800020] text-white shadow-lg shadow-[#800020]/50"
-    if (position === 3) return "bg-[#800020] text-white shadow-lg shadow-[#800020]/50"
-    if (position <= 5) return "bg-green-400 text-white shadow-md shadow-green-400/50"
-    return "bg-gray-300 text-gray-700"
+    cargarDetallesJugador(player)
   }
 
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-4 border-[#800020] border-t-transparent mx-auto"></div>
+          <div className="animate-spin rounded-full h-16 w-16 border-4 border-blue-600 border-t-transparent mx-auto"></div>
           <p className="mt-4 text-gray-600 font-semibold">Cargando ranking...</p>
         </div>
       </div>
@@ -103,38 +225,32 @@ export default function ResultadosGeneralPage() {
 
   const safeRankingData = Array.isArray(rankingData) ? rankingData : []
   const top3 = safeRankingData.slice(0, 3)
-  const rest = safeRankingData.slice(3)
+  const rest = safeRankingData.slice(3, 5)
 
   return (
-    <div className="min-h-screen bg-gray-100">
-      <div className="max-w-5xl mx-auto">
-        <div className="bg-gradient-to-br from-[#800020] via-[#a00028] to-[#800020] pt-8 pb-32 px-4 relative overflow-hidden">
-          {/* Decorative elements */}
-          <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2"></div>
-          <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/5 rounded-full translate-y-1/2 -translate-x-1/2"></div>
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+      {/* Más ancho: 2xl */}
+      <div className="max-w-screen-2xl mx-auto">
+        {/* Header más alto, sin padding extra abajo innecesario */}
+        <div className="bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-700 pt-8 pb-24 px-6 relative overflow-hidden rounded-b-[2rem]">
+          <div className="absolute top-0 right-0 w-72 h-72 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2"></div>
+          <div className="absolute bottom-0 left-0 w-56 h-56 bg-white/5 rounded-full translate-y-1/2 -translate-x-1/2"></div>
 
           <div className="relative z-10">
-            <button
-              onClick={() => window.history.back()}
-              className="mb-6 p-2 bg-white/20 hover:bg-white/30 rounded-xl transition-all duration-300 backdrop-blur-sm"
-            >
-              <ArrowLeft className="h-5 w-5 text-white" />
-            </button>
-
-            <div className="text-center mb-8">
-              <div className="inline-flex items-center justify-center w-16 h-16 bg-white/20 backdrop-blur-sm rounded-2xl mb-4">
-                <Trophy className="h-8 w-8 text-white" />
+            <div className="text-center mb-6">
+              <div className="inline-flex items-center justify-center w-18 h-18 bg-white/20 backdrop-blur-sm rounded-2xl mb-4">
+                <Trophy className="h-9 w-9 text-white" />
               </div>
-              <h1 className="text-4xl md:text-5xl font-black text-white mb-2">Ranking</h1>
-              <p className="text-white/80 text-sm font-medium">Tabla de liderazgo</p>
+              <h1 className="text-5xl font-black text-white mb-2">Ranking</h1>
+              <p className="text-white/80 text-base font-medium">Tabla de liderazgo</p>
             </div>
 
-            <div className="flex justify-center gap-2 mb-6">
+            <div className="flex justify-center gap-3 mb-4">
               <button
                 onClick={() => setPeriodo("general")}
-                className={`px-6 py-2.5 rounded-xl font-bold text-sm transition-all duration-300 ${
+                className={`px-7 py-3 rounded-xl font-bold text-sm transition-all duration-300 ${
                   periodo === "general"
-                    ? "bg-white text-[#800020] shadow-lg scale-105"
+                    ? "bg-white text-blue-700 shadow-lg scale-105"
                     : "bg-white/20 text-white hover:bg-white/30 backdrop-blur-sm"
                 }`}
               >
@@ -142,9 +258,9 @@ export default function ResultadosGeneralPage() {
               </button>
               <button
                 onClick={() => setPeriodo("mensual")}
-                className={`px-6 py-2.5 rounded-xl font-bold text-sm transition-all duration-300 ${
+                className={`px-7 py-3 rounded-xl font-bold text-sm transition-all duration-300 ${
                   periodo === "mensual"
-                    ? "bg-white text-[#800020] shadow-lg scale-105"
+                    ? "bg-white text-blue-700 shadow-lg scale-105"
                     : "bg-white/20 text-white hover:bg-white/30 backdrop-blur-sm"
                 }`}
               >
@@ -152,7 +268,7 @@ export default function ResultadosGeneralPage() {
               </button>
               <button
                 onClick={() => setPeriodo("semanal")}
-                className={`px-6 py-2.5 rounded-xl font-bold text-sm transition-all duration-300 ${
+                className={`px-7 py-3 rounded-xl font-bold text-sm transition-all duration-300 ${
                   periodo === "semanal"
                     ? "bg-yellow-400 text-gray-900 shadow-lg scale-105"
                     : "bg-white/20 text-white hover:bg-white/30 backdrop-blur-sm"
@@ -161,308 +277,112 @@ export default function ResultadosGeneralPage() {
                 Semana
               </button>
             </div>
-
-            {top3.length > 0 && (
-              <div className="flex items-end justify-center gap-4 px-4">
-                {/* 2nd Place */}
-                {top3.length > 1 && top3[1] && top3[1].nombre && (
-                  <div
-                    className="flex-1 max-w-[140px] cursor-pointer group animate-slide-up"
-                    style={{ animationDelay: "0.2s" }}
-                    onClick={() => handlePlayerClick(top3[1])}
-                  >
-                    <div className="text-center mb-3">
-                      <div className="relative inline-block">
-                        {/* Laurel wreath decoration */}
-                        <div className="absolute -inset-3 opacity-60">
-                          <svg viewBox="0 0 100 100" className="w-full h-full">
-                            <path d="M20,50 Q15,40 20,30 Q25,35 30,30 Q35,40 30,50" fill="#FFD700" opacity="0.6" />
-                            <path d="M80,50 Q85,40 80,30 Q75,35 70,30 Q65,40 70,50" fill="#FFD700" opacity="0.6" />
-                          </svg>
-                        </div>
-
-                        <Avatar className="w-20 h-20 border-4 border-white shadow-xl group-hover:scale-110 transition-transform duration-300 relative z-10">
-                          <AvatarImage src={top3[1].imagen || "/placeholder.svg"} />
-                          <AvatarFallback className="bg-gradient-to-br from-purple-400 to-purple-600 text-white font-bold text-2xl">
-                            {top3[1].nombre.charAt(0)}
-                          </AvatarFallback>
-                        </Avatar>
-
-                        <div
-                          className={`absolute -top-2 -right-2 w-9 h-9 rounded-full ${getBadgeColor(2)} flex items-center justify-center font-black text-base z-20`}
-                        >
-                          2
-                        </div>
-                      </div>
-                      <p className="font-bold text-white mt-2 text-xs truncate px-1">{top3[1].nombre}</p>
-                    </div>
-                    <div
-                      className={`bg-gradient-to-b from-pink-100 to-pink-200 ${getPodiumHeight(2)} rounded-t-2xl flex flex-col items-center justify-center shadow-xl relative overflow-hidden`}
-                    >
-                      <div className="absolute inset-0 bg-gradient-to-br from-white/40 to-transparent"></div>
-                      <Trophy className="h-6 w-6 text-yellow-500 mb-1 relative z-10" />
-                      <p className="text-gray-900 text-2xl font-black relative z-10">{top3[1].porcentajePromedio}%</p>
-                      <p className="text-gray-600 text-[10px] font-bold mt-0.5 relative z-10">
-                        PUAN: {top3[1].totalIntentos}
-                      </p>
-                    </div>
-                  </div>
-                )}
-
-                {/* 1st Place */}
-                {top3.length > 0 && top3[0] && top3[0].nombre && (
-                  <div
-                    className="flex-1 max-w-[160px] cursor-pointer group animate-slide-up"
-                    style={{ animationDelay: "0.1s" }}
-                    onClick={() => handlePlayerClick(top3[0])}
-                  >
-                    <div className="text-center mb-3">
-                      <div className="relative inline-block">
-                        {/* Larger laurel wreath for 1st place */}
-                        <div className="absolute -inset-4 opacity-80">
-                          <svg viewBox="0 0 100 100" className="w-full h-full animate-pulse-slow">
-                            <path d="M15,50 Q10,35 15,25 Q20,30 25,25 Q30,35 25,50" fill="#FFD700" />
-                            <path d="M85,50 Q90,35 85,25 Q80,30 75,25 Q70,35 75,50" fill="#FFD700" />
-                            <path d="M15,55 Q10,65 15,75 Q20,70 25,75 Q30,65 25,55" fill="#FFD700" />
-                            <path d="M85,55 Q90,65 85,75 Q80,70 75,75 Q70,65 75,55" fill="#FFD700" />
-                          </svg>
-                        </div>
-
-                        <Avatar className="w-28 h-28 border-4 border-yellow-400 shadow-2xl shadow-yellow-500/50 group-hover:scale-110 transition-transform duration-300 relative z-10 animate-pulse-slow">
-                          <AvatarImage src={top3[0].imagen || "/placeholder.svg"} />
-                          <AvatarFallback className="bg-gradient-to-br from-blue-400 to-blue-600 text-white font-bold text-3xl">
-                            {top3[0].nombre.charAt(0)}
-                          </AvatarFallback>
-                        </Avatar>
-
-                        <div
-                          className={`absolute -top-3 -right-3 w-11 h-11 rounded-full ${getBadgeColor(1)} flex items-center justify-center font-black text-lg z-20 animate-bounce-slow`}
-                        >
-                          1
-                        </div>
-
-                        {/* Star decoration */}
-                        <Star className="absolute -top-1 -left-1 h-5 w-5 text-yellow-400 fill-yellow-400 animate-spin-slow z-20" />
-                      </div>
-                      <p className="font-bold text-white mt-2 text-sm truncate px-1">{top3[0].nombre}</p>
-                    </div>
-                    <div
-                      className={`bg-gradient-to-b from-yellow-100 to-yellow-200 ${getPodiumHeight(1)} rounded-t-2xl flex flex-col items-center justify-center shadow-2xl relative overflow-hidden`}
-                    >
-                      <div className="absolute inset-0 bg-gradient-to-br from-white/50 to-transparent"></div>
-                      <Trophy className="h-8 w-8 text-yellow-600 mb-1 relative z-10 animate-bounce-slow" />
-                      <p className="text-gray-900 text-3xl font-black relative z-10">{top3[0].porcentajePromedio}%</p>
-                      <p className="text-gray-700 text-xs font-bold mt-0.5 relative z-10">
-                        PUAN: {top3[0].totalIntentos}
-                      </p>
-                    </div>
-                  </div>
-                )}
-
-                {/* 3rd Place */}
-                {top3.length > 2 && top3[2] && top3[2].nombre && (
-                  <div
-                    className="flex-1 max-w-[140px] cursor-pointer group animate-slide-up"
-                    style={{ animationDelay: "0.3s" }}
-                    onClick={() => handlePlayerClick(top3[2])}
-                  >
-                    <div className="text-center mb-3">
-                      <div className="relative inline-block">
-                        {/* Laurel wreath decoration */}
-                        <div className="absolute -inset-3 opacity-60">
-                          <svg viewBox="0 0 100 100" className="w-full h-full">
-                            <path d="M20,50 Q15,40 20,30 Q25,35 30,30 Q35,40 30,50" fill="#FFD700" opacity="0.6" />
-                            <path d="M80,50 Q85,40 80,30 Q75,35 70,30 Q65,40 70,50" fill="#FFD700" opacity="0.6" />
-                          </svg>
-                        </div>
-
-                        <Avatar className="w-20 h-20 border-4 border-white shadow-xl group-hover:scale-110 transition-transform duration-300 relative z-10">
-                          <AvatarImage src={top3[2].imagen || "/placeholder.svg"} />
-                          <AvatarFallback className="bg-gradient-to-br from-orange-400 to-orange-600 text-white font-bold text-2xl">
-                            {top3[2].nombre.charAt(0)}
-                          </AvatarFallback>
-                        </Avatar>
-
-                        <div
-                          className={`absolute -top-2 -right-2 w-9 h-9 rounded-full ${getBadgeColor(3)} flex items-center justify-center font-black text-base z-20`}
-                        >
-                          3
-                        </div>
-                      </div>
-                      <p className="font-bold text-white mt-2 text-xs truncate px-1">{top3[2].nombre}</p>
-                    </div>
-                    <div
-                      className={`bg-gradient-to-b from-purple-100 to-purple-200 ${getPodiumHeight(3)} rounded-t-2xl flex flex-col items-center justify-center shadow-xl relative overflow-hidden`}
-                    >
-                      <div className="absolute inset-0 bg-gradient-to-br from-white/40 to-transparent"></div>
-                      <Trophy className="h-6 w-6 text-yellow-500 mb-1 relative z-10" />
-                      <p className="text-gray-900 text-2xl font-black relative z-10">{top3[2].porcentajePromedio}%</p>
-                      <p className="text-gray-600 text-[10px] font-bold mt-0.5 relative z-10">
-                        PUAN: {top3[2].totalIntentos}
-                      </p>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
           </div>
         </div>
 
-        <div className="bg-white rounded-t-3xl -mt-16 relative z-20 shadow-2xl">
-          <div className="p-6">
-            {/* Additional Filters */}
-            <div className="flex gap-3 mb-6">
-              <Select value={carrera} onValueChange={setCarrera}>
-                <SelectTrigger className="flex-1 bg-gray-50 text-gray-700 border-gray-200 rounded-xl h-11 font-medium hover:border-[#800020] transition-all duration-300">
-                  <SelectValue placeholder="Carrera" />
-                </SelectTrigger>
-                <SelectContent className="bg-white border-gray-200">
-                  <SelectItem value="general">Todas las carreras</SelectItem>
-                  <SelectItem value="Ingeniería">Ingeniería</SelectItem>
-                  <SelectItem value="Medicina">Medicina</SelectItem>
-                  <SelectItem value="Derecho">Derecho</SelectItem>
-                </SelectContent>
-              </Select>
+        {/* Contenedor blanco: SIN min-h-screen para evitar espacio vacío al final */}
+        <div className="bg-white rounded-3xl -mt-16 relative z-20 shadow-2xl">
+          <div className="px-10 pt-10 pb-8">
+            {safeRankingData.length > 0 ? (
+              <>
+                {top3.length > 0 && (
+                  <div className="mb-10">
+                    <h2 className="text-4xl font-black text-center text-gray-900 mb-8 flex items-center justify-center gap-4">
+                      <Trophy className="h-9 w-9" style={{ color: "rgb(234 179 8)" }} />
+                      Top 3
+                      <Trophy className="h-9 w-9" style={{ color: "rgb(234 179 8)" }} />
+                    </h2>
+                    <Podium players={top3} onPlayerClick={handlePlayerClick} />
+                  </div>
+                )}
 
-              <Select value={posicion} onValueChange={setPosicion}>
-                <SelectTrigger className="flex-1 bg-gray-50 text-gray-700 border-gray-200 rounded-xl h-11 font-medium hover:border-[#800020] transition-all duration-300">
-                  <SelectValue placeholder="Posición" />
-                </SelectTrigger>
-                <SelectContent className="bg-white border-gray-200">
-                  <SelectItem value="general">Todas las posiciones</SelectItem>
-                  <SelectItem value="armador">Armador</SelectItem>
-                  <SelectItem value="opuesto">Opuesto</SelectItem>
-                  <SelectItem value="central">Central</SelectItem>
-                  <SelectItem value="receptor">Receptor</SelectItem>
-                  <SelectItem value="libero">Líbero</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+                {rest.length > 0 && (
+                  <div className="space-y-4">
+                    <h3 className="text-2xl font-bold text-gray-700 mb-4 text-center">Siguientes Posiciones</h3>
+                    {rest.map((player, index) => {
+                      if (!player || !player.nombre) return null
 
-            {rest.length > 0 ? (
-              <div className="space-y-3">
-                {rest.map((player, index) => {
-                  if (!player || !player.nombre) return null
+                      return (
+                        <div
+                          key={player.cuentaId || index}
+                          className="flex items-center gap-6 p-5 bg-white hover:bg-gray-50 rounded-2xl transition-all duration-300 cursor-pointer border border-gray-100 hover:border-blue-400 hover:shadow-lg group animate-fade-in-up"
+                          style={{ animationDelay: `${index * 0.08}s` }}
+                          onClick={() => handlePlayerClick(player)}
+                        >
+                          <Avatar className="w-16 h-16 border-2 border-gray-200 shadow-md group-hover:border-blue-400 transition-all duration-300">
+                            <AvatarImage src={player.imagen || "/placeholder.svg"} />
+                            <AvatarFallback className="bg-gradient-to-br from-teal-400 to-teal-600 text-white font-bold text-xl">
+                              {player.nombre?.charAt(0) || "?"}
+                            </AvatarFallback>
+                          </Avatar>
 
-                  return (
-                    <div
-                      key={player.cuentaId || index}
-                      className="flex items-center gap-4 p-4 bg-white hover:bg-gray-50 rounded-2xl transition-all duration-300 cursor-pointer border border-gray-100 hover:border-[#800020] hover:shadow-lg group animate-fade-in-up"
-                      style={{ animationDelay: `${0.4 + index * 0.05}s` }}
-                      onClick={() => handlePlayerClick(player)}
-                    >
-                      {/* Avatar */}
-                      <Avatar className="w-12 h-12 border-2 border-gray-200 shadow-md group-hover:border-[#800020] transition-all duration-300">
-                        <AvatarImage src={player.imagen || "/placeholder.svg"} />
-                        <AvatarFallback className="bg-gradient-to-br from-teal-400 to-teal-600 text-white font-bold text-lg">
-                          {player.nombre?.charAt(0) || "?"}
-                        </AvatarFallback>
-                      </Avatar>
+                          <div className="flex-1">
+                            <p className="font-bold text-gray-900 group-hover:text-blue-600 transition-colors duration-300 text-xl">
+                              {player.nombre || "Jugador"}
+                            </p>
+                            <p className="text-sm text-gray-500 font-medium">
+                              {player.jugador?.posicion_principal && getPositionName(player.jugador.posicion_principal)}{" "}
+                              • Intentos: {player.totalIntentos || 0}
+                            </p>
+                          </div>
 
-                      {/* Player Info */}
-                      <div className="flex-1">
-                        <p className="font-bold text-gray-900 group-hover:text-[#800020] transition-colors duration-300">
-                          {player.nombre || "Jugador"}
-                        </p>
-                        <p className="text-sm text-gray-500 font-medium">paun: {player.totalIntentos || 0}</p>
-                      </div>
+                          <div className="text-right mr-2">
+                            <p className="text-4xl font-black text-blue-600">{player.porcentajePromedio || 0}%</p>
+                            <p className="text-xs text-gray-500">precisión</p>
+                          </div>
 
-                      {/* Score */}
-                      <div className="text-right mr-2">
-                        <p className="text-2xl font-black text-[#d946ef]">{player.porcentajePromedio || 0}%</p>
-                      </div>
-
-                      {/* Position Badge */}
-                      <div
-                        className={`w-12 h-12 rounded-full ${getBadgeColor(player.posicion || 999)} flex items-center justify-center font-black text-lg shrink-0`}
-                      >
-                        {(player.posicion || 0) <= 5 && (
-                          <Star className="absolute h-4 w-4 text-yellow-400 fill-yellow-400 -top-1 -right-1" />
-                        )}
-                        {player.posicion || "-"}
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            ) : safeRankingData.length === 0 ? (
+                          <div className="w-16 h-16 rounded-full bg-gradient-to-br from-green-400 to-green-600 text-white shadow-lg flex items-center justify-center font-black text-2xl shrink-0">
+                            {player.posicion || "-"}
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </>
+            ) : (
               <div className="text-center py-12">
                 <Trophy className="h-16 w-16 text-gray-300 mx-auto mb-4" />
                 <p className="text-gray-500 text-lg font-medium">No hay datos disponibles</p>
               </div>
-            ) : null}
+            )}
           </div>
         </div>
       </div>
 
-      {/* Player Details Modal */}
       <Dialog open={selectedPlayer !== null} onOpenChange={() => setSelectedPlayer(null)}>
         <DialogContent className="max-w-md bg-white border-gray-200 animate-scale-in rounded-2xl">
           <DialogHeader>
             <DialogTitle className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-              <Trophy className="h-6 w-6 text-[#800020]" />
+              <Trophy className="h-6 w-6 text-blue-600" />
               Detalles del Jugador
             </DialogTitle>
           </DialogHeader>
 
           {loadingDetails ? (
             <div className="flex justify-center py-8">
-              <div className="animate-spin rounded-full h-12 w-12 border-4 border-[#800020] border-t-transparent"></div>
+              <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-600 border-t-transparent"></div>
             </div>
           ) : playerDetails ? (
             <div className="space-y-6">
-              {/* Player Info */}
-              <div className="flex items-center gap-4 p-4 bg-gradient-to-br from-[#800020] to-[#a00028] rounded-xl">
+              <div className="flex items-center gap-4 p-4 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl">
                 <Avatar className="w-16 h-16 border-4 border-white shadow-lg">
                   <AvatarImage src={playerDetails.imagen || "/placeholder.svg"} />
-                  <AvatarFallback className="bg-white text-[#800020] font-bold text-xl">
+                  <AvatarFallback className="bg-white text-blue-600 font-bold text-xl">
                     {playerDetails.nombre?.charAt(0) || "?"}
                   </AvatarFallback>
                 </Avatar>
                 <div>
                   <p className="font-bold text-xl text-white">{playerDetails.nombre || "Jugador"}</p>
                   <p className="text-sm text-white/80">
-                    {playerDetails.jugador?.carrera || "N/A"} • {playerDetails.jugador?.posicion_principal || "N/A"}
+                    {playerDetails.jugador?.carrera || "N/A"} •{" "}
+                    {(playerDetails.jugador?.posicion_principal &&
+                      getPositionName(playerDetails.jugador.posicion_principal)) ||
+                      "N/A"}
                   </p>
                 </div>
               </div>
 
-              {/* Stats Cards */}
-              <div className="grid grid-cols-2 gap-3">
-                <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200 hover:scale-105 transition-transform duration-300">
-                  <CardContent className="p-4 text-center">
-                    <Target className="h-8 w-8 text-blue-600 mx-auto mb-2" />
-                    <p className="text-2xl font-bold text-gray-900">{playerDetails.totalIntentos}</p>
-                    <p className="text-xs text-blue-600 font-semibold">Total Intentos</p>
-                  </CardContent>
-                </Card>
-
-                <Card className="bg-gradient-to-br from-green-50 to-green-100 border-green-200 hover:scale-105 transition-transform duration-300">
-                  <CardContent className="p-4 text-center">
-                    <TrendingUp className="h-8 w-8 text-green-600 mx-auto mb-2" />
-                    <p className="text-2xl font-bold text-gray-900">{playerDetails.porcentajePromedio}%</p>
-                    <p className="text-xs text-green-600 font-semibold">Precisión</p>
-                  </CardContent>
-                </Card>
-
-                <Card className="bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200 hover:scale-105 transition-transform duration-300">
-                  <CardContent className="p-4 text-center">
-                    <Award className="h-8 w-8 text-purple-600 mx-auto mb-2" />
-                    <p className="text-2xl font-bold text-gray-900">{playerDetails.totalAciertos}</p>
-                    <p className="text-xs text-purple-600 font-semibold">Aciertos</p>
-                  </CardContent>
-                </Card>
-
-                <Card className="bg-gradient-to-br from-red-50 to-red-100 border-red-200 hover:scale-[1.02] transition-transform duration-300">
-                  <CardContent className="p-4 text-center">
-                    <div className="text-2xl font-bold text-red-600 mx-auto mb-2">✕</div>
-                    <p className="text-2xl font-bold text-gray-900">{playerDetails.totalErrores}</p>
-                    <p className="text-xs text-red-600 font-semibold">Errores</p>
-                  </CardContent>
-                </Card>
-              </div>
-
-              {/* Test Type Breakdown */}
               {playerDetails.resumenPorTipo && (
                 <div className="space-y-3">
                   <h3 className="font-bold text-gray-900">Rendimiento por Tipo</h3>
@@ -488,17 +408,19 @@ export default function ResultadosGeneralPage() {
                         className={`bg-gradient-to-br ${color.bg} border ${color.border} hover:scale-[1.02] transition-transform duration-300`}
                       >
                         <CardContent className="p-3">
-                          <div className="flex justify-between items-center">
+                          <div className="flex justify-between items-center mb-2">
                             <div>
                               <p className="font-bold text-gray-900 capitalize">{tipo}</p>
-                              <p className="text-sm text-gray-600">
-                                {data.totalAciertos}/{data.totalIntentos} aciertos
-                              </p>
                             </div>
                             <div className="text-right">
                               <p className={`text-2xl font-bold ${color.text}`}>{data.porcentajePromedio}%</p>
                             </div>
                           </div>
+                          <ProgressBar
+                            intentos={data.totalIntentos}
+                            aciertos={data.totalAciertos}
+                            errores={data.totalErrores}
+                          />
                         </CardContent>
                       </Card>
                     )
@@ -522,81 +444,40 @@ export default function ResultadosGeneralPage() {
           }
         }
 
-        @keyframes slide-up {
-          from {
-            opacity: 0;
-            transform: translateY(30px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-
-        @keyframes bounce-slow {
-          0%, 100% {
-            transform: translateY(0);
-          }
-          50% {
-            transform: translateY(-8px);
-          }
-        }
-
-        @keyframes pulse-slow {
-          0%, 100% {
-            opacity: 1;
-            transform: scale(1);
-          }
-          50% {
-            opacity: 0.9;
-            transform: scale(1.05);
-          }
-        }
-
-        @keyframes spin-slow {
-          from {
-            transform: rotate(0deg);
-          }
-          to {
-            transform: rotate(360deg);
-          }
-        }
-
         @keyframes scale-in {
           from {
             opacity: 0;
-            transform: scale(0.95);
+            transform: scale(0.9);
           }
           to {
             opacity: 1;
             transform: scale(1);
+          }
+        }
+
+        @keyframes podium-rise {
+          from {
+            opacity: 0;
+            transform: translateY(50px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
           }
         }
 
         .animate-fade-in-up {
-          animation: fade-in-up 0.6s ease-out forwards;
+          animation: fade-in-up 0.4s ease-out forwards;
           opacity: 0;
-        }
-
-        .animate-slide-up {
-          animation: slide-up 0.6s ease-out forwards;
-          opacity: 0;
-        }
-
-        .animate-bounce-slow {
-          animation: bounce-slow 2s infinite;
-        }
-
-        .animate-pulse-slow {
-          animation: pulse-slow 3s infinite;
-        }
-
-        .animate-spin-slow {
-          animation: spin-slow 4s linear infinite;
         }
 
         .animate-scale-in {
           animation: scale-in 0.3s ease-out forwards;
+        }
+
+        .animate-podium-rise {
+          animation: podium-rise 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+          opacity: 0;
         }
       `}</style>
     </div>
