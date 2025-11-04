@@ -123,7 +123,7 @@ export default function Navbar() {
               <Image src="/puma.png" alt="Puma" width={56} height={56} className="w-full h-full object-cover" />
             </div>
             <span className="text-[#800020] font-bold text-2xl transition-colors duration-300 group-hover:text-[#a64d66]">
-              Voley
+              VoleyValle
             </span>
           </div>
 
