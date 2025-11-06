@@ -8,10 +8,7 @@ import Image from "next/image"
 import { useAuth } from "../../contexts/auth-context"
 
 export default function LoginPage() {
-  const [formData, setFormData] = useState({
-    usuario: "",
-    contraseña: "",
-  })
+  const [formData, setFormData] = useState({ usuario: "", contraseña: "" })
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState("")
   const router = useRouter()
@@ -19,10 +16,7 @@ export default function LoginPage() {
 
   const handleInputChange = (e) => {
     const { name, value } = e.target
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }))
+    setFormData((prev) => ({ ...prev, [name]: value }))
   }
 
   const handleSubmit = async (e) => {
@@ -33,19 +27,42 @@ export default function LoginPage() {
     try {
       const response = await fetch("https://jenn-back-reac.onrender.com/api/auth/login", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),
       })
 
       const data = await response.json()
 
       if (data.success) {
-        const userPosition = data.data.posicion || data.data.jugador?.posicion_principal
+        const userPosition =
+          data.data.posicion || data.data.jugador?.posicion_principal
+
+        // Guarda sesión en tu contexto como ya lo hacías
         login(data.data.id, data.data.rol, data.data.token, userPosition)
 
-        router.push("/perfil")
+        // Normaliza el rol (quita acentos y case)
+        const normalizedRole = (data.data.rol || "")
+          .toString()
+          .trim()
+          .toLowerCase()
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "")
+
+        // Redirección según rol
+        switch (normalizedRole) {
+          case "jugador":
+            router.push("/homeJ")
+            break
+          case "entrenador":
+            router.push("/homeE")
+            break
+          case "tecnico":
+            router.push("/homeT")
+            break
+          default:
+            router.push("/perfil")
+            break
+        }
       } else {
         setError(data.message || "Error al iniciar sesión")
       }
@@ -61,7 +78,8 @@ export default function LoginPage() {
       <div
         className="absolute inset-0 bg-center bg-no-repeat opacity-75"
         style={{
-          backgroundImage: `url('https://hebbkx1anhila5yf.public.blob.vercel-storage.com/image-AVC5jR8RoXCc2itFhawLOexSK6CvGW.png')`,
+          backgroundImage:
+            "url('https://hebbkx1anhila5yf.public.blob.vercel-storage.com/image-AVC5jR8RoXCc2itFhawLOexSK6CvGW.png')",
           backgroundPosition: "center center",
           backgroundSize: "80%",
         }}
@@ -78,9 +96,7 @@ export default function LoginPage() {
           <div className="bg-white/10 rounded-[26px] shadow-2xl animate-scale-in hover:shadow-red-600/30 transition-all duration-500 backdrop-blur-md border-2 border-white/30">
             <div className="rounded-[20px] bg-gray-900/70 backdrop-blur-sm shadow-lg p-6 sm:p-8 lg:p-12">
               <div className="flex flex-col items-center pt-4 sm:pt-8 pb-4 sm:pb-6 animate-fade-in">
-                <div className="mb-4 hover:scale-110 transition-transform duration-500 drop-shadow-2xl animate-bounce-slow">
-                  
-                </div>
+                <div className="mb-4 hover:scale-110 transition-transform duration-500 drop-shadow-2xl animate-bounce-slow" />
                 <h1 className="font-bold text-4xl sm:text-5xl lg:text-6xl text-center cursor-default bg-gradient-to-r from-red-600 via-rose-700 to-red-600 bg-clip-text text-transparent animate-gradient-text bg-[length:200%_auto]">
                   Voley Training Sys
                 </h1>
@@ -172,6 +188,7 @@ export default function LoginPage() {
                 >
                   <Facebook size={20} className="sm:w-6 sm:h-6" />
                 </Link>
+
                 <Link
                   href="https://www.univalle.edu/"
                   target="_blank"
@@ -193,7 +210,9 @@ export default function LoginPage() {
                 className="text-red-200 flex text-center flex-col mt-4 sm:mt-6 items-center text-xs sm:text-sm animate-fade-in"
                 style={{ animationDelay: "0.6s" }}
               >
-                <p className="cursor-default px-2">Bienvenido al sistema de entrenamiento para la selección de voley</p>
+                <p className="cursor-default px-2">
+                  Bienvenido al sistema de entrenamiento para la selección de voley
+                </p>
               </div>
             </div>
           </div>
@@ -202,221 +221,41 @@ export default function LoginPage() {
 
       <style jsx global>{`
         @keyframes fade-in-up {
-          from {
-            opacity: 0;
-            transform: translateY(30px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
+          from { opacity: 0; transform: translateY(30px); }
+          to { opacity: 1; transform: translateY(0); }
         }
-
         @keyframes scale-in {
-          from {
-            opacity: 0;
-            transform: scale(0.9);
-          }
-          to {
-            opacity: 1;
-            transform: scale(1);
-          }
+          from { opacity: 0; transform: scale(0.9); }
+          to { opacity: 1; transform: scale(1); }
         }
-
-        @keyframes fade-in {
-          from {
-            opacity: 0;
-          }
-          to {
-            opacity: 1;
-          }
-        }
-
-        @keyframes bounce-slow {
-          0%, 100% {
-            transform: translateY(0);
-          }
-          50% {
-            transform: translateY(-10px);
-          }
-        }
-
-        @keyframes gradient-text {
-          0% {
-            background-position: 0% center;
-          }
-          100% {
-            background-position: 200% center;
-          }
-        }
-
-        @keyframes shake {
-          0%, 100% {
-            transform: translateX(0);
-          }
-          25% {
-            transform: translateX(-10px);
-          }
-          75% {
-            transform: translateX(10px);
-          }
-        }
-
-        @keyframes slide-in-left {
-          from {
-            opacity: 0;
-            transform: translateX(-30px);
-          }
-          to {
-            opacity: 1;
-            transform: translateX(0);
-          }
-        }
-
-        @keyframes slide-in-right {
-          from {
-            opacity: 0;
-            transform: translateX(30px);
-          }
-          to {
-            opacity: 1;
-            transform: translateX(0);
-          }
-        }
-
-        @keyframes pulse-slow {
-          0%, 100% {
-            opacity: 1;
-          }
-          50% {
-            opacity: 0.9;
-          }
-        }
-
-        @keyframes float-slow {
-          0%, 100% {
-            transform: translate(0, 0) scale(1);
-          }
-          33% {
-            transform: translate(30px, -30px) scale(1.1);
-          }
-          66% {
-            transform: translate(-20px, 20px) scale(0.9);
-          }
-        }
-
-        @keyframes float-slower {
-          0%, 100% {
-            transform: translate(0, 0) scale(1);
-          }
-          50% {
-            transform: translate(-40px, -40px) scale(1.15);
-          }
-        }
-
-        @keyframes pulse-glow {
-          0%, 100% {
-            opacity: 0.3;
-            transform: scale(1);
-          }
-          50% {
-            opacity: 0.6;
-            transform: scale(1.2);
-          }
-        }
-
-        @keyframes spin-slow {
-          from {
-            transform: rotate(0deg);
-          }
-          to {
-            transform: rotate(360deg);
-          }
-        }
-
-        @keyframes fade-in-delayed {
-          0% {
-            opacity: 0;
-            transform: translateY(10px);
-          }
-          100% {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-
-        @keyframes shimmer {
-          0% {
-            background-position: -200% center;
-          }
-          100% {
-            background-position: 200% center;
-          }
-        }
-
-        .animate-fade-in-up {
-          animation: fade-in-up 0.8s ease-out forwards;
-        }
-
-        .animate-scale-in {
-          animation: scale-in 0.6s ease-out forwards;
-        }
-
-        .animate-fade-in {
-          animation: fade-in 0.8s ease-out forwards;
-          opacity: 0;
-        }
-
-        .animate-bounce-slow {
-          animation: bounce-slow 3s ease-in-out infinite;
-        }
-
-        .animate-gradient-text {
-          animation: gradient-text 3s linear infinite;
-        }
-
-        .animate-shake {
-          animation: shake 0.5s ease-in-out;
-        }
-
-        .animate-slide-in-left {
-          animation: slide-in-left 0.6s ease-out forwards;
-          opacity: 0;
-        }
-
-        .animate-slide-in-right {
-          animation: slide-in-right 0.6s ease-out forwards;
-          opacity: 0;
-        }
-
-        .animate-pulse-slow {
-          animation: pulse-slow 2s ease-in-out infinite;
-        }
-
-        .animate-float-slow {
-          animation: float-slow 20s ease-in-out infinite;
-        }
-
-        .animate-float-slower {
-          animation: float-slower 25s ease-in-out infinite;
-        }
-
-        .animate-pulse-glow {
-          animation: pulse-glow 6s ease-in-out infinite;
-        }
-
-        .animate-spin-slow {
-          animation: spin-slow 1s linear infinite;
-        }
-
-        .animate-fade-in-delayed {
-          animation: fade-in-delayed 1s ease-out 0.3s forwards;
-          opacity: 0;
-        }
-
-        .animate-shimmer {
-          animation: shimmer 3s linear infinite;
-        }
+        @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes bounce-slow { 0%,100%{transform:translateY(0);} 50%{transform:translateY(-10px);} }
+        @keyframes gradient-text { 0%{background-position:0% center;} 100%{background-position:200% center;} }
+        @keyframes shake { 0%,100%{transform:translateX(0);} 25%{transform:translateX(-10px);} 75%{transform:translateX(10px);} }
+        @keyframes slide-in-left { from {opacity:0; transform:translateX(-30px);} to {opacity:1; transform:translateX(0);} }
+        @keyframes slide-in-right { from {opacity:0; transform:translateX(30px);} to {opacity:1; transform:translateX(0);} }
+        @keyframes pulse-slow { 0%,100%{opacity:1;} 50%{opacity:0.9;} }
+        @keyframes float-slow { 0%,100%{transform:translate(0,0) scale(1);} 33%{transform:translate(30px,-30px) scale(1.1);} 66%{transform:translate(-20px,20px) scale(0.9);} }
+        @keyframes float-slower { 0%,100%{transform:translate(0,0) scale(1);} 50%{transform:translate(-40px,-40px) scale(1.15);} }
+        @keyframes pulse-glow { 0%,100%{opacity:0.3; transform:scale(1);} 50%{opacity:0.6; transform:scale(1.2);} }
+        @keyframes spin-slow { from {transform:rotate(0deg);} to {transform:rotate(360deg);} }
+        @keyframes fade-in-delayed { 0%{opacity:0; transform:translateY(10px);} 100%{opacity:1; transform:translateY(0);} }
+        @keyframes shimmer { 0%{background-position:-200% center;} 100%{background-position:200% center;} }
+        .animate-fade-in-up { animation: fade-in-up 0.8s ease-out forwards; }
+        .animate-scale-in { animation: scale-in 0.6s ease-out forwards; }
+        .animate-fade-in { animation: fade-in 0.8s ease-out forwards; opacity: 0; }
+        .animate-bounce-slow { animation: bounce-slow 3s ease-in-out infinite; }
+        .animate-gradient-text { animation: gradient-text 3s linear infinite; }
+        .animate-shake { animation: shake 0.5s ease-in-out; }
+        .animate-slide-in-left { animation: slide-in-left 0.6s ease-out forwards; opacity: 0; }
+        .animate-slide-in-right { animation: slide-in-right 0.6s ease-out forwards; opacity: 0; }
+        .animate-pulse-slow { animation: pulse-slow 2s ease-in-out infinite; }
+        .animate-float-slow { animation: float-slow 20s ease-in-out infinite; }
+        .animate-float-slower { animation: float-slower 25s ease-in-out infinite; }
+        .animate-pulse-glow { animation: pulse-glow 6s ease-in-out infinite; }
+        .animate-spin-slow { animation: spin-slow 1s linear infinite; }
+        .animate-fade-in-delayed { animation: fade-in-delayed 1s ease-out 0.3s forwards; opacity: 0; }
+        .animate-shimmer { animation: shimmer 3s linear infinite; }
       `}</style>
     </div>
   )

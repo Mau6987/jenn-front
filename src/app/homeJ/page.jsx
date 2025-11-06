@@ -3,47 +3,44 @@
 import Link from "next/link";
 import Image from "next/image";
 
-export default function TrainerHome() {
+export default function PlayerHome() {
   const cards = [
     {
-      title: "Pruebas de Salto",
-      description: "Evalúa la capacidad de salto y reacción de tus jugadores.",
-      image: "/reaccion.png",
-      hoverImage: "/reaccion2.png",
-      href: "/pruebas-salto",
-      blob: "bg-[#EADCF9]",
-      accent: "text-[#6C3EB8]",
+      title: "Resultados",
+      description: "Consulta tus resultados y estadísticas de rendimiento.",
+      image: "/resultados.png",
+      hoverImage: "/resultados.png",
+      href: "/resultados",
+      blob: "bg-[#E8F4FD]",
+      accent: "text-[#1E5A9E]",
     },
     {
-      title: "Pruebas de Pliometría",
-      description: "Mide el rendimiento pliométrico y la explosividad.",
-      image: "/pliometria.png",
-      hoverImage: "/plimetria2.png",
-      href: "/pruebas-pliometria",
-      blob: "bg-[#D9F6E8]",
-      accent: "text-[#1B8F6C]",
+      title: "Ranking",
+      description: "Mira tu posición en el ranking del equipo.",
+      image: "/ranking.png",
+      hoverImage: "/ranking2.png",
+      href: "/ranking",
+      blob: "bg-[#FFF4E6]",
+      accent: "text-[#D97706]",
     },
     {
-      title: "Jugadores",
-      description: "Gestiona y consulta el perfil de tus jugadores.",
+      title: "Perfil",
+      description: "Actualiza tu información personal y preferencias.",
       image: "/jugadores.png",
       hoverImage: "/jugadores2.png",
-      href: "/jugadores",
-      blob: "bg-[#FBE4E6]",
-      accent: "text-[#B01C3B]",
+      href: "/perfil",
+      blob: "bg-[#F3E8FF]",
+      accent: "text-[#7C3AED]",
     },
   ];
 
   return (
     <div className="min-h-screen bg-[#f7f7fb] dark:bg-[#0b0f19] text-slate-800 dark:text-slate-100">
       <main className="container mx-auto px-4 py-12 md:py-16">
-        {/* TÍTULO simple: texto azul oscuro, fondo celeste suave SOLO en el título */}
+        {/* TÍTULO simple: azul oscuro con fondo celeste suave */}
         <header className="max-w-5xl mx-auto mb-8">
-          <h1
-            className="w-full text-center rounded-2xl px-5 py-4 text-2xl md:text-4xl font-extrabold tracking-tight
-                       text-blue-900 bg-sky-50"
-          >
-            Panel del entrenador
+          <h1 className="w-full text-center rounded-2xl px-5 py-4 text-2xl md:text-4xl font-extrabold tracking-tight text-blue-900 bg-sky-50">
+            Panel del jugador
           </h1>
         </header>
 
@@ -69,9 +66,9 @@ export default function TrainerHome() {
                     hover:ring-2 hover:ring-slate-900/10 dark:hover:ring-white/10
                     transition-transform transition-shadow duration-300 will-change-transform
                     hover:-translate-y-1
-                  "
+                    "
                 >
-                  {/* Halo sutil para resaltar el card */}
+                  {/* Halo sutil detrás del card para que “salte” más */}
                   <span
                     className="pointer-events-none absolute -inset-px rounded-3xl blur-2xl opacity-0 group-hover:opacity-20 transition
                                bg-gradient-to-br from-slate-400/30 via-slate-300/20 to-transparent dark:from-white/10 dark:via-white/5"
@@ -81,9 +78,7 @@ export default function TrainerHome() {
                   {/* MEDIA */}
                   <div className="relative h-64 md:h-72 flex items-center justify-center p-10 overflow-hidden">
                     {/* blob pastel detrás del icono */}
-                    <span
-                      className={`absolute h-36 w-40 ${card.blob} rounded-[40%] opacity-90`}
-                    />
+                    <span className={`absolute h-36 w-40 ${card.blob} rounded-[40%] opacity-90`} />
 
                     {/* imagen base + hover con fade cruzado */}
                     <div className="relative w-40 h-40 md:w-52 md:h-52">
