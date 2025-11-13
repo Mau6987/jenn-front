@@ -1,6 +1,6 @@
-import AuthForm from "./componentes/auth-form"
+import Page from "./componentes/Home"
 
 export default function Login() {
     
-  return <AuthForm />
+  return <Page />
 }

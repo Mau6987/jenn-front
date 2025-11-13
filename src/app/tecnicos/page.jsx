@@ -407,10 +407,7 @@ export default function TecnicosPage() {
                 <UserPlus className="h-5 w-5" />
                 <span>Agregar nuevo</span>
               </button>
-              <button className="flex items-center justify-center space-x-2 px-6 py-3.5 bg-white text-gray-700 rounded-xl hover:bg-gray-50 transition-all duration-300 font-bold w-full sm:w-auto shadow-md hover:shadow-lg border-2 border-gray-200">
-                <Filter className="h-5 w-5" />
-                <span>Filtrar</span>
-              </button>
+             
             </div>
 
             {/* Mensaje de error */}

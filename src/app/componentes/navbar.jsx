@@ -14,11 +14,9 @@ import {
   TrendingUp,
   Trophy,
   ClipboardList,
-  Calendar,
   Users,
   UserCheck,
   Home,
-  Clock,
   Award,
   LogOut,
 } from "lucide-react"
@@ -32,7 +30,7 @@ import { LogoutLoading } from "../../components/ui/logout-loading"
 export default function Navbar() {
   const router = useRouter()
   const pathname = usePathname()
-  const { idUser, rol, posicion, token, isAuthenticated, logout } = useAuth()
+  const { idUser, rol, posicion, nombre, token, isAuthenticated, logout } = useAuth()
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [showLogoutDialog, setShowLogoutDialog] = useState(false)
   const [isLoggingOut, setIsLoggingOut] = useState(false)
@@ -95,9 +93,9 @@ export default function Navbar() {
         ]
       case "entrenador":
         return [
-          { icon: ClipboardList, label: "Pruebas", href: "/pruebas" },
-          { icon: Activity, label: "Pliometría", href: "/pliometria" },
-          { icon: Calendar, label: "Horarios", href: "/horarios" },
+          { icon: ClipboardList, label: "Pruebas de reaccion", href: "/pruebas" },
+          { icon: Activity, label: "Pruebas de salto", href: "/pliometria" },
+
           { icon: Users, label: "Jugadores", href: "/jugadores" },
           { icon: User, label: "Perfil", href: "/perfil" },
         ]
@@ -120,10 +118,10 @@ export default function Navbar() {
         <nav className="flex items-center justify-between max-w-7xl mx-auto">
           <div className="flex items-center space-x-3 group">
             <div className="w-14 h-14 rounded-full flex items-center justify-center overflow-hidden transition-transform duration-300 group-hover:scale-110">
-              <Image src="/puma.png" alt="Puma" width={56} height={56} className="w-full h-full object-cover" />
+              <Image src="/logojenn.png" alt="Puma" width={56} height={56} className="w-full h-full object-cover" />
             </div>
             <span className="text-[#800020] font-bold text-2xl transition-colors duration-300 group-hover:text-[#a64d66]">
-              VoleyValle
+              Tech Volley UNV
             </span>
           </div>
 
@@ -134,22 +132,6 @@ export default function Navbar() {
             >
               <Home className="w-5 h-5" />
               <span>Inicio</span>
-            </Link>
-
-            <Link
-              href="/horarios-entrenamiento"
-              className="flex items-center gap-2 text-gray-700 hover:text-[#800020] text-lg transition-all duration-300 hover:scale-105"
-            >
-              <Clock className="w-5 h-5" />
-              <span>Horarios</span>
-            </Link>
-
-            <Link
-              href="/campeonatos"
-              className="flex items-center gap-2 text-gray-700 hover:text-[#800020] text-lg transition-all duration-300 hover:scale-105"
-            >
-              <Award className="w-5 h-5" />
-              <span>Campeonatos</span>
             </Link>
           </div>
 
@@ -180,24 +162,6 @@ export default function Navbar() {
                 <Home className="w-5 h-5" />
                 <span>Inicio</span>
               </Link>
-
-              <Link
-                href="/horarios-entrenamiento"
-                className="flex items-center gap-3 text-gray-700 hover:text-[#800020] py-3 text-lg transition-colors duration-300 hover:bg-gray-50 px-3 rounded-lg"
-                onClick={closeMobileMenu}
-              >
-                <Clock className="w-5 h-5" />
-                <span>Horarios</span>
-              </Link>
-
-              <Link
-                href="/campeonatos"
-                className="flex items-center gap-3 text-gray-700 hover:text-[#800020] py-3 text-lg transition-colors duration-300 hover:bg-gray-50 px-3 rounded-lg"
-                onClick={closeMobileMenu}
-              >
-                <Award className="w-5 h-5" />
-                <span>Campeonatos</span>
-              </Link>
             </div>
           </div>
         )}
@@ -217,7 +181,7 @@ export default function Navbar() {
         </Link>
         <div className="flex items-center space-x-3 mx-auto">
           <div className="hidden sm:block">
-            <h1 className="text-[#800020] font-bold text-xl">VolleyValle </h1>
+            <h1 className="text-[#800020] font-bold text-xl">Tech Volley UNV </h1>
           </div>
         </div>
       </header>
@@ -233,10 +197,10 @@ export default function Navbar() {
 
         <div className="flex items-center space-x-3 group">
           <div className="w-12 h-12 rounded-full flex items-center justify-center overflow-hidden transition-transform duration-300 group-hover:scale-110 group-hover:rotate-12">
-            <Image src="/puma.png" alt="Puma" width={48} height={48} className="w-full h-full object-cover" />
+            <Image src="/logoJenn.png" alt="Puma" width={48} height={48} className="w-full h-full object-cover" />
           </div>
           <h1 className="text-[#800020] font-bold text-xl hidden sm:block transition-colors duration-300 group-hover:text-[#a64d66]">
-            VolleyValle
+            Tech Volley UNV
           </h1>
         </div>
 
@@ -280,8 +244,8 @@ export default function Navbar() {
             <div className="w-10 h-10 bg-[#800020] rounded-full flex items-center justify-center group-hover:bg-[#a64d66] transition-all duration-300 overflow-hidden group-hover:scale-110">
               {getRoleIconComponent()}
             </div>
-            <p className="text-sm font-medium text-[#800020] capitalize group-hover:text-[#a64d66] transition-colors">
-              {rol}
+            <p className="text-sm font-medium text-[#800020] group-hover:text-[#a64d66] transition-colors">
+              Bienvenido: <span className="capitalize">{nombre || "Usuario"}</span>
             </p>
           </Link>
 

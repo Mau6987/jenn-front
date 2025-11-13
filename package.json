@@ -9,8 +9,11 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@chakra-ui/react": "^3.29.0",
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.1",
     "@mui/icons-material": "^7.3.2",
-    "@mui/material": "^7.3.2",
+    "@mui/material": "^7.3.5",
     "@mui/x-charts": "^8.12.0",
     "@radix-ui/react-alert-dialog": "^1.1.15",
     "@radix-ui/react-avatar": "^1.1.10",
@@ -33,6 +36,7 @@
     "pusher-js": "^8.4.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "react-feather": "^2.0.10",
     "recharts": "^3.3.0",
     "swiper": "^12.0.2",
     "tailwind-merge": "^3.3.0"

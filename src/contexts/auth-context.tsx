@@ -11,6 +11,7 @@ export function AuthProvider({ children }) {
   const [rol, setRol] = useState("jugador")
   const [token, setToken] = useState(null)
   const [posicion, setPosicion] = useState(null)
+  const [nombre, setNombre] = useState(null)
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
 
@@ -25,11 +26,13 @@ export function AuthProvider({ children }) {
     localStorage.removeItem("rol")
     localStorage.removeItem("token")
     localStorage.removeItem("posicion")
+    localStorage.removeItem("nombre")
 
     setIdUser(null)
     setRol("jugador")
     setToken(null)
     setPosicion(null)
+    setNombre(null)
     setIsAuthenticated(false)
   }, [])
 
@@ -48,12 +51,14 @@ export function AuthProvider({ children }) {
     const storedRol = localStorage.getItem("rol")
     const storedToken = localStorage.getItem("token")
     const storedPosicion = localStorage.getItem("posicion")
+    const storedNombre = localStorage.getItem("nombre")
 
     if (storedUserId && storedRol && storedToken) {
       setIdUser(storedUserId)
       setRol(storedRol)
       setToken(storedToken)
       setPosicion(storedPosicion)
+      setNombre(storedNombre)
       setIsAuthenticated(true)
     }
 
@@ -79,18 +84,22 @@ export function AuthProvider({ children }) {
   }, [logout, resetInactivityTimer])
 
   const login = useCallback(
-    (userId, userRole, authToken, userPosition) => {
+    (userId, userRole, authToken, userPosition, userName) => {
       localStorage.setItem("idUser", userId)
       localStorage.setItem("rol", userRole)
       localStorage.setItem("token", authToken)
       if (userPosition) {
         localStorage.setItem("posicion", userPosition)
       }
+      if (userName) {
+        localStorage.setItem("nombre", userName)
+      }
 
       setIdUser(userId)
       setRol(userRole)
       setToken(authToken)
       setPosicion(userPosition || null)
+      setNombre(userName || null)
       setIsAuthenticated(true)
 
       resetInactivityTimer()
@@ -105,6 +114,7 @@ export function AuthProvider({ children }) {
         rol,
         token,
         posicion,
+        nombre,
         isAuthenticated,
         login,
         logout,

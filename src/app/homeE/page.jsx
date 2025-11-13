@@ -6,8 +6,8 @@ import Image from "next/image";
 export default function TrainerHome() {
   const cards = [
     {
-      title: "Pruebas de Salto",
-      description: "Evalúa la capacidad de salto y reacción de tus jugadores.",
+      title: "Pruebas de reaccion",
+      description: "Evalúa la capacidad de  reacción de tus jugadores.",
       image: "/reaccion.png",
       hoverImage: "/reaccion2.png",
       href: "/pruebas-salto",

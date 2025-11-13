@@ -34,11 +34,11 @@ export default function LoginPage() {
       const data = await response.json()
 
       if (data.success) {
-        const userPosition =
-          data.data.posicion || data.data.jugador?.posicion_principal
+        const userPosition = data.data.posicion || data.data.jugador?.posicion_principal
 
-        // Guarda sesión en tu contexto como ya lo hacías
-        login(data.data.id, data.data.rol, data.data.token, userPosition)
+        const userName = data.data.nombre || data.data.jugador?.nombre || data.data.usuario || "Usuario"
+
+        login(data.data.id, data.data.rol, data.data.token, userPosition, userName)
 
         // Normaliza el rol (quita acentos y case)
         const normalizedRole = (data.data.rol || "")
@@ -97,12 +97,10 @@ export default function LoginPage() {
             <div className="rounded-[20px] bg-gray-900/70 backdrop-blur-sm shadow-lg p-6 sm:p-8 lg:p-12">
               <div className="flex flex-col items-center pt-4 sm:pt-8 pb-4 sm:pb-6 animate-fade-in">
                 <div className="mb-4 hover:scale-110 transition-transform duration-500 drop-shadow-2xl animate-bounce-slow" />
+                <p className="text-red-200/70 text-sm sm:text-base mt-3 animate-fade-in-delayed">Bienvenido a</p>
                 <h1 className="font-bold text-4xl sm:text-5xl lg:text-6xl text-center cursor-default bg-gradient-to-r from-red-600 via-rose-700 to-red-600 bg-clip-text text-transparent animate-gradient-text bg-[length:200%_auto]">
-                  Voley Training Sys
+                  Tech Voley UNV
                 </h1>
-                <p className="text-red-200/70 text-sm sm:text-base mt-3 animate-fade-in-delayed">
-                  Sistema de Entrenamiento Profesional
-                </p>
               </div>
 
               <form onSubmit={handleSubmit} className="space-y-4 lg:space-y-6 mt-8">
@@ -210,9 +208,7 @@ export default function LoginPage() {
                 className="text-red-200 flex text-center flex-col mt-4 sm:mt-6 items-center text-xs sm:text-sm animate-fade-in"
                 style={{ animationDelay: "0.6s" }}
               >
-                <p className="cursor-default px-2">
-                  Bienvenido al sistema de entrenamiento para la selección de voley
-                </p>
+                <p className="cursor-default px-2">Bienvenido al sistema de entrenamiento para la selección de voley</p>
               </div>
             </div>
           </div>

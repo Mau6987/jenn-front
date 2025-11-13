@@ -386,8 +386,8 @@ export default function Perfil() {
         <div className="max-w-7xl mx-auto">
           {/* Header */}
           <div className="mb-8 animate-fade-in">
-            <h1 className="text-5xl font-bold text-white mb-2">Profile</h1>
-            <p className="text-gray-400 text-lg">View all your profile details here.</p>
+            <h1 className="text-5xl font-bold text-white mb-2">Perfil</h1>
+            <p className="text-gray-400 text-lg">Vizualiza tus datos personales</p>
           </div>
 
           {/* Main Profile Card */}
@@ -465,7 +465,6 @@ export default function Perfil() {
                   style={{ animationDelay: "0.3s" }}
                 >
                   <div className="flex items-center justify-between mb-6">
-                    <h3 className="text-2xl font-bold text-white">Bio & other details</h3>
                     {isEditing && (
                       <button
                         onClick={cancelarEdicion}

@@ -15,7 +15,9 @@ import {
   ChevronDown,
   Info,
   Copy,
+  XCircle,
 } from "lucide-react"
+import { getPositionIcon, getPositionName } from "../../lib/position-icons"
 
 const BACKEND_URL = "https://jenn-back-reac.onrender.com"
 
@@ -26,6 +28,7 @@ export default function PruebasPage() {
   const [notification, setNotification] = useState(null)
 
   const [selectedESPs, setSelectedESPs] = useState([1, 2, 3, 4, 5])
+  const [showESPSelection, setShowESPSelection] = useState(false)
 
   // Modal resumen al finalizar
   const [showSummary, setShowSummary] = useState(false)
@@ -317,7 +320,6 @@ export default function PruebasPage() {
     }
   }
 
-  // ===== CAMBIO 1: body solo { deviceId, command }
   const sendCommandToESP = async (espId, command) => {
     try {
       const deviceId = `ESP-${espId}`
@@ -352,7 +354,6 @@ export default function PruebasPage() {
     }
   }
 
-  // ====== SECUENCIAL ======
   const iniciarPruebaSecuencial = async () => {
     if (!selectedPlayer) {
       showNotification("error", "Debe seleccionar un jugador")
@@ -380,7 +381,10 @@ export default function PruebasPage() {
         setCurrentSequence(1)
         setEstadisticasSequential({ intentos: 0, aciertos: 0, errores: 0 })
         iniciarCronometroGeneral()
-        showNotification("success", `Prueba secuencial iniciada - ${totalRounds} rondas con ESP: ${selectedESPs.join(", ")}`)
+        showNotification(
+          "success",
+          `Prueba secuencial iniciada - ${totalRounds} rondas con ESP: ${selectedESPs.join(", ")}`,
+        )
         setTimeout(() => activateNextMicrocontrollerSequential(selectedESPs[0]), 1000)
       } else {
         showNotification("error", "Error iniciando prueba: " + data.message)
@@ -463,7 +467,7 @@ export default function PruebasPage() {
             showNotification("success", `Iniciando ronda ${prevRound + 1}`)
             setTimeout(() => {
               setCurrentSequence(1)
-              activateNextMicrocontrollerSequential(selectedESPsRef.current[0])
+              activateNextMicrocontrollerSequential(selectedESPs.current[0])
             }, 2000)
             return prevRound + 1
           } else {
@@ -547,9 +551,7 @@ export default function PruebasPage() {
       responseTimeoutSequentialRef.current = null
     }
 
-    setMicroControllers((prev) =>
-      prev.map((mc) => ({ ...mc, active: false, status: "", lastResponse: null })),
-    )
+    setMicroControllers((prev) => prev.map((mc) => ({ ...mc, active: false, status: "", lastResponse: null })))
 
     processingResponseSequentialRef.current = false
   }
@@ -564,15 +566,11 @@ export default function PruebasPage() {
       responseTimeoutSequentialRef.current = null
     }
 
-    setMicroControllers((prev) =>
-      prev.map((mc) => ({ ...mc, active: false, status: "", lastResponse: null })),
-    )
+    setMicroControllers((prev) => prev.map((mc) => ({ ...mc, active: false, status: "", lastResponse: null })))
 
     processingResponseSequentialRef.current = false
   }
 
-  // ====== ALEATORIO ======
-  // CAMBIO 2: no enviar 'duracion' al backend
   const iniciarPruebaAleatoria = async () => {
     if (!selectedPlayer) {
       showNotification("error", "Debe seleccionar un jugador")
@@ -751,14 +749,11 @@ export default function PruebasPage() {
       responseTimeoutRandomRef.current = null
     }
 
-    setMicroControllers((prev) =>
-      prev.map((mc) => ({ ...mc, active: false, status: "", lastResponse: null })),
-    )
+    setMicroControllers((prev) => prev.map((mc) => ({ ...mc, active: false, status: "", lastResponse: null })))
 
     processingResponseRandomRef.current = false
   }
 
-  // ====== MANUAL ======
   const iniciarPruebaManual = async () => {
     if (!selectedPlayer) {
       showNotification("error", "Debe seleccionar un jugador")
@@ -827,7 +822,11 @@ export default function PruebasPage() {
   }
 
   const handleManualResponse = (espId, responseType) => {
-    if (!testActiveManualRef.current || !waitingForResponseManualRef.current || currentActiveESPManualRef.current !== espId) {
+    if (
+      !testActiveManualRef.current ||
+      !waitingForResponseManualRef.current ||
+      currentActiveESPManualRef.current !== espId
+    ) {
       processingResponseManualRef.current = false
       return
     }
@@ -897,9 +896,7 @@ export default function PruebasPage() {
       responseTimeoutManualRef.current = null
     }
 
-    setMicroControllers((prev) =>
-      prev.map((mc) => ({ ...mc, active: false, status: "", lastResponse: null })),
-    )
+    setMicroControllers((prev) => prev.map((mc) => ({ ...mc, active: false, status: "", lastResponse: null })))
 
     processingResponseManualRef.current = false
   }
@@ -958,13 +955,17 @@ export default function PruebasPage() {
             ) : (
               <AlertCircle className="h-5 w-5 text-red-600 mr-3 flex-shrink-0" />
             )}
-            <span className={`font-medium text-sm ${notification.type === "success" ? "text-green-800" : "text-red-800"}`}>
+            <span
+              className={`font-medium text-sm ${notification.type === "success" ? "text-green-800" : "text-red-800"}`}
+            >
               {notification.message}
             </span>
             <button
               onClick={() => setNotification(null)}
               className={`ml-4 ${
-                notification.type === "success" ? "text-green-600 hover:text-green-800" : "text-red-600 hover:text-red-800"
+                notification.type === "success"
+                  ? "text-green-600 hover:text-green-800"
+                  : "text-red-600 hover:text-red-800"
               }`}
             >
               <X className="h-4 w-4" />
@@ -972,22 +973,6 @@ export default function PruebasPage() {
           </div>
         </div>
       )}
-
-      {/* Header */}
-      <header className="sticky top-0 z-30 backdrop-blur bg-white/70 border-b border-slate-200">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div>
-              <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight text-slate-900">Pruebas de reaccion</h1>
-            </div>
-          </div>
-          <div
-            className={`text-xs px-2 py-1 rounded-full border ${pusherConnected ? "bg-green-50 border-green-200 text-green-700" : "bg-amber-50 border-amber-200 text-amber-700"}`}
-          >
-            {pusherConnected ? "Pusher: Conectado" : "Pusher: Reconectando..."}
-          </div>
-        </div>
-      </header>
 
       {/* Main Content */}
       <div className="w-full p-4 lg:p-6">
@@ -1018,116 +1003,72 @@ export default function PruebasPage() {
             </div>
           </div>
 
-          {/* ESP selection */}
-          <div className="bg-white rounded-2xl shadow-xl border border-slate-200/60 p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-bold text-gray-900 uppercase tracking-wide">Seleccionar ESP para la Prueba</h2>
-              <button
-                onClick={toggleAllESPs}
-                disabled={testActive}
-                className="text-sm px-3 py-1 rounded-lg border-2 border-red-900 text-red-900 hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
-              >
-                {selectedESPs.length === 5 ? "Deseleccionar todas" : "Seleccionar todas"}
-              </button>
-            </div>
-            <div className="grid grid-cols-5 gap-4">
-              {microControllers.map((mc) => (
-                <button
-                  key={mc.id}
-                  onClick={() => toggleESPSelection(mc.id)}
-                  disabled={testActive}
-                  className={`relative p-4 rounded-xl border-2 transition-all ${
-                    selectedESPs.includes(mc.id) ? "border-red-900 bg-red-50" : "border-gray-200 bg-gray-50"
-                  } ${testActive ? "opacity-50 cursor-not-allowed" : "hover:shadow-md cursor-pointer"}`}
-                >
-                  <div className="flex flex-col items-center gap-2">
-                    <div
-                      className={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-lg ${
-                        selectedESPs.includes(mc.id) ? "bg-red-900 text-white" : "bg-gray-300 text-gray-600"
-                      }`}
-                    >
-                      {mc.id}
-                    </div>
-                    <span className="text-sm font-semibold">ESP-{mc.id}</span>
-                    {selectedESPs.includes(mc.id) && <CheckCircle className="h-5 w-5 text-red-900 absolute top-2 right-2" />}
-                  </div>
-                </button>
-              ))}
-            </div>
-            <div className="mt-4 text-center">
-              <p className="text-sm text-gray-600">
-                <span className="font-semibold">{selectedESPs.length}</span> ESP seleccionada
-                {selectedESPs.length !== 1 ? "s" : ""}: {selectedESPs.join(", ")}
-              </p>
-            </div>
-          </div>
-
           {/* Two Column Layout */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Player card */}
             <div className="bg-white rounded-2xl shadow-xl border border-slate-200/60 p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-bold text-gray-900 uppercase tracking-wide">Datos del Jugador</h2>
-              </div>
+              
               {selectedPlayer ? (
-                <div className="flex flex-col sm:flex-row gap-6">
-                  <div className="flex flex-col items-center sm:items-start">
-                    <div className="w-32 h-32 rounded-2xl overflow-hidden ring-2 ring-red-900 shadow-md mb-3">
-                      {selectedPlayer.imagen ? (
-                        <img
-                          src={selectedPlayer.imagen || "/placeholder.svg"}
-                          alt={`${selectedPlayer.nombres} ${selectedPlayer.apellidos}`}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <div className="w-full h-full bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center">
-                          <Users className="h-14 w-14 text-slate-400" />
-                        </div>
-                      )}
+                <div className="space-y-6">
+                  {/* Player Header */}
+                  <div className="flex items-center gap-4 p-5 bg-gradient-to-br from-slate-50 to-white rounded-2xl border border-slate-200">
+                    <div className="w-24 h-24 rounded-full bg-white border-2 border-slate-200 shadow-sm flex items-center justify-center overflow-hidden flex-shrink-0">
+                      <img
+                        src={getPositionIcon(selectedPlayer?.posicion_principal) || "/placeholder.svg"}
+                        alt={getPositionName(selectedPlayer?.posicion_principal)}
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          e.currentTarget.src = "/oso.png"
+                        }}
+                      />
                     </div>
-                    <div className="text-center sm:text-left">
-                      <p className="text-base font-extrabold text-gray-900">
+                    <div className="flex-1 min-w-0">
+                      <h3 className="text-2xl font-extrabold text-slate-900 leading-tight truncate">
                         {selectedPlayer.nombres} {selectedPlayer.apellidos}
-                      </p>
+                      </h3>
+                      <div className="mt-3 flex flex-wrap items-center gap-2">
+                        <span className="inline-flex items-center gap-1.5 rounded-full bg-white border border-slate-200 px-2.5 py-1 text-xs font-semibold text-slate-800 shadow-sm">
+                          <img
+                            src={getPositionIcon(selectedPlayer?.posicion_principal) || "/placeholder.svg"}
+                            alt={getPositionName(selectedPlayer?.posicion_principal)}
+                            className="w-4 h-4 rounded-full object-cover"
+                          />
+                          {getPositionName(selectedPlayer?.posicion_principal)}
+                        </span>
+                        <span className="w-1 h-1 rounded-full bg-slate-300" />
+                        <span className="inline-flex items-center rounded-full bg-white border border-slate-200 px-2.5 py-1 text-xs font-medium text-slate-700 shadow-sm truncate">
+                          {selectedPlayer?.carrera || "Sin carrera"}
+                        </span>
+                      </div>
                     </div>
                   </div>
 
-                  <div className="flex-1 grid grid-cols-2 gap-3">
+                  {/* Player Stats Grid */}
+                  <div className="grid grid-cols-2 gap-3">
                     {selectedPlayer.fecha_nacimiento && (
-                      <div className="rounded-xl border bg-slate-50 px-3 py-2">
-                        <p className="text-[11px] text-slate-500 mb-1">Edad</p>
-                        <p className="text-sm font-semibold text-slate-900">
+                      <div className="rounded-xl border border-slate-200 bg-gradient-to-br from-white to-slate-50 px-4 py-3">
+                        <div className="text-xs text-slate-500 mb-1">Edad</div>
+                        <div className="text-xl font-semibold text-slate-900">
                           {calcularEdad(selectedPlayer.fecha_nacimiento)} años
-                        </p>
+                        </div>
                       </div>
                     )}
-                    <div className="rounded-xl border bg-slate-50 px-3 py-2">
-                      <p className="text-[11px] text-slate-500 mb-1">Carrera</p>
-                      <p className="text-sm font-semibold text-slate-900 truncate" title={selectedPlayer.carrera}>
-                        {selectedPlayer.carrera || "—"}
-                      </p>
-                    </div>
-                    <div className="rounded-xl border bg-slate-50 px-3 py-2">
-                      <p className="text-[11px] text-slate-500 mb-1">Posición</p>
-                      <p className="text-sm font-semibold text-red-700 capitalize">
-                        {selectedPlayer.posicion_principal}
-                      </p>
-                    </div>
-                    <div className="rounded-xl border bg-slate-50 px-3 py-2">
-                      <p className="text-[11px] text-slate-500 mb-1">Altura</p>
-                      <p className="text-sm font-semibold text-slate-900">{selectedPlayer.altura} m</p>
+                    <div className="rounded-xl border border-slate-200 bg-gradient-to-br from-white to-slate-50 px-4 py-3">
+                      <div className="text-xs text-slate-500 mb-1">Altura</div>
+                      <div className="text-xl font-semibold text-slate-900">{selectedPlayer.altura}m</div>
                     </div>
                   </div>
                 </div>
               ) : (
-                <div className="text-center py-10 text-gray-500">
-                  <Users className="h-12 w-12 mx-auto mb-3 text-gray-400" />
-                  <p>Selecciona un jugador para ver sus datos</p>
+                <div className="text-center py-16">
+                  <div className="w-20 h-20 rounded-full bg-slate-100 mx-auto mb-4 flex items-center justify-center">
+                    <Users className="h-10 w-10 text-slate-400" />
+                  </div>
+                  <p className="text-slate-600 font-medium">Selecciona un jugador para ver sus datos</p>
+                  <p className="text-sm text-slate-400 mt-1">Elige un jugador del menú desplegable arriba</p>
                 </div>
               )}
             </div>
 
-            {/* Progress */}
             <div className="bg-white rounded-2xl shadow-xl border border-slate-200/60 p-6">
               <h2 className="text-lg font-bold text-gray-900 mb-4 uppercase tracking-wide">Progreso de la Prueba</h2>
               <div className="space-y-4">
@@ -1143,64 +1084,47 @@ export default function PruebasPage() {
                   </div>
 
                   <div className="bg-gradient-to-br from-slate-50 to-white rounded-xl p-4 border-2 border-slate-200">
-                    <p className="text-[11px] text-gray-600 mb-2 text-center font-semibold">Intentos / Aciertos / Errores</p>
+                    <p className="text-[11px] text-gray-600 mb-2 text-center font-semibold uppercase tracking-wide">
+                      Estadísticas
+                    </p>
                     <div className="grid grid-cols-3 gap-2 text-center">
-                      <div>
-                        <p className="text-[11px] text-gray-500">Int</p>
+                      <div className="flex flex-col items-center">
+                        <img src="/diana.png" alt="Intentos" className="h-6 w-6 mb-1" />
                         <p className="text-lg font-bold">{estadisticas.intentos}</p>
                       </div>
-                      <div>
-                        <p className="text-[11px] text-gray-500">Aci</p>
+                      <div className="flex flex-col items-center">
+                        <CheckCircle className="h-6 w-6 text-green-600 mb-1" />
                         <p className="text-lg font-bold">{estadisticas.aciertos}</p>
                       </div>
-                      <div>
-                        <p className="text-[11px] text-gray-500">Err</p>
+                      <div className="flex flex-col items-center">
+                        <XCircle className="h-6 w-6 text-red-600 mb-1" />
                         <p className="text-lg font-bold">{estadisticas.errores}</p>
                       </div>
                     </div>
                   </div>
                 </div>
 
-                <div className="rounded-xl p-4 border-2 border-slate-200 bg-white">
-                  <p className="text-[11px] text-gray-600 mb-3 text-center font-semibold">Cronómetro y progreso</p>
-                  <div className="space-y-2">
-                    {testActive && (
-                      <div className="flex justify-center mb-3">
-                        <div className="bg-white px-6 py-3 rounded-lg border-2 border-blue-200 shadow-sm">
-                          <div className="flex items-center gap-2">
-                            <Clock className="h-6 w-6" />
-                            <span className="text-3xl font-bold">{formatTime(tiempoTranscurrido)}</span>
-                          </div>
+                <div className="rounded-xl p-6 border-2 border-slate-200 bg-white">
+                  <p className="text-[11px] text-gray-600 mb-3 text-center font-semibold uppercase tracking-wide">
+                    Cronómetro
+                  </p>
+                  {testActive ? (
+                    <div className="flex justify-center">
+                      <div className="bg-gradient-to-br from-blue-50 to-white px-8 py-4 rounded-xl border-2 border-blue-200 shadow-sm">
+                        <div className="flex items-center gap-3">
+                          <Clock className="h-8 w-8 text-blue-600" />
+                          <span className="text-4xl font-bold text-slate-900 tabular-nums">
+                            {formatTime(tiempoTranscurrido)}
+                          </span>
                         </div>
                       </div>
-                    )}
-
-                    {modoActual === "secuencial" && testActive && (
-                      <>
-                        <div className="flex justify-between items-center bg-slate-50 px-3 py-2 rounded border">
-                          <span className="text-sm text-gray-600">Ronda</span>
-                          <span className="text-sm font-bold">{currentRound}/{totalRounds}</span>
-                        </div>
-                        <div className="flex justify-between items-center bg-slate-50 px-3 py-2 rounded border">
-                          <span className="text-sm text-gray-600">Secuencia</span>
-                          <span className="text-sm font-bold">{currentSequence}/{selectedESPs.length}</span>
-                        </div>
-                      </>
-                    )}
-
-                    {currentActiveESP && testActive && (
-                      <div className="flex justify-between items-center bg-green-50 px-3 py-2 rounded border border-green-200">
-                        <span className="text-sm text-gray-600">ESP Activo</span>
-                        <span className="text-sm font-bold text-green-700">ESP-{currentActiveESP}</span>
-                      </div>
-                    )}
-
-                    {!testActive && (
-                      <div className="text-center py-4 text-gray-500">
-                        <p className="text-sm">No hay prueba activa</p>
-                      </div>
-                    )}
-                  </div>
+                    </div>
+                  ) : (
+                    <div className="text-center py-2 text-gray-500">
+                      <Clock className="h-12 w-12 mx-auto mb-2 text-slate-300" />
+                     
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -1217,7 +1141,9 @@ export default function PruebasPage() {
                     onClick={() => setModoActual("secuencial")}
                     disabled={testActive}
                     className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors flex items-center justify-center gap-2 ${
-                      modoActual === "secuencial" ? "bg-red-900 text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                      modoActual === "secuencial"
+                        ? "bg-red-900 text-white"
+                        : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                     } disabled:opacity-50`}
                   >
                     <List className="h-4 w-4" />
@@ -1227,7 +1153,9 @@ export default function PruebasPage() {
                     onClick={() => setModoActual("aleatorio")}
                     disabled={testActive}
                     className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors flex items-center justify-center gap-2 ${
-                      modoActual === "aleatorio" ? "bg-red-900 text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                      modoActual === "aleatorio"
+                        ? "bg-red-900 text-white"
+                        : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                     } disabled:opacity-50`}
                   >
                     <Shuffle className="h-4 w-4" />
@@ -1271,7 +1199,7 @@ export default function PruebasPage() {
                     min="30"
                     max="300"
                     disabled={testActive}
-                    className="w-full px-4 py-2 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-red-900 focus;border-transparent disabled:opacity-50"
+                    className="w-full px-4 py-2 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-red-900 focus:border-transparent disabled:opacity-50"
                   />
                 </div>
               )}
@@ -1319,6 +1247,8 @@ export default function PruebasPage() {
             </div>
           </div>
 
+          
+
           {/* Microcontroller Status */}
           <div className="bg-white rounded-2xl shadow-xl border border-slate-200/60 p-6">
             <div className="flex items-center justify-between mb-6">
@@ -1334,7 +1264,9 @@ export default function PruebasPage() {
                   <div
                     key={index}
                     className={`flex flex-col items-center space-y-3 ${isClickable ? "cursor-pointer" : ""} ${!isSelected && testActive ? "opacity-40" : ""}`}
-                    onClick={() => { if (isClickable) activateManualMicrocontroller(mc.id) }}
+                    onClick={() => {
+                      if (isClickable) activateManualMicrocontroller(mc.id)
+                    }}
                   >
                     <div
                       className={`w-full aspect-square rounded-2xl overflow-hidden border-4 transition-all duration-300 ${
@@ -1359,7 +1291,9 @@ export default function PruebasPage() {
                       <p className="font-bold text-gray-900">ESP-{mc.id}</p>
                       <p className="text-sm text-gray-600 capitalize">
                         {!testActive
-                          ? isSelected ? "Seleccionada" : "No seleccionada"
+                          ? isSelected
+                            ? "Seleccionada"
+                            : "No seleccionada"
                           : !isSelected
                             ? "No disponible"
                             : mc.active
@@ -1384,6 +1318,69 @@ export default function PruebasPage() {
                 )
               })}
             </div>
+          </div>
+          <div className="bg-white rounded-2xl shadow-xl border border-slate-200/60 p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-bold text-gray-900 uppercase tracking-wide">Selccionar capsulas a usar</h2>
+              <button
+                onClick={() => setShowESPSelection(!showESPSelection)}
+                className={`px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2 ${
+                  showESPSelection ? "bg-red-900 text-white" : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                }`}
+                disabled={testActive}
+              >
+                <ChevronDown className={`h-4 w-4 transition-transform ${showESPSelection ? "rotate-180" : ""}`} />
+                {showESPSelection ? "Ocultar" : "Mostrar"} ESP
+              </button>
+            </div>
+
+            {showESPSelection && (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between pb-3 border-b">
+                  <p className="text-sm text-slate-600">
+                    <span className="font-bold text-lg text-slate-900">{selectedESPs.length}</span> ESP seleccionada
+                    {selectedESPs.length !== 1 ? "s" : ""}: {selectedESPs.join(", ")}
+                  </p>
+                  <button
+                    onClick={toggleAllESPs}
+                    disabled={testActive}
+                    className="text-sm px-4 py-2 rounded-lg border-2 border-red-900 text-red-900 hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed font-semibold transition-colors"
+                  >
+                    {selectedESPs.length === 5 ? "Deseleccionar todas" : "Seleccionar todas"}
+                  </button>
+                </div>
+                <div className="grid grid-cols-5 gap-4">
+                  {microControllers.map((mc) => (
+                    <button
+                      key={mc.id}
+                      onClick={() => toggleESPSelection(mc.id)}
+                      disabled={testActive}
+                      className={`relative p-6 rounded-xl border-2 transition-all ${
+                        selectedESPs.includes(mc.id)
+                          ? "border-red-900 bg-red-50 shadow-md"
+                          : "border-gray-300 bg-gray-50 hover:border-gray-400"
+                      } ${testActive ? "opacity-50 cursor-not-allowed" : "hover:shadow-lg cursor-pointer"}`}
+                    >
+                      <div className="flex flex-col items-center gap-3">
+                        <div
+                          className={`w-14 h-14 rounded-full flex items-center justify-center font-bold text-xl transition-all ${
+                            selectedESPs.includes(mc.id)
+                              ? "bg-red-900 text-white shadow-lg"
+                              : "bg-gray-300 text-gray-600"
+                          }`}
+                        >
+                          {mc.id}
+                        </div>
+                        <span className="text-sm font-bold">ESP-{mc.id}</span>
+                        {selectedESPs.includes(mc.id) && (
+                          <CheckCircle className="h-6 w-6 text-red-900 absolute top-2 right-2" />
+                        )}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -1424,7 +1421,8 @@ export default function PruebasPage() {
                 <div className="rounded-xl border bg-slate-50 p-3">
                   <p className="text-[11px] text-slate-500">Resultados</p>
                   <p className="text-sm font-semibold">
-                    {summaryData.resultados?.aciertos || 0} aciertos · {summaryData.resultados?.errores || 0} errores · {summaryData.resultados?.intentos || 0} intentos
+                    {summaryData.resultados?.aciertos || 0} aciertos · {summaryData.resultados?.errores || 0} errores ·{" "}
+                    {summaryData.resultados?.intentos || 0} intentos
                   </p>
                 </div>
                 <div className="rounded-xl border bg-slate-50 p-3 col-span-2">

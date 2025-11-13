@@ -36,8 +36,7 @@ export default function Page() {
                 style={{ animationDelay: "0.2s" }}
               >
                 Nuestra selección universitaria se enorgullece de representar a la Universidad del Valle, fomentando la
-                excelencia deportiva y el espíritu competitivo. ¡Únete a nosotros y forma parte de la tradición
-                deportiva universitaria!
+                excelencia deportiva y el espíritu competitivo.
               </p>
               <div className="flex flex-col sm:flex-row gap-4 animate-fade-in" style={{ animationDelay: "0.4s" }}>
                 <Button

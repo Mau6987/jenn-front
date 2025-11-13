@@ -1,75 +1,51 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Card, CardContent } from "../../components/ui/card"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select"
-import { Star, ChevronDown, ChevronUp, Info } from "lucide-react"
+import { getPositionIcon, getPositionName } from "../../lib/position-icons"
 
-const BACKEND_URL = "https://jenn-back-reac.onrender.com"
+export default function PerfilJugador() {
+  const BACKEND_URL = "https://jenn-back-reac.onrender.com"
 
-export default function PerfilPage() {
   const [alcanceData, setAlcanceData] = useState(null)
   const [pliometriaData, setPliometriaData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [periodo, setPeriodo] = useState("general")
-  const [tipoPliometria, setTipoPliometria] = useState("todos")
-  const [showRatingBreakdown, setShowRatingBreakdown] = useState(true)
   const [activeTab, setActiveTab] = useState("alcance")
-  const [activeStatTab, setActiveStatTab] = useState("stats")
 
   useEffect(() => {
     cargarResultados()
-  }, [periodo, tipoPliometria])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [periodo])
 
-  const cargarResultados = async () => {
+  async function cargarResultados() {
     try {
       setLoading(true)
-      const userId = localStorage.getItem("idUser") || "19"
+      const userId = typeof window !== "undefined" ? localStorage.getItem("idUser") || "19" : "19"
 
       const alcanceUrl = `${BACKEND_URL}/api/ranking/alcance/personal/${userId}?periodo=${periodo}`
-      const alcanceResponse = await fetch(alcanceUrl)
-      const alcanceResult = await alcanceResponse.json()
+      const alcanceRes = await fetch(alcanceUrl)
+      const alcanceJson = await alcanceRes.json()
+      setAlcanceData(alcanceRes.ok && alcanceJson.success ? alcanceJson.data : null)
 
-      if (alcanceResult.success) {
-        setAlcanceData(alcanceResult.data)
-      }
-
-      const pliometriaUrl = `${BACKEND_URL}/api/ranking/pliometria/personal/${userId}?periodo=${periodo}`
-      const pliometriaResponse = await fetch(pliometriaUrl)
-      const pliometriaResult = await pliometriaResponse.json()
-
-      if (pliometriaResult.success) {
-        setPliometriaData(pliometriaResult.data)
-      }
-    } catch (error) {
-      console.error("Error loading results:", error)
+      const plioUrl = `${BACKEND_URL}/api/ranking/pliometria/personal/${userId}?periodo=${periodo}`
+      const plioRes = await fetch(plioUrl)
+      const plioJson = await plioRes.json()
+      setPliometriaData(plioRes.ok && plioJson.success ? plioJson.data : null)
+    } catch (e) {
+      console.error(e)
+      setAlcanceData(null)
+      setPliometriaData(null)
     } finally {
       setLoading(false)
     }
   }
 
-  const calculateRating = (stats) => {
-    if (activeTab === "alcance") {
-      const alcance = stats.mejor_alcance || 0
-      const potencia = stats.mejor_potencia || 0
-      return Math.min(10, Math.round((alcance / 100 + potencia / 100) * 5))
-    } else {
-      const fuerza = stats.mejor_fuerza_total || 0
-      const potencia = stats.mejor_potencia || 0
-      return Math.min(10, Math.round((fuerza / 200 + potencia / 100) * 5))
-    }
-  }
-
-  const normalizeValue = (value, max) => {
-    return Math.min(100, (value / max) * 100)
-  }
-
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-[#f8f9fa]">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-4 border-[#4361ee] border-t-transparent mx-auto"></div>
-          <p className="mt-4 text-[#495057] font-medium">Cargando perfil...</p>
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <div className="flex items-center gap-3 text-slate-600">
+          <span className="w-4 h-4 rounded-full border-2 border-indigo-500 border-t-transparent animate-spin" />
+          Cargando perfil...
         </div>
       </div>
     )
@@ -77,267 +53,229 @@ export default function PerfilPage() {
 
   const currentData = activeTab === "alcance" ? alcanceData : pliometriaData
 
-  if (!currentData) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-[#f8f9fa]">
-        <p className="text-[#6c757d]">No hay datos disponibles</p>
-      </div>
-    )
+  return (
+    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white">
+      <main className="mx-auto max-w-7xl px-4 md:px-8 py-6 md:py-10">
+        {/* Encabezado del jugador (CARD MÁS ANCHA) */}
+        {currentData && (
+          <section>
+            {/* Card principal ensanchada mediante mayor fracción en el grid */}
+            <div className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+              <div className="p-5 md:p-6 flex items-start gap-4">
+                <div className="w-28 h-28 md:w-32 md:h-32 rounded-full bg-white border border-slate-200 shadow flex items-center justify-center overflow-hidden">
+                  <img
+                    src={getPositionIcon(currentData?.jugador?.posicion_principal)}
+                    alt={getPositionName(currentData?.jugador?.posicion_principal)}
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      e.currentTarget.src = "/oso.png"
+                    }}
+                  />
+                </div>
+                <div className="flex-1">
+                  <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
+                    <div className="flex-1 min-w-0">
+                      <h2 className="text-2xl md:text-3xl font-extrabold tracking-tight text-slate-900 truncate leading-tight">
+                        {currentData.jugador?.nombres} {currentData.jugador?.apellidos}
+                      </h2>
+                      <div className="mt-3 rounded-xl bg-slate-50 border border-slate-200 px-3 py-2 flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <span className="inline-flex items-center gap-2 rounded-full bg-white border border-slate-200 px-2.5 py-1 text-xs md:text-sm font-semibold text-slate-800 shadow-sm">
+                            <img
+                              src={getPositionIcon(currentData?.jugador?.posicion_principal)}
+                              alt={getPositionName(currentData?.jugador?.posicion_principal)}
+                              className="w-5 h-5 rounded-full object-cover"
+                            />
+                            {getPositionName(currentData?.jugador?.posicion_principal)}
+                          </span>
+                          <span className="w-1 h-1 rounded-full bg-slate-300" />
+                          <span className="inline-flex items-center rounded-full bg-white border border-slate-200 px-2.5 py-1 text-xs md:text-sm font-medium text-slate-700 shadow-sm truncate">
+                            {currentData?.jugador?.carrera || "Sin carrera"}
+                          </span>
+                        </div>
+
+                        <span className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-indigo-600 to-violet-600 text-white px-3 py-1 text-xs md:text-sm font-bold shadow">
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" className="opacity-90">
+                            <path d="M7 4h10v3h3v3c0 3.866-3.134 7-7 7s-7-3.134-7-7V7h1V4Zm10 0v3h-2V4h2ZM9 4v3H7V4h2Z"/>
+                          </svg>
+                          Ranking: #{currentData?.ranking?.posicion}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Controles a la derecha */}
+                    <div className="min-w-[260px] text-right flex flex-col items-end gap-3">
+                      <div className="flex flex-wrap items-center justify-end gap-3 w-full">
+                        {/* Tabs de periodo (reemplaza el select) */}
+                        <div className="inline-flex rounded-full border border-slate-200 overflow-hidden">
+                          {[
+                            { key: "general", label: "General" },
+                            { key: "mensual", label: "Mensual" },
+                            { key: "semanal", label: "Semanal" },
+                          ].map((p) => (
+                            <button
+                              key={p.key}
+                              onClick={() => setPeriodo(p.key)}
+                              className={`px-5 py-2 text-sm font-semibold transition ${
+                                periodo === p.key
+                                  ? "bg-slate-900 text-white"
+                                  : "bg-white text-slate-700 hover:bg-slate-50"
+                              }`}
+                            >
+                              {p.label}
+                            </button>
+                          ))}
+                        </div>
+
+                        {/* Tabs de métrica */}
+                        <div className="inline-flex rounded-full border border-slate-200 overflow-hidden">
+                          <button
+                            onClick={() => setActiveTab("alcance")}
+                            className={`px-5 py-2 text-sm font-semibold transition ${
+                              activeTab === "alcance"
+                                ? "bg-slate-900 text-white"
+                                : "bg-white text-slate-700 hover:bg-slate-50"
+                            }`}
+                          >
+                            Alcance
+                          </button>
+                          <button
+                            onClick={() => setActiveTab("pliometria")}
+                            className={`px-5 py-2 text-sm font-semibold transition ${
+                              activeTab === "pliometria"
+                                ? "bg-slate-900 text-white"
+                                : "bg-white text-slate-700 hover:bg-slate-50"
+                            }`}
+                          >
+                            Pliometría
+                          </button>
+                        </div>
+                      </div>
+
+                      </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+        )}
+
+        {/* MÉTRICAS */}
+        <section className="mt-8 rounded-2xl border border-slate-200 bg-white shadow-sm p-5 md:p-6">
+          <h4 className="text-sm font-bold text-slate-900 mb-4">Estadísticas detalladas</h4>
+          {currentData && (
+            <MetricMatrix mode={activeTab} stats={currentData.estadisticas} />
+          )}
+        </section>
+      </main>
+    </div>
+  )
+}
+
+// ===================== UI helpers =====================
+function StatTile({ label, value, subtle }) {
+  return (
+    <div className={`rounded-xl border ${subtle ? "border-slate-100 bg-slate-50" : "border-slate-200 bg-white"} px-4 py-3`}>
+      <div className="text-xs text-slate-500">{label}</div>
+      <div className="text-base font-semibold text-slate-900 mt-0.5">{value}</div>
+    </div>
+  )
+}
+
+/**
+ * Nueva matriz de métricas
+ * - 3 tarjetas (Actual / Mejor / Promedio)
+ * - Cada tarjeta contiene filas: Potencia, Velocidad/Aceleración y Alcance/Fuerza según la pestaña
+ * - Iconos: aceleracion.png para velocidad y aceleración; fuerza.png para fuerza; potencia.png para potencia
+ */
+function MetricMatrix({ mode, stats }) {
+  const rows =
+    mode === "alcance"
+      ? [
+          { key: "potencia", label: "Potencia" },
+          { key: "velocidad", label: "Velocidad" },
+          { key: "alcance", label: "Alcance" },
+        ]
+      : [
+          { key: "fuerza", label: "Fuerza" },
+          { key: "aceleracion", label: "Aceleración" },
+          { key: "potencia", label: "Potencia" },
+        ]
+
+  const ICONS = {
+    potencia: "/pontencia.png", // corregido el nombre del archivo
+    fuerza: "/fuerza.png",
+    velocidad: "/aceleracion.png",
+    aceleracion: "/aceleracion.png",
   }
 
-  const rating = calculateRating(currentData.estadisticas)
+  const columns = [
+    { key: "actual", title: "Actual" },
+    { key: "mejor", title: "Mejor" },
+    { key: "promedio", title: "Promedio" },
+  ]
 
   return (
-    <div className="min-h-screen bg-[#f8f9fa] py-6 px-4">
-      <div className="max-w-md mx-auto">
-        <Card className="bg-white shadow-sm border border-[#e9ecef] overflow-hidden">
-          <CardContent className="p-0">
-            {/* Header Section */}
-            <div className="p-5 pb-4">
-              <div className="flex items-start justify-between mb-5">
-                <div className="flex items-center gap-3">
-                  <div className="w-14 h-14 rounded-full bg-gradient-to-br from-[#4361ee] to-[#3a0ca3] flex items-center justify-center text-white text-xl font-bold shadow-md flex-shrink-0">
-                    {currentData.jugador.nombres.charAt(0)}
-                    {currentData.jugador.apellidos.charAt(0)}
-                  </div>
+    <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+      {columns.map((col) => (
+        <div
+          key={col.key}
+          className="rounded-2xl border border-slate-200 bg-gradient-to-br from-white to-slate-50 p-4 md:p-5 shadow-sm hover:shadow-md transition-shadow"
+        >
+          <div className="flex items-center justify-between mb-3">
+            <h5 className="font-bold text-slate-900 text-base md:text-lg">{col.title}</h5>
+          </div>
 
-                  {/* Player Info */}
-                  <div>
-                    <h1 className="text-xl font-bold text-[#212529] leading-tight mb-1.5">
-                      {currentData.jugador.nombres} {currentData.jugador.apellidos}
-                    </h1>
-                    <div className="flex items-center gap-2">
-                      <div className="bg-[#4361ee] text-white px-2.5 py-1 rounded font-bold text-base flex items-center gap-1.5">
-                        <span className="text-lg">{rating}</span>
-                      </div>
-                      <span className="text-sm text-[#6c757d]">Sofascore Rating</span>
-                    </div>
-                  </div>
-                </div>
-
-                <button className="p-1.5 hover:bg-[#f8f9fa] rounded-lg transition-colors">
-                  <Star className="h-5 w-5 text-[#adb5bd] hover:text-[#ffc107] transition-colors" />
-                </button>
-              </div>
-
-              <div className="bg-[#f8f9fa] rounded-lg p-3.5 mb-4">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex-1">
-                    <p className="text-sm font-semibold text-[#212529]">{currentData.jugador.posicion_principal}</p>
-                    <p className="text-xs text-[#6c757d] mt-0.5">{currentData.jugador.carrera}</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-xs text-[#6c757d] font-medium">Ranking</p>
-                    <p className="text-sm font-bold text-[#212529]">#{currentData.ranking.posicion}</p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2 text-xs text-[#6c757d] pt-2 border-t border-[#dee2e6]">
-                  <span className="font-medium">Total registros:</span>
-                  <span className="font-semibold text-[#212529]">{currentData.estadisticas.total_registros}</span>
-                </div>
-              </div>
-
-              {/* Period Filter */}
-              <div className="mb-4">
-                <Select value={periodo} onValueChange={setPeriodo}>
-                  <SelectTrigger className="w-full bg-[#f8f9fa] border-[#dee2e6] rounded-lg h-9 text-sm font-medium">
-                    <SelectValue placeholder="Periodo" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="general">General</SelectItem>
-                    <SelectItem value="mensual">Mensual</SelectItem>
-                    <SelectItem value="semanal">Semanal</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <div className="border-t border-[#e9ecef]">
-              <button
-                onClick={() => setShowRatingBreakdown(!showRatingBreakdown)}
-                className="w-full flex items-center justify-between px-5 py-3.5 hover:bg-[#f8f9fa] transition-colors"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-7 h-7 bg-[#4361ee] rounded flex items-center justify-center">
-                    <span className="text-white font-bold text-sm">{rating}</span>
-                  </div>
-                  <span className="font-semibold text-[#212529] text-sm">Rating breakdown</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Info className="h-4 w-4 text-[#adb5bd]" />
-                  {showRatingBreakdown ? (
-                    <ChevronUp className="h-4 w-4 text-[#6c757d]" />
-                  ) : (
-                    <ChevronDown className="h-4 w-4 text-[#6c757d]" />
-                  )}
-                </div>
-              </button>
-
-              {showRatingBreakdown && (
-                <div className="px-5 pb-5 space-y-3 animate-fade-in">
-                  <div className="text-xs text-[#6c757d] mb-3 flex items-center justify-between">
-                    <span>Impact</span>
-                    <span className="flex items-center gap-8">
-                      <span>-</span>
-                      <span>0</span>
-                      <span>+</span>
-                    </span>
-                  </div>
-
-                  {activeTab === "alcance" && alcanceData && (
-                    <>
-                      <StatBar
-                        label="Shooting"
-                        value={alcanceData.estadisticas.mejor_alcance || 0}
-                        maxValue={200}
-                        color="bg-[#4361ee]"
-                        displayValue={alcanceData.estadisticas.mejor_alcance?.toFixed(0)}
-                      />
-                      <StatBar
-                        label="Passing"
-                        value={alcanceData.estadisticas.mejor_potencia || 0}
-                        maxValue={100}
-                        color="bg-[#4361ee]"
-                        displayValue={alcanceData.estadisticas.mejor_potencia?.toFixed(0)}
-                      />
-                      <StatBar
-                        label="Dribbling"
-                        value={alcanceData.estadisticas.mejor_aceleracion || 0}
-                        maxValue={50}
-                        color="bg-[#4cc9f0]"
-                        displayValue={alcanceData.estadisticas.mejor_aceleracion?.toFixed(0)}
-                      />
-                      <StatBar
-                        label="Defending"
-                        value={alcanceData.estadisticas.promedio_alcance || 0}
-                        maxValue={200}
-                        color="bg-[#f77f00]"
-                        displayValue={alcanceData.estadisticas.promedio_alcance?.toFixed(0)}
-                      />
-                    </>
-                  )}
-
-                  {activeTab === "pliometria" && pliometriaData && (
-                    <>
-                      <StatBar
-                        label="Shooting"
-                        value={pliometriaData.estadisticas.mejor_fuerza_total || 0}
-                        maxValue={500}
-                        color="bg-[#4361ee]"
-                        displayValue={pliometriaData.estadisticas.mejor_fuerza_total?.toFixed(0)}
-                      />
-                      <StatBar
-                        label="Passing"
-                        value={pliometriaData.estadisticas.mejor_potencia || 0}
-                        maxValue={100}
-                        color="bg-[#4361ee]"
-                        displayValue={pliometriaData.estadisticas.mejor_potencia?.toFixed(0)}
-                      />
-                      <StatBar
-                        label="Dribbling"
-                        value={pliometriaData.estadisticas.promedio_fuerza_total || 0}
-                        maxValue={500}
-                        color="bg-[#4cc9f0]"
-                        displayValue={pliometriaData.estadisticas.promedio_fuerza_total?.toFixed(0)}
-                      />
-                      <StatBar
-                        label="Defending"
-                        value={pliometriaData.estadisticas.promedio_potencia || 0}
-                        maxValue={100}
-                        color="bg-[#f77f00]"
-                        displayValue={pliometriaData.estadisticas.promedio_potencia?.toFixed(0)}
-                      />
-                    </>
-                  )}
-                </div>
-              )}
-            </div>
-
-            <div className="border-t border-[#e9ecef] px-5 py-4">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="font-semibold text-[#212529] text-sm">Statistics</h3>
-                <button className="p-1.5 hover:bg-[#f8f9fa] rounded transition-colors">
-                  <svg className="h-5 w-5 text-[#6c757d]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                  </svg>
-                </button>
-              </div>
-
-              <div className="grid grid-cols-4 gap-2">
-                <button
-                  onClick={() => setActiveStatTab("shot")}
-                  className={`py-2.5 px-3 rounded-full text-xs font-semibold transition-all ${
-                    activeStatTab === "shot"
-                      ? "bg-[#212529] text-white"
-                      : "bg-[#f8f9fa] text-[#495057] hover:bg-[#e9ecef]"
-                  }`}
-                >
-                  Shot
-                </button>
-                <button
-                  onClick={() => setActiveStatTab("pass")}
-                  className={`py-2.5 px-3 rounded-full text-xs font-semibold transition-all ${
-                    activeStatTab === "pass"
-                      ? "bg-[#212529] text-white"
-                      : "bg-[#f8f9fa] text-[#495057] hover:bg-[#e9ecef]"
-                  }`}
-                >
-                  Pass
-                </button>
-                <button
-                  onClick={() => setActiveStatTab("drib")}
-                  className={`py-2.5 px-3 rounded-full text-xs font-semibold transition-all ${
-                    activeStatTab === "drib"
-                      ? "bg-[#212529] text-white"
-                      : "bg-[#f8f9fa] text-[#495057] hover:bg-[#e9ecef]"
-                  }`}
-                >
-                  Drib
-                </button>
-                <button
-                  onClick={() => setActiveStatTab("def")}
-                  className={`py-2.5 px-3 rounded-full text-xs font-semibold transition-all ${
-                    activeStatTab === "def"
-                      ? "bg-[#212529] text-white"
-                      : "bg-[#f8f9fa] text-[#495057] hover:bg-[#e9ecef]"
-                  }`}
-                >
-                  Def
-                </button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <div className="fixed bottom-6 right-6">
-          <button
-            onClick={() => setActiveTab(activeTab === "alcance" ? "pliometria" : "alcance")}
-            className="bg-[#4361ee] text-white px-5 py-3 rounded-full shadow-lg hover:bg-[#3a0ca3] transition-all font-semibold text-sm"
-          >
-            {activeTab === "alcance" ? "Ver Pliometría" : "Ver Alcance"}
-          </button>
+          <div className="space-y-4 md:space-y-5">
+            {rows.map((r) => {
+              const data = stats?.[r.key] || { actual: 0, mejor: 0, promedio: 0 }
+              const max = Number(data.mejor) || 0
+              const value = Number(data[col.key]) || 0
+              return (
+                <MetricRowCompact
+                  key={`${r.key}-${col.key}`}
+                  name={r.label}
+                  value={value}
+                  max={max}
+                  icon={ICONS[r.key]}
+                />
+              )
+            })}
+          </div>
         </div>
+      ))}
+    </div>
+  )
+}
+
+function MetricRowCompact({ name, value = 0, max = 0, icon }) {
+  const pct = widthPct(value, max)
+  return (
+    <div className="grid grid-cols-[auto_1fr_auto] items-center gap-3 md:gap-4">
+      <div className="flex items-center gap-3 md:gap-4 min-w-0">
+        {icon ? (
+          <img src={icon} alt={name} className="w-10 h-10 md:w-12 md:h-12 object-contain" />
+        ) : (
+          <span className="w-10 h-10 md:w-12 md:h-12" />
+        )}
+        <div className="text-sm md:text-base text-slate-800 font-semibold truncate">{name}</div>
+      </div>
+
+      <div className="relative h-3 md:h-3.5 rounded-full bg-slate-200 border border-slate-300 overflow-hidden">
+        <div className="absolute inset-y-0 left-0 bg-indigo-500" style={{ width: `${pct}%` }} />
+      </div>
+
+      <div className="text-xs md:text-sm font-semibold text-slate-700 tabular-nums w-12 text-right">
+        {Number(value || 0).toFixed(0)}
       </div>
     </div>
   )
 }
 
-function StatBar({ label, value, maxValue, color, displayValue }) {
-  const percentage = Math.min(100, (value / maxValue) * 100)
-
-  return (
-    <div className="space-y-1.5">
-      <div className="flex items-center justify-between">
-        <span className="text-xs font-medium text-[#495057]">{label}</span>
-        <span className="text-xs font-semibold text-[#212529]">{displayValue}</span>
-      </div>
-      <div className="relative h-1.5 bg-[#e9ecef] rounded-full overflow-hidden">
-        <div
-          className={`absolute top-0 left-0 h-full ${color} rounded-full transition-all duration-1000 ease-out`}
-          style={{ width: `${percentage}%` }}
-        />
-      </div>
-    </div>
-  )
+function widthPct(value, max) {
+  const m = Number(max) || 0
+  const v = Number(value) || 0
+  if (m <= 0) return 0
+  const pct = (v / m) * 100
+  return Math.max(0, Math.min(100, pct))
 }
