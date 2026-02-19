@@ -13,7 +13,7 @@ export default function TecnicoHome() {
       title: "Monitoreo Salto",
       description: "Monitoreo de conexion, celdas de carga y modulo mpu.",
       image: "/cinturon.png",
-      href: "/monitoreo-salto",
+      href: "/monitoreo2",
       blob: "bg-[#E0F2FE]",
       accent: "text-[#0369A1]",
     },
@@ -22,16 +22,16 @@ export default function TecnicoHome() {
       title: "Monitoreo Reacción",
       description: "Monitoreo de capsulas, aros led, sensor magnetico, conexion, .",
       image: "/capsulas.png",
-      href: "/monitoreo-reaccion",
+      href: "/monitoreo",
       blob: "bg-[#DCFCE7]",
       accent: "text-[#15803D]",
     },
   ];
 
   const userOptions = [
-    { label: "Técnicos", href: "/usuarios/tecnicos" },
-    { label: "Entrenadores", href: "/usuarios/entrenadores" },
-    { label: "Jugadores", href: "/usuarios/jugadores" },
+    { label: "Técnicos", href: "/tecnicos" },
+    { label: "Entrenadores", href: "/entrenadores" },
+    { label: "Jugadores", href: "/jugadores" },
   ];
 
   return (

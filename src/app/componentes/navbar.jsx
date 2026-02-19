@@ -85,15 +85,15 @@ export default function Navbar() {
     switch (rol) {
       case "jugador":
         return [
-          { icon: Activity, label: "Resultados Reacción", href: "/resultados-reaccion" },
-          { icon: TrendingUp, label: "Resultados Salto", href: "/resultados-salto" },
-          { icon: Trophy, label: "Ranking Reacción", href: "/ranking-reaccion" },
-          { icon: Award, label: "Ranking Salto", href: "/ranking-salto" },
+          { icon: Activity, label: "Resultados Reacción", href: "/resultados" },
+          { icon: TrendingUp, label: "Resultados Salto", href: "/resultados2" },
+          { icon: Trophy, label: "Ranking Reacción", href: "/ranking" },
+          { icon: Award, label: "Ranking Salto", href: "/ranking2" },
           { icon: User, label: "Perfil", href: "/perfil" },
         ]
       case "entrenador":
         return [
-          { icon: ClipboardList, label: "Pruebas de reaccion", href: "/pruebas" },
+          { icon: ClipboardList, label: "Pruebas de reaccion", href: "/pruebas2" },
           { icon: Activity, label: "Pruebas de salto", href: "/pliometria" },
 
           { icon: Users, label: "Jugadores", href: "/jugadores" },

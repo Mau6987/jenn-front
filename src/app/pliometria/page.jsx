@@ -244,66 +244,70 @@ export default function SistemaUnificadoPage() {
 
     channel.bind("client-response", (data) => {
       const msg = (data.message || "")
-      addMessage(DEVICE_ID, data.message || "", "success", setMessages)
+      addMessage(DEVICE_ID, msg, "success", setMessages)
 
+      // ── Calibración completada ──
       if (msg.includes("CALIBRADO_OK")) {
         setFaseAlcance("calibrated")
         setIsCalibrated(true)
         setTimeout(() => { setCalibrationModalOpen(false); setIsCalibrated(false) }, 1500)
         notify("success", "Calibrado — presiona Iniciar")
-      } else if (msg.includes("SESION_INICIADA")) {
-        addMessage(DEVICE_ID, "Esperando resultado del salto...", "info", setMessages)
+        return
       }
-    })
 
-    // ── CORRECCIÓN: el ESP manda mejor_m y saltos_validos directamente en data,
-    //    NO dentro de data.message. Pusher deserializa el campo data automáticamente.
-    channel.bind("client-resultado", (data) => {
-      console.log("[resultado] Datos recibidos del ESP:", data)
-      try {
-        // data llega ya como objeto: { device, mejor_m, saltos_validos, timestamp }
-        const mejor_m = parseFloat(data.mejor_m ?? 0)
-        const alturaESP = mejor_m * 100  // convertir metros → centímetros
+      // ── Sesión iniciada ──
+      if (msg.includes("SESION_INICIADA")) {
+        addMessage(DEVICE_ID, "Esperando resultado del salto...", "info", setMessages)
+        return
+      }
 
-        const jugadorActual = jugadorRef.current
+      // ── Resultado del salto: prefijo RESULTADO_JSON: seguido del JSON ──
+      // El ESP manda: RESULTADO_JSON:{"mejor_m":0.3120,"saltos_validos":3}
+      if (msg.startsWith("RESULTADO_JSON:")) {
+        try {
+          const jsonStr = msg.substring("RESULTADO_JSON:".length)
+          const resultado = JSON.parse(jsonStr)
 
-        // Leer alcance_estatico del jugador (viene en metros desde la BD)
-        let alcanceEstaticoCm = 0
-        if (jugadorActual?.jugador?.alcance_estatico != null) {
-          alcanceEstaticoCm = parseFloat(jugadorActual.jugador.alcance_estatico) * 100
-        } else if (jugadorActual?.alcance_estatico != null) {
-          alcanceEstaticoCm = parseFloat(jugadorActual.alcance_estatico) * 100
+          const mejor_m  = parseFloat(resultado.mejor_m ?? 0)
+          const alturaESP = mejor_m * 100  // m → cm
+
+          const jugadorActual = jugadorRef.current
+          let alcanceEstaticoCm = 0
+          if (jugadorActual?.jugador?.alcance_estatico != null) {
+            alcanceEstaticoCm = parseFloat(jugadorActual.jugador.alcance_estatico) * 100
+          } else if (jugadorActual?.alcance_estatico != null) {
+            alcanceEstaticoCm = parseFloat(jugadorActual.alcance_estatico) * 100
+          }
+
+          const alcanceTotal = alcanceEstaticoCm + alturaESP
+
+          console.log(
+            "[resultado] mejor_m=", mejor_m,
+            "| alturaESP=", alturaESP.toFixed(1), "cm",
+            "| alcanceEstatico=", alcanceEstaticoCm.toFixed(1), "cm",
+            "| alcanceTotal=", alcanceTotal.toFixed(1), "cm"
+          )
+
+          setAlturaRegistrada(alcanceTotal.toFixed(1))
+          setJumpRaw({
+            mejor_m,
+            saltos_validos: resultado.saltos_validos || 0,
+            alcanceTotal,
+            alturaESP,
+            alcanceEstaticoCm,
+          })
+          setFaseAlcance("done")
+          notify("success", "Salto registrado — revisa los resultados")
+          addMessage(
+            DEVICE_ID,
+            `Salto completado: ${alturaESP.toFixed(1)} cm | alcance total: ${alcanceTotal.toFixed(1)} cm`,
+            "success",
+            setMessages
+          )
+        } catch (e) {
+          console.error("[resultado] Error al parsear RESULTADO_JSON:", e)
+          addMessage(DEVICE_ID, `Error al procesar resultado: ${e.message}`, "error", setMessages)
         }
-
-        // Alcance total = altura del salto + alcance estático de pie
-        const alcanceTotal = alcanceEstaticoCm + alturaESP
-
-        console.log(
-          "[resultado] mejor_m=", mejor_m,
-          "| alturaESP=", alturaESP.toFixed(1), "cm",
-          "| alcanceEstatico=", alcanceEstaticoCm.toFixed(1), "cm",
-          "| alcanceTotal=", alcanceTotal.toFixed(1), "cm"
-        )
-
-        setAlturaRegistrada(alcanceTotal.toFixed(1))
-        setJumpRaw({
-          mejor_m,
-          saltos_validos: data.saltos_validos || 0,
-          alcanceTotal,
-          alturaESP,
-          alcanceEstaticoCm,
-        })
-        setFaseAlcance("done")
-        notify("success", "Salto registrado — revisa los resultados")
-        addMessage(
-          DEVICE_ID,
-          `Salto completado: ${alturaESP.toFixed(1)} cm (alcance total: ${alcanceTotal.toFixed(1)} cm)`,
-          "success",
-          setMessages
-        )
-      } catch (e) {
-        console.error("[resultado] Error al procesar:", e)
-        addMessage(DEVICE_ID, `Error al procesar resultado: ${e.message}`, "error", setMessages)
       }
     })
 
@@ -511,8 +515,6 @@ export default function SistemaUnificadoPage() {
     tipoSalto === "salto valla" ? SALTO_VALLA_IMAGES :
     SALTO_SIMPLE_IMAGES
 
-  // ─────────────────────────────────────────────────────────────────────────────
-
   return (
     <div className="min-h-screen bg-[#f3f3f1]" style={{ fontFamily: "'DM Sans', sans-serif" }}>
       <style>{`@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&display=swap');`}</style>
@@ -527,16 +529,13 @@ export default function SistemaUnificadoPage() {
       />
 
       <div className="max-w-6xl mx-auto px-3 sm:px-5 py-4 sm:py-6 space-y-3">
-
         <div className="flex flex-col lg:flex-row gap-3">
 
-          {/* ① SELECCIONAR JUGADOR + PERFIL */}
+          {/* ① JUGADOR */}
           <div className="flex-1 bg-white rounded-2xl border border-slate-200 shadow-sm p-4
                           flex flex-col sm:flex-row items-start sm:items-center gap-4 min-w-0">
             <div className="flex flex-col gap-1.5 w-full sm:w-auto shrink-0">
-              <span className="text-[9px] uppercase tracking-widest font-semibold text-slate-400">
-                Seleccionar jugador
-              </span>
+              <span className="text-[9px] uppercase tracking-widest font-semibold text-slate-400">Seleccionar jugador</span>
               <div className="relative">
                 <select
                   value={cuentaSeleccionada}
@@ -561,10 +560,8 @@ export default function SistemaUnificadoPage() {
                 <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
               </div>
             </div>
-
             <div className="hidden sm:block w-px self-stretch bg-slate-100 shrink-0" />
             <div className="block sm:hidden h-px w-full bg-slate-100" />
-
             <div className="flex items-center gap-3 min-w-0">
               <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-slate-100 border border-slate-200
                               flex items-center justify-center shrink-0 overflow-hidden">
@@ -579,7 +576,6 @@ export default function SistemaUnificadoPage() {
                   <User className="w-5 h-5 sm:w-6 sm:h-6 text-slate-300" />
                 )}
               </div>
-
               {jugadorSeleccionado?.jugador ? (
                 <div className="leading-tight min-w-0">
                   <p className="text-sm font-bold text-slate-800 truncate">
@@ -598,13 +594,10 @@ export default function SistemaUnificadoPage() {
             </div>
           </div>
 
-          {/* ② INICIO DE TEST — tab alcance */}
+          {/* ② INICIO TEST — alcance */}
           {activeTab === "alcance" && (
-            <div className="w-full lg:w-52 shrink-0 bg-white rounded-2xl border border-slate-200 shadow-sm p-4
-                            flex flex-col gap-3">
-              <span className="text-[9px] uppercase tracking-widest font-semibold text-slate-400">
-                Inicio de test
-              </span>
+            <div className="w-full lg:w-52 shrink-0 bg-white rounded-2xl border border-slate-200 shadow-sm p-4 flex flex-col gap-3">
+              <span className="text-[9px] uppercase tracking-widest font-semibold text-slate-400">Inicio de test</span>
               <div className="flex gap-2 flex-1 items-end">
                 <button
                   onClick={handleCalibrar}
@@ -632,13 +625,10 @@ export default function SistemaUnificadoPage() {
             </div>
           )}
 
-          {/* ③ RESULTADOS — tab alcance */}
+          {/* ③ RESULTADOS — alcance */}
           {activeTab === "alcance" && (
-            <div className="w-full lg:w-80 shrink-0 bg-white rounded-2xl border border-slate-200 shadow-sm p-4
-                            flex flex-col gap-3">
-              <span className="text-[9px] uppercase tracking-widest font-semibold text-slate-400">
-                Resultados
-              </span>
+            <div className="w-full lg:w-80 shrink-0 bg-white rounded-2xl border border-slate-200 shadow-sm p-4 flex flex-col gap-3">
+              <span className="text-[9px] uppercase tracking-widest font-semibold text-slate-400">Resultados</span>
               <div className="space-y-2.5 flex-1">
                 <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-2">
                   <span className="text-[9px] uppercase tracking-wide text-slate-400 sm:w-36 shrink-0 leading-tight">
@@ -647,8 +637,7 @@ export default function SistemaUnificadoPage() {
                   <input
                     readOnly
                     value={alturaRegistrada ? `${alturaRegistrada} cm` : ""}
-                    className="w-full sm:flex-1 border border-slate-200 rounded-lg px-2.5 py-1.5
-                               text-xs text-slate-700 bg-slate-50 focus:outline-none"
+                    className="w-full sm:flex-1 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 bg-slate-50 focus:outline-none"
                   />
                 </div>
                 <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-2">
@@ -658,8 +647,7 @@ export default function SistemaUnificadoPage() {
                   <input
                     readOnly
                     value={incrementoAnterior}
-                    className="w-full sm:flex-1 border border-slate-200 rounded-lg px-2.5 py-1.5
-                               text-xs text-slate-700 bg-slate-50 focus:outline-none"
+                    className="w-full sm:flex-1 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 bg-slate-50 focus:outline-none"
                   />
                 </div>
               </div>
@@ -682,9 +670,7 @@ export default function SistemaUnificadoPage() {
             <div className="flex-1 bg-white rounded-2xl border border-slate-200 shadow-sm px-4 sm:px-5 py-4
                             flex flex-col sm:flex-row flex-wrap items-start sm:items-center gap-4">
               <div className="flex flex-col gap-1.5 w-full sm:w-auto">
-                <span className="text-[9px] uppercase tracking-widest font-semibold text-slate-400">
-                  Tipo de prueba
-                </span>
+                <span className="text-[9px] uppercase tracking-widest font-semibold text-slate-400">Tipo de prueba</span>
                 <div className="flex gap-1 flex-wrap">
                   {[
                     { key: "salto simple", label: "Simple" },
@@ -704,45 +690,32 @@ export default function SistemaUnificadoPage() {
                   ))}
                 </div>
               </div>
-
               <div className="hidden sm:block w-px self-stretch bg-slate-100 shrink-0" />
-
               <div className="flex gap-3 w-full sm:w-auto">
                 <div className="flex flex-col gap-1.5 flex-1 sm:flex-none">
                   <span className="text-[9px] uppercase tracking-widest font-semibold text-slate-400">Peso (Kg)</span>
                   <input
-                    type="number"
-                    value={masaJugador}
-                    onChange={(e) => setMasaJugador(e.target.value)}
-                    placeholder="0"
+                    type="number" value={masaJugador} onChange={(e) => setMasaJugador(e.target.value)} placeholder="0"
                     className="w-full sm:w-24 border border-slate-200 rounded-lg px-2.5 py-2 text-sm
-                               text-slate-600 bg-slate-50 placeholder-slate-300
-                               focus:outline-none focus:ring-2 focus:ring-slate-300"
+                               text-slate-600 bg-slate-50 placeholder-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-300"
                   />
                 </div>
                 <div className="flex flex-col gap-1.5 flex-1 sm:flex-none">
                   <span className="text-[9px] uppercase tracking-widest font-semibold text-slate-400">Tiempo (s)</span>
                   <input
-                    type="number"
-                    value={tiempoPliometria}
-                    onChange={(e) => setTiempoPliometria(e.target.value)}
-                    placeholder="0"
+                    type="number" value={tiempoPliometria} onChange={(e) => setTiempoPliometria(e.target.value)} placeholder="0"
                     className="w-full sm:w-24 border border-slate-200 rounded-lg px-2.5 py-2 text-sm
-                               text-slate-600 bg-slate-50 placeholder-slate-300
-                               focus:outline-none focus:ring-2 focus:ring-slate-300"
+                               text-slate-600 bg-slate-50 placeholder-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-300"
                   />
                 </div>
               </div>
-
               <div className="hidden sm:block w-px self-stretch bg-slate-100 shrink-0" />
-
               <div className="flex sm:flex-col gap-2 w-full sm:w-auto">
                 <button
                   onClick={calibrarEjercicio}
                   disabled={!espConnected || !pliometriaIniciada}
                   className="flex-1 sm:flex-none px-5 py-2 rounded-xl text-sm font-semibold bg-slate-700 text-white
-                             hover:bg-slate-600 transition-all active:scale-95
-                             disabled:opacity-40 disabled:cursor-not-allowed"
+                             hover:bg-slate-600 transition-all active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   Calibrar
                 </button>
@@ -750,9 +723,7 @@ export default function SistemaUnificadoPage() {
                   onClick={pliometriaIniciada ? iniciarEjercicio : iniciarPliometria}
                   disabled={!cuentaSeleccionada || !espConnected || !tiempoPliometria || !masaJugador}
                   className={`flex-1 sm:flex-none px-5 py-2 rounded-xl text-sm font-semibold transition-all active:scale-95
-                    ${ejercicioEnCurso
-                      ? "bg-slate-400 text-white animate-pulse"
-                      : "bg-slate-600 text-white hover:bg-slate-500"}
+                    ${ejercicioEnCurso ? "bg-slate-400 text-white animate-pulse" : "bg-slate-600 text-white hover:bg-slate-500"}
                     disabled:opacity-40 disabled:cursor-not-allowed`}
                 >
                   {ejercicioEnCurso ? "En curso…" : "Iniciar Prueba"}
@@ -762,7 +733,7 @@ export default function SistemaUnificadoPage() {
           )}
         </div>
 
-        {/* ══ TABS ══ */}
+        {/* TABS */}
         <div className="flex w-full sm:w-fit rounded-xl overflow-hidden border border-slate-200 bg-white shadow-sm">
           {[["alcance", "Test de Alcance"], ["pruebas", "Pruebas"]].map(([key, label], i, arr) => (
             <span key={key} className="flex items-stretch flex-1 sm:flex-none">
@@ -778,18 +749,15 @@ export default function SistemaUnificadoPage() {
           ))}
         </div>
 
-        {/* ══ TAB ALCANCE ══ */}
+        {/* TAB ALCANCE */}
         {activeTab === "alcance" && (
           <div className="pt-2 space-y-5">
             <p className="text-center text-xs font-semibold uppercase tracking-widest text-slate-500">
               Pasos a seguir para el jugador
             </p>
-
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
               <div className="flex flex-col gap-2">
-                <p className={`text-[10px] font-semibold uppercase tracking-widest text-center ${titleCls(stepState(1))}`}>
-                  Calibración
-                </p>
+                <p className={`text-[10px] font-semibold uppercase tracking-widest text-center ${titleCls(stepState(1))}`}>Calibración</p>
                 <div className={`rounded-xl border-2 ${borderCls(stepState(1))} bg-white overflow-hidden transition-all duration-300`}>
                   <div className="aspect-[3/4] flex items-center justify-center bg-slate-50">
                     <svg viewBox="0 0 100 140" className="w-20 sm:w-28" fill="none" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -803,65 +771,45 @@ export default function SistemaUnificadoPage() {
                   </div>
                 </div>
                 <div className="px-1 space-y-1">
-                  <p className="text-[11px] font-bold text-red-500 uppercase leading-tight">
-                    Indicar que jugador se quede quieto
-                  </p>
-                  <p className="text-[11px] text-red-400 leading-tight">
-                    Mostrar mensaje de calibración
-                  </p>
+                  <p className="text-[11px] font-bold text-red-500 uppercase leading-tight">Indicar que jugador se quede quieto</p>
+                  <p className="text-[11px] text-red-400 leading-tight">Mostrar mensaje de calibración</p>
                 </div>
               </div>
-
               <div className="flex flex-col gap-2">
-                <p className={`text-[10px] font-semibold uppercase tracking-widest text-center ${titleCls(stepState(2))}`}>
-                  Inicio de prueba
-                </p>
+                <p className={`text-[10px] font-semibold uppercase tracking-widest text-center ${titleCls(stepState(2))}`}>Inicio de prueba</p>
                 <div className={`rounded-xl border-2 ${borderCls(stepState(2))} bg-white overflow-hidden transition-all duration-300`}>
                   <div className="aspect-[3/4] flex items-center justify-center bg-slate-50">
                     <svg viewBox="0 0 100 140" className="w-20 sm:w-28" fill="none" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                       <circle cx="50" cy="32" r="11" />
-                      <path d="M50 43 Q46 58 38 70" />
-                      <path d="M50 43 Q54 58 62 70" />
-                      <path d="M44 64 Q36 82 30 96" />
-                      <path d="M56 64 Q64 82 70 96" />
+                      <path d="M50 43 Q46 58 38 70" /><path d="M50 43 Q54 58 62 70" />
+                      <path d="M44 64 Q36 82 30 96" /><path d="M56 64 Q64 82 70 96" />
                       <path d="M80 55 L80 30" stroke="#cbd5e1" strokeWidth="1.5" />
                       <path d="M75 36 L80 30 L85 36" stroke="#cbd5e1" strokeWidth="1.5" />
                     </svg>
                   </div>
                 </div>
-                <p className="text-[11px] text-slate-400 leading-tight px-1">
-                  El jugador realiza el salto al recibir la señal
-                </p>
+                <p className="text-[11px] text-slate-400 leading-tight px-1">El jugador realiza el salto al recibir la señal</p>
               </div>
-
               <div className="flex flex-col gap-2">
-                <p className={`text-[10px] font-semibold uppercase tracking-widest text-center ${titleCls(stepState(3))}`}>
-                  Finalización de prueba
-                </p>
+                <p className={`text-[10px] font-semibold uppercase tracking-widest text-center ${titleCls(stepState(3))}`}>Finalización de prueba</p>
                 <div className={`rounded-xl border-2 ${borderCls(stepState(3))} bg-white overflow-hidden transition-all duration-300`}>
                   <div className="aspect-[3/4] flex items-center justify-center bg-slate-50">
                     <svg viewBox="0 0 100 140" className="w-20 sm:w-28" fill="none" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                       <circle cx="50" cy="24" r="11" />
-                      <path d="M50 35 Q46 52 40 64" />
-                      <path d="M50 35 Q54 52 60 64" />
-                      <path d="M40 64 Q34 82 28 98" />
-                      <path d="M60 64 Q66 82 72 98" />
+                      <path d="M50 35 Q46 52 40 64" /><path d="M50 35 Q54 52 60 64" />
+                      <path d="M40 64 Q34 82 28 98" /><path d="M60 64 Q66 82 72 98" />
                       <line x1="20" y1="108" x2="80" y2="108" strokeWidth="2.5" />
-                      {stepState(3) === "done" && (
-                        <path d="M36 120 l8 8 l18 -14" stroke="#10b981" strokeWidth="2.5" />
-                      )}
+                      {stepState(3) === "done" && <path d="M36 120 l8 8 l18 -14" stroke="#10b981" strokeWidth="2.5" />}
                     </svg>
                   </div>
                 </div>
-                <p className="text-[11px] text-slate-400 leading-tight px-1">
-                  Datos registrados automáticamente al aterrizar
-                </p>
+                <p className="text-[11px] text-slate-400 leading-tight px-1">Datos registrados automáticamente al aterrizar</p>
               </div>
             </div>
           </div>
         )}
 
-        {/* ══ TAB PRUEBAS ══ */}
+        {/* TAB PRUEBAS */}
         {activeTab === "pruebas" && (
           <div className="flex flex-col lg:flex-row gap-6 pt-2 items-start">
             <div className="w-full lg:flex-1 min-w-0 space-y-5">
@@ -870,14 +818,12 @@ export default function SistemaUnificadoPage() {
               </p>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-5">
                 {[
-                  { label: "Calibración",      sub: "Jugador en posición inicial, quieto" },
-                  { label: "Inicio de prueba",  sub: "El jugador realiza los saltos continuos" },
-                  { label: "Finalización",      sub: "Datos registrados al finalizar el tiempo" },
+                  { label: "Calibración",     sub: "Jugador en posición inicial, quieto" },
+                  { label: "Inicio de prueba", sub: "El jugador realiza los saltos continuos" },
+                  { label: "Finalización",     sub: "Datos registrados al finalizar el tiempo" },
                 ].map(({ label, sub }, idx) => (
                   <div key={idx} className="flex flex-col gap-2">
-                    <p className="text-[10px] font-semibold uppercase tracking-widest text-center text-slate-400">
-                      {label}
-                    </p>
+                    <p className="text-[10px] font-semibold uppercase tracking-widest text-center text-slate-400">{label}</p>
                     <div className="rounded-xl border-2 border-slate-200 bg-white overflow-hidden">
                       <div className="aspect-[3/4] flex items-center justify-center bg-slate-50 overflow-hidden">
                         <ImageSequence images={saltoImages} alt={label} delay={3000} className="w-full h-full object-contain" />
@@ -888,12 +834,9 @@ export default function SistemaUnificadoPage() {
                 ))}
               </div>
             </div>
-
             <div className="w-full lg:w-80 shrink-0 space-y-4">
               <div className="space-y-2">
-                <p className="text-[9px] uppercase tracking-widest font-semibold text-slate-500 text-right">
-                  Tiempo transcurrido
-                </p>
+                <p className="text-[9px] uppercase tracking-widest font-semibold text-slate-500 text-right">Tiempo transcurrido</p>
                 <div className="w-full h-3 bg-slate-200 rounded-full overflow-hidden">
                   <div
                     className="h-full bg-indigo-600 rounded-full transition-all duration-1000"
@@ -901,25 +844,18 @@ export default function SistemaUnificadoPage() {
                   />
                 </div>
               </div>
-
               <div className="bg-white rounded-2xl border-2 border-slate-200 shadow-sm p-5 space-y-4">
-                <p className="text-[10px] uppercase tracking-widest font-bold text-slate-600 text-center">
-                  Resultados
-                </p>
+                <p className="text-[10px] uppercase tracking-widest font-bold text-slate-600 text-center">Resultados</p>
                 {[
                   { label: "Saltos detectados",       value: datosEjercicio.Ftotal > 0 ? "—" : "" },
                   { label: "Fuerza máxima alcanzada", value: datosEjercicio.Ftotal > 0 ? `${datosEjercicio.Ftotal.toFixed(1)} N` : "" },
                   { label: "Índice de fatiga (%)",    value: "" },
                 ].map(({ label, value }) => (
                   <div key={label} className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5">
-                    <span className="text-[9px] uppercase tracking-wide text-slate-400 leading-tight">
-                      {label}
-                    </span>
+                    <span className="text-[9px] uppercase tracking-wide text-slate-400 leading-tight">{label}</span>
                     <input
-                      readOnly
-                      value={value}
-                      className="w-full sm:w-32 border border-slate-200 rounded-lg px-2.5 py-1.5
-                                 text-xs text-slate-700 bg-slate-50 focus:outline-none text-center"
+                      readOnly value={value}
+                      className="w-full sm:w-32 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 bg-slate-50 focus:outline-none text-center"
                     />
                   </div>
                 ))}
@@ -928,8 +864,7 @@ export default function SistemaUnificadoPage() {
                     onClick={finalizarPliometria}
                     disabled={!pliometriaIniciada}
                     className="px-5 py-2 rounded-xl text-sm font-semibold bg-slate-700 text-white
-                               hover:bg-slate-600 active:scale-95 transition-all
-                               disabled:opacity-30 disabled:cursor-not-allowed"
+                               hover:bg-slate-600 active:scale-95 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
                   >
                     Guardar
                   </button>
@@ -939,7 +874,7 @@ export default function SistemaUnificadoPage() {
           </div>
         )}
 
-        {/* Monitor colapsable */}
+        {/* Monitor */}
         <details className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
           <summary className="px-4 py-2.5 text-[10px] uppercase tracking-widest text-slate-400 font-semibold cursor-pointer select-none">
             Monitor de mensajes
@@ -949,14 +884,7 @@ export default function SistemaUnificadoPage() {
               <p className="text-slate-500">Sin mensajes…</p>
             ) : (
               messages.map((m, i) => (
-                <div
-                  key={i}
-                  className={
-                    m.status === "error" ? "text-red-400" :
-                    m.status === "success" ? "text-emerald-400" :
-                    "text-slate-400"
-                  }
-                >
+                <div key={i} className={m.status === "error" ? "text-red-400" : m.status === "success" ? "text-emerald-400" : "text-slate-400"}>
                   <span className="text-slate-600">[{m.timestamp}] </span>
                   <span className="font-semibold">{m.device}: </span>
                   {m.message}
@@ -965,7 +893,6 @@ export default function SistemaUnificadoPage() {
             )}
           </div>
         </details>
-
       </div>
     </div>
   )
