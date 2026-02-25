@@ -40,13 +40,13 @@ export default function PlayerHome() {
   ];
 
   const resultadoOptions = [
-    { label: "Resultados Salto", href: "/resultados/salto" },
-    { label: "Resultados Reacción", href: "/resultados/reaccion" },
+    { label: "Resultados Salto", href: "/rankings2" },
+    { label: "Resultados Reacción", href: "/resultados2" },
   ];
 
   const rankingOptions = [
-    { label: "Ranking Salto", href: "/ranking/salto" },
-    { label: "Ranking Reacción", href: "/ranking/reaccion" },
+    { label: "Ranking Salto", href: "/rankings2" },
+    { label: "Ranking Reacción", href: "/rankings" },
   ];
 
   return (

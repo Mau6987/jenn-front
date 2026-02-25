@@ -139,7 +139,7 @@ function ResultModal({ isOpen, onClose, title, data }) {
   )
 }
 
-function CalibrationModal({ isOpen, onClose, isCalibrated }) {
+function CalibrationModal({ isOpen, onClose, isCalibrated, onCancel }) {
   if (!isOpen) return null
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
@@ -158,7 +158,14 @@ function CalibrationModal({ isOpen, onClose, isCalibrated }) {
               />
             </div>
             <h3 className="text-xl font-bold text-slate-900 mb-1">Calibrando...</h3>
-            <p className="text-sm text-slate-500">Por favor espere mientras se calibran los sensores</p>
+            <p className="text-sm text-slate-500 mb-6">Por favor espere mientras se calibran los sensores</p>
+            <button
+              onClick={onCancel}
+              className="w-full py-2.5 rounded-xl bg-red-50 text-red-600 border border-red-200
+                         text-sm font-semibold hover:bg-red-100 transition-colors"
+            >
+              Cancelar calibración
+            </button>
           </>
         ) : (
           <>
@@ -186,15 +193,18 @@ export default function SistemaUnificadoPage() {
   const [activeTab, setActiveTab] = useState("alcance")
 
   // ── ALCANCE ──
+  // faseAlcance: "idle" | "calibrating" | "calibrated" | "jumping" | "done"
   const [faseAlcance, setFaseAlcance] = useState("idle")
-  const [alturaRegistrada, setAlturaRegistrada] = useState("")
+  const [saltoActual, setSaltoActual] = useState(null)   // último salto en tiempo real
   const [incrementoAnterior, setIncrementoAnterior] = useState("")
-  const [jumpRaw, setJumpRaw] = useState(null)
+  const [ultimoAlcance, setUltimoAlcance] = useState(null)
+  const [jumpRawFinal, setJumpRawFinal] = useState(null) // datos finales del ESP
   const [alcanceGuardado, setAlcanceGuardado] = useState(null)
   const [modalAlcanceOpen, setModalAlcanceOpen] = useState(false)
   const [calibrationModalOpen, setCalibrationModalOpen] = useState(false)
   const [isCalibrated, setIsCalibrated] = useState(false)
-  const [ultimoAlcance, setUltimoAlcance] = useState(null)
+  const calibrationTimerRef = useRef(null)
+  const ultimoAlcanceRef = useRef(null)
 
   // ── PLIOMETRÍA ──
   const [masaJugador, setMasaJugador] = useState("")
@@ -220,16 +230,27 @@ export default function SistemaUnificadoPage() {
   }, [])
 
   useEffect(() => {
-    if (!cuentaSeleccionada) { setUltimoAlcance(null); return }
+    if (!cuentaSeleccionada) { setUltimoAlcance(null); ultimoAlcanceRef.current = null; return }
     fetch(`${BACKEND_URL}/api/alcances/ultimo/${cuentaSeleccionada}`)
       .then((r) => r.json())
-      .then((d) => setUltimoAlcance(d.data ?? null))
+      .then((d) => {
+        setUltimoAlcance(d.data ?? null)
+        ultimoAlcanceRef.current = d.data ?? null
+      })
       .catch(console.error)
   }, [cuentaSeleccionada])
 
   const notify = (type, message) => {
     setNotification({ type, message })
     setTimeout(() => setNotification(null), 3500)
+  }
+
+  // ── obtener alcance estático del jugador ──────────────────────────────────
+  const getAlcanceEstaticoCm = () => {
+    const j = jugadorRef.current
+    if (!j) return 0
+    const raw = j?.jugador?.alcance_estatico ?? j?.alcance_estatico ?? 0
+    return parseFloat(raw) * 100
   }
 
   // ── pusher ──────────────────────────────────────────────────────────────────
@@ -246,8 +267,12 @@ export default function SistemaUnificadoPage() {
       const msg = (data.message || "")
       addMessage(DEVICE_ID, msg, "success", setMessages)
 
-      // ── Calibración completada ──
+      // ── Calibración completada ────────────────────────────────────────────
       if (msg.includes("CALIBRADO_OK")) {
+        if (calibrationTimerRef.current) {
+          clearTimeout(calibrationTimerRef.current)
+          calibrationTimerRef.current = null
+        }
         setFaseAlcance("calibrated")
         setIsCalibrated(true)
         setTimeout(() => { setCalibrationModalOpen(false); setIsCalibrated(false) }, 1500)
@@ -255,59 +280,77 @@ export default function SistemaUnificadoPage() {
         return
       }
 
-      // ── Sesión iniciada ──
+      // ── Sesión iniciada ───────────────────────────────────────────────────
       if (msg.includes("SESION_INICIADA")) {
-        addMessage(DEVICE_ID, "Esperando resultado del salto...", "info", setMessages)
+        setFaseAlcance("jumping")
+        addMessage(DEVICE_ID, "Sesión activa — esperando saltos...", "info", setMessages)
         return
       }
 
-      // ── Resultado del salto: prefijo RESULTADO_JSON: seguido del JSON ──
-      // El ESP manda: RESULTADO_JSON:{"mejor_m":0.3120,"saltos_validos":3}
+      // ── Salto individual en tiempo real ───────────────────────────────────
+      // Formato: SALTO_JSON:{"num":1,"altura_m":0.3120,"altura_cm":31.2}
+      if (msg.startsWith("SALTO_JSON:")) {
+        try {
+          const jsonStr = msg.substring("SALTO_JSON:".length)
+          const salto = JSON.parse(jsonStr)
+          const alcanceEstaticoCm = getAlcanceEstaticoCm()
+          const alcanceTotal = parseFloat((alcanceEstaticoCm + parseFloat(salto.altura_cm)).toFixed(1))
+
+          setSaltoActual((prev) => {
+            // Solo actualizar si este salto es mayor que el actual mostrado
+            if (!prev || alcanceTotal > prev.alcanceTotal) {
+              return { num: salto.num, altura_cm: parseFloat(salto.altura_cm), alcanceTotal }
+            }
+            return prev
+          })
+
+          addMessage(DEVICE_ID, `Salto #${salto.num} — altura: ${salto.altura_cm} cm | alcance total: ${alcanceTotal} cm`, "success", setMessages)
+        } catch (e) {
+          console.error("[SALTO_JSON] Error:", e)
+        }
+        return
+      }
+
+      // ── Resultado final de la sesión ──────────────────────────────────────
+      // Formato: RESULTADO_JSON:{"mejor_m":0.3120,"saltos_validos":3}
       if (msg.startsWith("RESULTADO_JSON:")) {
         try {
           const jsonStr = msg.substring("RESULTADO_JSON:".length)
           const resultado = JSON.parse(jsonStr)
+          const mejor_m = parseFloat(resultado.mejor_m ?? 0)
+          const alturaESP = mejor_m * 100
+          const alcanceEstaticoCm = getAlcanceEstaticoCm()
+          const alcanceTotal = parseFloat((alcanceEstaticoCm + alturaESP).toFixed(1))
 
-          const mejor_m  = parseFloat(resultado.mejor_m ?? 0)
-          const alturaESP = mejor_m * 100  // m → cm
-
-          const jugadorActual = jugadorRef.current
-          let alcanceEstaticoCm = 0
-          if (jugadorActual?.jugador?.alcance_estatico != null) {
-            alcanceEstaticoCm = parseFloat(jugadorActual.jugador.alcance_estatico) * 100
-          } else if (jugadorActual?.alcance_estatico != null) {
-            alcanceEstaticoCm = parseFloat(jugadorActual.alcance_estatico) * 100
-          }
-
-          const alcanceTotal = alcanceEstaticoCm + alturaESP
-
-          console.log(
-            "[resultado] mejor_m=", mejor_m,
-            "| alturaESP=", alturaESP.toFixed(1), "cm",
-            "| alcanceEstatico=", alcanceEstaticoCm.toFixed(1), "cm",
-            "| alcanceTotal=", alcanceTotal.toFixed(1), "cm"
-          )
-
-          setAlturaRegistrada(alcanceTotal.toFixed(1))
-          setJumpRaw({
+          const rawFinal = {
             mejor_m,
             saltos_validos: resultado.saltos_validos || 0,
             alcanceTotal,
-            alturaESP,
-            alcanceEstaticoCm,
-          })
+            alturaESP: parseFloat(alturaESP.toFixed(1)),
+            alcanceEstaticoCm: parseFloat(alcanceEstaticoCm.toFixed(1)),
+          }
+
+          setJumpRawFinal(rawFinal)
+
+          // Mostrar el mayor alcance en el campo de resultado
+          setSaltoActual({ num: null, altura_cm: rawFinal.alturaESP, alcanceTotal })
+
+          // Calcular incremento respecto al último registro guardado
+          const previo = ultimoAlcanceRef.current
+          if (previo?.alcance != null) {
+            const inc = alcanceTotal - parseFloat(previo.alcance)
+            setIncrementoAnterior(`${inc >= 0 ? "+" : ""}${inc.toFixed(1)} cm`)
+          } else {
+            setIncrementoAnterior("Sin registro previo")
+          }
+
           setFaseAlcance("done")
-          notify("success", "Salto registrado — revisa los resultados")
-          addMessage(
-            DEVICE_ID,
-            `Salto completado: ${alturaESP.toFixed(1)} cm | alcance total: ${alcanceTotal.toFixed(1)} cm`,
-            "success",
-            setMessages
-          )
+          notify("success", "Prueba finalizada — presiona Guardar")
+          addMessage(DEVICE_ID, `Sesión finalizada — mejor: ${alturaESP.toFixed(1)} cm | alcance: ${alcanceTotal} cm`, "success", setMessages)
         } catch (e) {
-          console.error("[resultado] Error al parsear RESULTADO_JSON:", e)
-          addMessage(DEVICE_ID, `Error al procesar resultado: ${e.message}`, "error", setMessages)
+          console.error("[RESULTADO_JSON] Error:", e)
         }
+        return
       }
     })
 
@@ -338,71 +381,101 @@ export default function SistemaUnificadoPage() {
     })
   }
 
-  useEffect(() => {
-    if (!jumpRaw) return
-    if (ultimoAlcance?.alcance != null) {
-      const inc = jumpRaw.alcanceTotal - parseFloat(ultimoAlcance.alcance)
-      setIncrementoAnterior(`${inc >= 0 ? "+" : ""}${inc.toFixed(1)} cm`)
-    } else {
-      setIncrementoAnterior("Sin registro previo")
-    }
-  }, [jumpRaw])
-
-  // ── ALCANCE acciones ────────────────────────────────────────────────────────
-  const handleCalibrar = async () => {
-    if (!jugadorSeleccionado) { notify("error", "Selecciona un jugador primero"); return }
-    if (!espConnected) { notify("error", "Sin conexión con el dispositivo"); return }
-    setFaseAlcance("calibrating")
-    setAlturaRegistrada("")
-    setIncrementoAnterior("")
-    setJumpRaw(null)
-    setCalibrationModalOpen(true)
-    setIsCalibrated(false)
-    addMessage("SISTEMA", "Iniciando calibración... mantente quieto", "info", setMessages)
-    await sendCommand("CALIBRAR", setMessages)
-  }
-
-  const handleIniciarSalto = async () => {
-    if (faseAlcance !== "calibrated") { notify("error", "Calibra primero el sensor"); return }
-    setFaseAlcance("jumping")
-    setAlturaRegistrada("")
-    setIncrementoAnterior("")
-    addMessage("SISTEMA", "Iniciando test de alcance...", "info", setMessages)
-    await sendCommand("INICIAR", setMessages)
-  }
-
+  // ── Guardar alcance manualmente (guarda el mejor de la sesión) ────────────
   const handleGuardarAlcance = async () => {
-    if (!jumpRaw || !cuentaSeleccionada) return
+    if (!jumpRawFinal || !cuentaSeleccionada) return
     try {
       const res = await fetch(`${BACKEND_URL}/api/alcances`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ cuentaId: Number(cuentaSeleccionada), alcance: jumpRaw.alcanceTotal }),
+        body: JSON.stringify({ cuentaId: Number(cuentaSeleccionada), alcance: jumpRawFinal.alcanceTotal }),
       })
       const d = await res.json()
       if (d.success) {
         setAlcanceGuardado({
-          "Alcance registrado": `${jumpRaw.alcanceTotal.toFixed(1)} cm`,
-          "Altura del salto (ESP)": `${jumpRaw.alturaESP.toFixed(1)} cm`,
-          "Alcance estático": `${jumpRaw.alcanceEstaticoCm.toFixed(1)} cm`,
+          "Alcance registrado":  `${jumpRawFinal.alcanceTotal} cm`,
+          "Altura del salto (ESP)": `${jumpRawFinal.alturaESP} cm`,
+          "Alcance estático":    `${jumpRawFinal.alcanceEstaticoCm} cm`,
+          "Saltos válidos":      `${jumpRawFinal.saltos_validos}`,
         })
         setModalAlcanceOpen(true)
         notify("success", "Guardado correctamente")
       }
-    } catch (e) { console.error(e) }
+    } catch (e) {
+      console.error("[guardarAlcance]", e)
+      notify("error", "Error al guardar")
+    }
   }
 
+  // ── Calibrar ──────────────────────────────────────────────────────────────
+  const handleCalibrar = async () => {
+    if (!jugadorSeleccionado) { notify("error", "Selecciona un jugador primero"); return }
+    if (!espConnected) { notify("error", "Sin conexión con el dispositivo"); return }
+    setFaseAlcance("calibrating")
+    setSaltoActual(null)
+    setIncrementoAnterior("")
+    setJumpRawFinal(null)
+    setCalibrationModalOpen(true)
+    setIsCalibrated(false)
+    addMessage("SISTEMA", "Iniciando calibración...", "info", setMessages)
+    await sendCommand("CALIBRAR", setMessages)
+
+    // Auto-cancelar si no hay respuesta en 15 s
+    calibrationTimerRef.current = setTimeout(() => {
+      setFaseAlcance("idle")
+      setCalibrationModalOpen(false)
+      setIsCalibrated(false)
+      notify("error", "Tiempo de calibración agotado — intenta nuevamente")
+      addMessage("SISTEMA", "Calibración cancelada por timeout", "error", setMessages)
+    }, 15000)
+  }
+
+  const handleCancelarCalibracion = () => {
+    if (calibrationTimerRef.current) {
+      clearTimeout(calibrationTimerRef.current)
+      calibrationTimerRef.current = null
+    }
+    setFaseAlcance("idle")
+    setCalibrationModalOpen(false)
+    setIsCalibrated(false)
+    notify("error", "Calibración cancelada")
+    addMessage("SISTEMA", "Calibración cancelada manualmente", "error", setMessages)
+  }
+
+  // ── Iniciar sesión de saltos ───────────────────────────────────────────────
+  const handleIniciarSalto = async () => {
+    if (faseAlcance !== "calibrated") { notify("error", "Calibra primero el sensor"); return }
+    if (!espConnected) { notify("error", "Sin conexión con el dispositivo"); return }
+    setSaltoActual(null)
+    setIncrementoAnterior("")
+    setJumpRawFinal(null)
+    addMessage("SISTEMA", "Iniciando sesión de saltos...", "info", setMessages)
+    await sendCommand("INICIAR", setMessages)
+  }
+
+  // ── Finalizar sesión de saltos ─────────────────────────────────────────────
+  const handleFinalizarSalto = async () => {
+    if (faseAlcance !== "jumping") return
+    addMessage("SISTEMA", "Finalizando sesión...", "info", setMessages)
+    await sendCommand("DETENER", setMessages)
+    // El ESP enviará RESULTADO_JSON → se guarda automáticamente
+  }
+
+  // ── Cerrar modal y limpiar ─────────────────────────────────────────────────
   const cerrarModalAlcance = () => {
     setModalAlcanceOpen(false)
     setAlcanceGuardado(null)
     setFaseAlcance("idle")
-    setAlturaRegistrada("")
+    setSaltoActual(null)
     setIncrementoAnterior("")
-    setJumpRaw(null)
+    setJumpRawFinal(null)
     if (cuentaSeleccionada) {
       fetch(`${BACKEND_URL}/api/alcances/ultimo/${cuentaSeleccionada}`)
         .then((r) => r.json())
-        .then((d) => setUltimoAlcance(d.data ?? null))
+        .then((d) => {
+          setUltimoAlcance(d.data ?? null)
+          ultimoAlcanceRef.current = d.data ?? null
+        })
         .catch(console.error)
     }
   }
@@ -490,6 +563,7 @@ export default function SistemaUnificadoPage() {
     setEjercicioEnCurso(false)
   }
 
+  // ── Step states ────────────────────────────────────────────────────────────
   const stepState = (step) => {
     if (step === 1) {
       if (faseAlcance === "calibrating") return "active"
@@ -524,8 +598,9 @@ export default function SistemaUnificadoPage() {
       <ResultModal isOpen={modalPliometriaOpen} onClose={cerrarModalPliometria} title="Pliometría Guardada" data={pliometriaGuardada || {}} />
       <CalibrationModal
         isOpen={calibrationModalOpen}
-        onClose={() => { setCalibrationModalOpen(false); setIsCalibrated(false) }}
+        onClose={handleCancelarCalibracion}
         isCalibrated={isCalibrated}
+        onCancel={handleCancelarCalibracion}
       />
 
       <div className="max-w-6xl mx-auto px-3 sm:px-5 py-4 sm:py-6 space-y-3">
@@ -542,9 +617,9 @@ export default function SistemaUnificadoPage() {
                   onChange={(e) => {
                     setCuentaSeleccionada(e.target.value)
                     setFaseAlcance("idle")
-                    setAlturaRegistrada("")
+                    setSaltoActual(null)
                     setIncrementoAnterior("")
-                    setJumpRaw(null)
+                    setJumpRawFinal(null)
                   }}
                   className="appearance-none w-full sm:w-44 border border-slate-200 rounded-lg px-3 py-2
                              text-sm text-slate-600 bg-slate-50 pr-8
@@ -596,12 +671,13 @@ export default function SistemaUnificadoPage() {
 
           {/* ② INICIO TEST — alcance */}
           {activeTab === "alcance" && (
-            <div className="w-full lg:w-52 shrink-0 bg-white rounded-2xl border border-slate-200 shadow-sm p-4 flex flex-col gap-3">
+            <div className="w-full lg:w-56 shrink-0 bg-white rounded-2xl border border-slate-200 shadow-sm p-4 flex flex-col gap-3">
               <span className="text-[9px] uppercase tracking-widest font-semibold text-slate-400">Inicio de test</span>
               <div className="flex gap-2 flex-1 items-end">
+                {/* Calibrar */}
                 <button
                   onClick={handleCalibrar}
-                  disabled={!cuentaSeleccionada || !espConnected || faseAlcance === "calibrating"}
+                  disabled={!cuentaSeleccionada || !espConnected || ["calibrating","jumping"].includes(faseAlcance)}
                   className={`flex-1 py-3 rounded-xl text-sm font-semibold transition-all active:scale-95
                     ${faseAlcance === "calibrating"
                       ? "bg-amber-100 text-amber-600 border border-amber-200 animate-pulse"
@@ -610,18 +686,38 @@ export default function SistemaUnificadoPage() {
                 >
                   {faseAlcance === "calibrating" ? "…" : "Calibrar"}
                 </button>
-                <button
-                  onClick={handleIniciarSalto}
-                  disabled={faseAlcance !== "calibrated" || !espConnected}
-                  className={`flex-1 py-3 rounded-xl text-sm font-semibold transition-all active:scale-95
-                    ${faseAlcance === "jumping"
-                      ? "bg-indigo-100 text-indigo-600 border border-indigo-200 animate-pulse"
-                      : "bg-slate-700 text-white hover:bg-slate-600"}
-                    disabled:opacity-40 disabled:cursor-not-allowed`}
-                >
-                  {faseAlcance === "jumping" ? "…" : "Iniciar"}
-                </button>
+
+                {/* Iniciar / Finalizar */}
+                {faseAlcance !== "jumping" ? (
+                  <button
+                    onClick={handleIniciarSalto}
+                    disabled={faseAlcance !== "calibrated" || !espConnected}
+                    className="flex-1 py-3 rounded-xl text-sm font-semibold transition-all active:scale-95
+                               bg-slate-700 text-white hover:bg-slate-600
+                               disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    Iniciar
+                  </button>
+                ) : (
+                  <button
+                    onClick={handleFinalizarSalto}
+                    className="flex-1 py-3 rounded-xl text-sm font-semibold transition-all active:scale-95
+                               bg-red-600 text-white hover:bg-red-500 animate-pulse"
+                  >
+                    Finalizar
+                  </button>
+                )}
               </div>
+
+              {/* Indicador de sesión activa */}
+              {faseAlcance === "jumping" && (
+                <div className="flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping inline-block" />
+                  <span className="text-[10px] text-emerald-600 font-semibold uppercase tracking-wide">
+                    Sesión activa
+                  </span>
+                </div>
+              )}
             </div>
           )}
 
@@ -630,16 +726,26 @@ export default function SistemaUnificadoPage() {
             <div className="w-full lg:w-80 shrink-0 bg-white rounded-2xl border border-slate-200 shadow-sm p-4 flex flex-col gap-3">
               <span className="text-[9px] uppercase tracking-widest font-semibold text-slate-400">Resultados</span>
               <div className="space-y-2.5 flex-1">
+
+                {/* Altura de alcance registrada (último salto en tiempo real) */}
                 <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-2">
                   <span className="text-[9px] uppercase tracking-wide text-slate-400 sm:w-36 shrink-0 leading-tight">
                     Altura de alcance registrada
                   </span>
-                  <input
-                    readOnly
-                    value={alturaRegistrada ? `${alturaRegistrada} cm` : ""}
-                    className="w-full sm:flex-1 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 bg-slate-50 focus:outline-none"
-                  />
+                  <div className="relative w-full sm:flex-1">
+                    <input
+                      readOnly
+                      value={saltoActual ? `${saltoActual.alcanceTotal} cm` : jumpRawFinal ? `${jumpRawFinal.alcanceTotal} cm` : ""}
+                      className={`w-full border rounded-lg px-2.5 py-1.5 text-xs text-slate-700 bg-slate-50 focus:outline-none transition-all
+                        ${faseAlcance === "jumping" && saltoActual ? "border-emerald-300 bg-emerald-50" : "border-slate-200"}`}
+                    />
+                    {faseAlcance === "jumping" && saltoActual && (
+                      <span className="absolute right-2 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
+                    )}
+                  </div>
                 </div>
+
+                {/* Incremento respecto al anterior */}
                 <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-2">
                   <span className="text-[9px] uppercase tracking-wide text-slate-400 sm:w-36 shrink-0 leading-tight">
                     Incremento respecto al anterior
@@ -647,14 +753,16 @@ export default function SistemaUnificadoPage() {
                   <input
                     readOnly
                     value={incrementoAnterior}
-                    className="w-full sm:flex-1 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 bg-slate-50 focus:outline-none"
+                    className={`w-full sm:flex-1 border rounded-lg px-2.5 py-1.5 text-xs bg-slate-50 focus:outline-none
+                      ${incrementoAnterior.startsWith("+") ? "text-emerald-600 border-emerald-200" : incrementoAnterior.startsWith("-") ? "text-red-500 border-red-200" : "text-slate-700 border-slate-200"}`}
                   />
                 </div>
               </div>
+
               <div className="flex justify-end">
                 <button
                   onClick={handleGuardarAlcance}
-                  disabled={faseAlcance !== "done"}
+                  disabled={faseAlcance !== "done" || !jumpRawFinal}
                   className="px-5 py-2 rounded-xl text-sm font-semibold bg-slate-700 text-white
                              hover:bg-slate-600 active:scale-95 transition-all
                              disabled:opacity-30 disabled:cursor-not-allowed"
@@ -776,7 +884,7 @@ export default function SistemaUnificadoPage() {
                 </div>
               </div>
               <div className="flex flex-col gap-2">
-                <p className={`text-[10px] font-semibold uppercase tracking-widest text-center ${titleCls(stepState(2))}`}>Inicio de prueba</p>
+                <p className={`text-[10px] font-semibold uppercase tracking-widest text-center ${titleCls(stepState(2))}`}>Saltos en curso</p>
                 <div className={`rounded-xl border-2 ${borderCls(stepState(2))} bg-white overflow-hidden transition-all duration-300`}>
                   <div className="aspect-[3/4] flex items-center justify-center bg-slate-50">
                     <svg viewBox="0 0 100 140" className="w-20 sm:w-28" fill="none" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -788,10 +896,12 @@ export default function SistemaUnificadoPage() {
                     </svg>
                   </div>
                 </div>
-                <p className="text-[11px] text-slate-400 leading-tight px-1">El jugador realiza el salto al recibir la señal</p>
+                <p className="text-[11px] text-slate-400 leading-tight px-1">
+                  El jugador realiza los saltos. Cada salto aparece en tiempo real. Presiona <strong>Finalizar</strong> cuando termine.
+                </p>
               </div>
               <div className="flex flex-col gap-2">
-                <p className={`text-[10px] font-semibold uppercase tracking-widest text-center ${titleCls(stepState(3))}`}>Finalización de prueba</p>
+                <p className={`text-[10px] font-semibold uppercase tracking-widest text-center ${titleCls(stepState(3))}`}>Finalización y guardado</p>
                 <div className={`rounded-xl border-2 ${borderCls(stepState(3))} bg-white overflow-hidden transition-all duration-300`}>
                   <div className="aspect-[3/4] flex items-center justify-center bg-slate-50">
                     <svg viewBox="0 0 100 140" className="w-20 sm:w-28" fill="none" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -803,7 +913,7 @@ export default function SistemaUnificadoPage() {
                     </svg>
                   </div>
                 </div>
-                <p className="text-[11px] text-slate-400 leading-tight px-1">Datos registrados automáticamente al aterrizar</p>
+                <p className="text-[11px] text-slate-400 leading-tight px-1">El mejor alcance se guarda automáticamente al presionar Finalizar</p>
               </div>
             </div>
           </div>
