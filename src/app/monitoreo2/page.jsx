@@ -1,580 +1,444 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
-import { Button } from "../../components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card"
-import { Badge } from "../../components/ui/badge"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs"
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts"
-import { Activity, Settings, Power, PowerOff, TrendingUp, Cpu, Wifi, WifiOff } from "lucide-react"
+import { User, RefreshCw } from "lucide-react"
 
 const BACKEND_URL = "https://jenn-back-reac.onrender.com"
 
-export default function ESP6Monitor() {
-  const [pusherConnected, setPusherConnected] = useState(false)
-  const [pusherStatus, setPusherStatus] = useState("Desconectado")
-  const [espResponses, setEspResponses] = useState([])
+const css = `
+  @import url('https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
 
-  const [streamingStates, setStreamingStates] = useState({
-    cell1: false,
-    cell2: false,
-    mpuX: false,
-    mpuY: false,
-    mpuZ: false,
-  })
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-  const [sensorData, setSensorData] = useState([])
-  const sensorDataRef = useRef([])
-
-  const MAX_CHART_POINTS = 100
-
-  // Paleta: azules/morados oscuros sobre fondo blanco
-  const brandStyle = {
-    "--brand": "#1e1b4b",   // indigo-900
-    "--brand-2": "#4c1d95", // violet-900
+  .root {
+    font-family: 'Figtree', sans-serif;
+    min-height: 100vh;
+    background: #f5f5f8;
+    color: #111827;
+    -webkit-font-smoothing: antialiased;
   }
 
-  useEffect(() => {
-    loadPusher()
-  }, [])
+  .wrap { max-width: 900px; margin: 0 auto; padding: 0 1.5rem 4rem; }
 
-  const loadPusher = async () => {
+  /* ── Avatar ── */
+  .avatar-zone {
+    display: flex; flex-direction: column; align-items: center;
+    padding: 2.5rem 0 2.2rem; gap: 0.55rem;
+  }
+  .avatar-circle {
+    width: 66px; height: 66px; border-radius: 50%;
+    background: #e9e9f0;
+    border: 1.5px solid #d4d2e0;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 1px 6px rgba(30,27,75,0.07);
+  }
+  .avatar-label {
+    font-size: 0.72rem; font-weight: 800;
+    letter-spacing: 0.2em; text-transform: uppercase;
+    color: #111827;
+  }
+
+  /* ── Tab bar ── */
+  .tab-bar {
+    display: flex;
+    border-bottom: 1.5px solid #e0deea;
+  }
+  .tab-btn {
+    padding: 0.7rem 2rem;
+    background: none; border: none;
+    font-family: 'Figtree', sans-serif;
+    font-size: 0.875rem; font-weight: 600;
+    color: #9ca3af; cursor: pointer;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1.5px;
+    transition: color 0.15s, border-color 0.15s;
+    letter-spacing: 0.01em;
+  }
+  .tab-btn:hover { color: #4338ca; }
+  .tab-btn.active { color: #1e1b4b; border-bottom-color: #1e1b4b; }
+
+  /* ── Card panel ── */
+  .card {
+    background: #ffffff;
+    border: 1.5px solid #e0deea;
+    border-top: none;
+    border-radius: 0 0 14px 14px;
+    box-shadow: 0 4px 20px rgba(30,27,75,0.055);
+    padding: 2rem;
+  }
+
+  /* ── Sensors ── */
+  .sensors-layout {
+    display: grid;
+    grid-template-columns: 1fr 1px 1fr 1px 1fr;
+    gap: 0;
+  }
+  @media (max-width: 680px) {
+    .sensors-layout { grid-template-columns: 1fr; }
+    .v-divider { display: none !important; }
+    .sensor-col { padding: 0 0 1.5rem 0 !important; border-bottom: 1px solid #e0deea; margin-bottom: 1.5rem; }
+    .sensor-col:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+  }
+  .v-divider { background: #e8e6f2; width: 1px; margin: 0 1.5rem; }
+  .sensor-col { padding: 0 0.5rem; }
+  .sensor-col:first-child { padding-left: 0; }
+  .sensor-col:last-child { padding-right: 0; }
+
+  .sensor-heading {
+    font-size: 0.67rem; font-weight: 700;
+    letter-spacing: 0.16em; text-transform: uppercase;
+    color: #1e1b4b;
+    padding-bottom: 0.85rem;
+    margin-bottom: 1.1rem;
+    border-bottom: 1px solid #e8e6f2;
+  }
+
+  /* ── Fields ── */
+  .flabel {
+    display: block;
+    font-size: 0.63rem; font-weight: 700;
+    letter-spacing: 0.14em; text-transform: uppercase;
+    color: #9ca3af; margin-bottom: 0.4rem;
+  }
+  .fgap { margin-top: 1rem; }
+
+  /* ── Pill badge ── */
+  .pill {
+    display: inline-flex; align-items: center; gap: 0.3rem;
+    padding: 0.2rem 0.7rem; border-radius: 999px;
+    font-size: 0.62rem; font-weight: 700;
+    letter-spacing: 0.08em; text-transform: uppercase;
+  }
+  .pill-dot { width: 5px; height: 5px; border-radius: 50%; }
+  .pill-on  { background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; }
+  .pill-on .pill-dot  { background: #10b981; animation: pulse 1.6s infinite; }
+  .pill-off { background: #f3f4f6; color: #6b7280; border: 1px solid #d1d5db; }
+  .pill-off .pill-dot { background: #d1d5db; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+
+  /* ── Textarea / input ── */
+  .data-box {
+    width: 100%; min-height: 96px; resize: none;
+    border: 1.5px solid #e0deea; border-radius: 8px;
+    padding: 0.55rem 0.7rem;
+    background: #f9f8fc;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem; line-height: 1.65;
+    color: #111827; outline: none;
+    transition: border-color 0.15s;
+  }
+  .data-box:focus { border-color: #4338ca; }
+  .plain-input {
+    width: 100%;
+    border: 1.5px solid #e0deea; border-radius: 8px;
+    padding: 0.45rem 0.7rem;
+    background: #f9f8fc;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem; color: #6b7280; outline: none;
+    transition: border-color 0.15s;
+  }
+  .plain-input:focus { border-color: #4338ca; }
+
+  /* ── Buttons ── */
+  .btn-solid {
+    font-family: 'Figtree', sans-serif;
+    font-weight: 700; font-size: 0.68rem;
+    letter-spacing: 0.08em; text-transform: uppercase;
+    padding: 0.32rem 0.9rem; border-radius: 6px;
+    background: #1e1b4b; color: #fff; border: none;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .btn-solid:hover { background: #3730a3; }
+
+  .btn-ghost {
+    font-family: 'Figtree', sans-serif;
+    font-weight: 600; font-size: 0.68rem;
+    letter-spacing: 0.06em; text-transform: uppercase;
+    padding: 0.38rem 1rem; border-radius: 6px;
+    background: transparent; color: #374151;
+    border: 1.5px solid #d1d5db;
+    cursor: pointer;
+    display: inline-flex; align-items: center; gap: 0.35rem;
+    transition: border-color 0.15s, color 0.15s;
+  }
+  .btn-ghost:hover { border-color: #4338ca; color: #1e1b4b; }
+
+  /* ── Calibration row ── */
+  .calib-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.4rem; }
+
+  /* ── Micro layout ── */
+  .micro-layout {
+    display: grid; grid-template-columns: 1fr 1.5fr;
+    gap: 3rem; align-items: start;
+  }
+  @media (max-width: 600px) { .micro-layout { grid-template-columns: 1fr; gap: 1.5rem; } }
+
+  .conn-row { display: flex; align-items: center; gap: 0.9rem; margin-bottom: 1.8rem; }
+
+  .estab-label {
+    display: block;
+    font-size: 0.63rem; font-weight: 700;
+    letter-spacing: 0.14em; text-transform: uppercase;
+    color: #9ca3af; margin-bottom: 0.7rem;
+  }
+  .radio-group { display: flex; flex-direction: column; gap: 0.55rem; }
+  .radio-item {
+    display: flex; align-items: center; gap: 0.55rem;
+    font-size: 0.875rem; font-weight: 500; color: #374151; cursor: pointer;
+  }
+  .radio-item input { accent-color: #1e1b4b; width: 15px; height: 15px; cursor: pointer; }
+
+  /* ── Server box ── */
+  .server-box {
+    border: 1.5px solid #e0deea; border-radius: 12px; overflow: hidden;
+    box-shadow: 0 2px 10px rgba(30,27,75,0.045);
+  }
+  .server-box-head {
+    background: linear-gradient(120deg, #eef2ff 0%, #f5f0ff 100%);
+    border-bottom: 1.5px solid #e0deea;
+    padding: 0.65rem 1.1rem;
+    font-size: 0.63rem; font-weight: 800;
+    letter-spacing: 0.16em; text-transform: uppercase;
+    color: #1e1b4b;
+  }
+  .server-box-body { padding: 1.1rem; display: flex; flex-direction: column; gap: 1rem; }
+  .server-row { display: flex; flex-direction: column; gap: 0.35rem; }
+  .server-row-lbl {
+    font-size: 0.63rem; font-weight: 700;
+    letter-spacing: 0.12em; text-transform: uppercase;
+    color: #9ca3af;
+  }
+  .response-box {
+    border: 1.5px solid #e0deea; border-radius: 7px;
+    padding: 0.4rem 0.65rem;
+    background: #f9f8fc;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem; color: #6b7280;
+    min-height: 32px;
+  }
+`
+
+function SensorCol({ title, isActive, readingData, calibData, onCalibStart }) {
+  return (
+    <div className="sensor-col">
+      <div className="sensor-heading">{title}</div>
+
+      <div>
+        <span className="flabel">Estado de Conexión</span>
+        <span className={`pill ${isActive ? "pill-on" : "pill-off"}`}>
+          <span className="pill-dot" />{isActive ? "Activo" : "Inactivo"}
+        </span>
+      </div>
+
+      <div className="fgap">
+        <span className="flabel">Estado de Lectura</span>
+        <textarea className="data-box" readOnly value={readingData} placeholder="Datos de lectura" />
+      </div>
+
+      <div className="fgap">
+        <div className="calib-head">
+          <span className="flabel" style={{ marginBottom: 0 }}>Calibración</span>
+          <button className="btn-solid" onClick={onCalibStart}>Iniciar</button>
+        </div>
+        <input className="plain-input" readOnly value={calibData} placeholder="Datos de calibración" />
+      </div>
+    </div>
+  )
+}
+
+export default function ESP6Monitor() {
+  const [activeTab, setActiveTab] = useState("sensores")
+  const [pusherConnected, setPusherConnected] = useState(false)
+  const [espResponses, setEspResponses] = useState([])
+  const [stability, setStability] = useState("excelente")
+  const [responseTime, setResponseTime] = useState("")
+  const [streamingStates] = useState({ cell1: false, cell2: false, mpuX: false, mpuY: false, mpuZ: false })
+  const [sensorData, setSensorData] = useState([])
+  const sensorDataRef = useRef([])
+  const MAX_CHART_POINTS = 100
+
+  useEffect(() => { loadPusher() }, [])
+
+  const loadPusher = () => {
     if (typeof window === "undefined") return
-    try {
-      const script = document.createElement("script")
-      script.src = "https://js.pusher.com/8.2.0/pusher.min.js"
-      script.async = true
-      document.head.appendChild(script)
-      script.onload = () => initializePusher()
-    } catch (error) {
-      console.error("Error loading Pusher:", error)
-      setPusherStatus("Error cargando Pusher")
-    }
+    const script = document.createElement("script")
+    script.src = "https://js.pusher.com/8.2.0/pusher.min.js"
+    script.async = true
+    document.head.appendChild(script)
+    script.onload = () => initializePusher()
   }
 
   const initializePusher = () => {
-    const pusherKey = "4f85ef5c792df94cebc9"
-    const pusherCluster = "us2"
-
-    const pusher = new window.Pusher(pusherKey, {
-      cluster: pusherCluster,
-      encrypted: true,
-      authEndpoint: `${BACKEND_URL}/api/pusher/pusher/auth`,
-      forceTLS: true,
+    const pusher = new window.Pusher("4f85ef5c792df94cebc9", {
+      cluster: "us2", encrypted: true,
+      authEndpoint: `${BACKEND_URL}/api/pusher/pusher/auth`, forceTLS: true,
     })
-
-    pusher.connection.bind("connected", () => {
-      setPusherStatus("Conectado")
-      setPusherConnected(true)
-      subscribeToChannel(pusher)
-    })
-
-    pusher.connection.bind("disconnected", () => {
-      setPusherStatus("Desconectado")
-      setPusherConnected(false)
-    })
+    pusher.connection.bind("connected", () => { setPusherConnected(true); subscribeToChannel(pusher) })
+    pusher.connection.bind("disconnected", () => setPusherConnected(false))
   }
 
   const subscribeToChannel = (pusher) => {
-    const channelName = "private-device-ESP-6"
-    const channel = pusher.subscribe(channelName)
-
-    channel.bind("pusher:subscription_succeeded", () => {
-      // listo
-    })
-
-    channel.bind("client-sensor-data", (data) => {
-      const sensorInfo = data.sensorType
-      const value = data.value
-
+    const channel = pusher.subscribe("private-device-ESP-6")
+    channel.bind("client-sensor-data", ({ sensorType, value }) => {
       setSensorData((prev) => {
         const newData = [...prev]
-        const lastPoint = newData[newData.length - 1] || { timestamp: Date.now() }
-
-        const updatedPoint = {
-          ...lastPoint,
-          timestamp: Date.now(),
-          [sensorInfo]: value,
-        }
-
-        if (newData.length === 0 || updatedPoint.timestamp !== lastPoint.timestamp) {
-          newData.push(updatedPoint)
-        } else {
-          newData[newData.length - 1] = updatedPoint
-        }
-
+        const last = newData[newData.length - 1] || { timestamp: Date.now() }
+        const pt = { ...last, timestamp: Date.now(), [sensorType]: value }
+        if (!newData.length || pt.timestamp !== last.timestamp) newData.push(pt)
+        else newData[newData.length - 1] = pt
         if (newData.length > MAX_CHART_POINTS) newData.shift()
         sensorDataRef.current = newData
         return newData
       })
-
-      addMessage("ESP-6", "sensor", `${sensorInfo}: ${Number(value).toFixed(2)}`, "success")
+      addMsg("sensor", `${sensorType}: ${Number(value).toFixed(2)}`, "success")
     })
-
-    channel.bind("client-response", (data) => {
-      const message = data.message || ""
-      const statusType = message.includes("error") ? "error" : message.includes("iniciado") ? "success" : "info"
-      addMessage("ESP-6", "response", message, statusType)
-    })
-
-    channel.bind("client-status", (data) => {
-      addMessage("ESP-6", "status", typeof data === "string" ? data : JSON.stringify(data), "info")
-    })
-
-    channel.bind("client-error", (data) => {
-      addMessage("ESP-6", "error", data.message || "Error desconocido", "error")
-    })
+    channel.bind("client-response", (d) => addMsg("response", d.message || "", d.message?.includes("error") ? "error" : "success"))
+    channel.bind("client-status", (d) => addMsg("status", typeof d === "string" ? d : JSON.stringify(d), "info"))
+    channel.bind("client-error", (d) => addMsg("error", d.message || "Error desconocido", "error"))
   }
 
-  const addMessage = (device, type, msg, status) => {
-    const message = { device, message: msg, timestamp: Date.now(), type, status }
-    setEspResponses((prev) => [...prev.slice(-19), message])
-  }
+  const addMsg = (type, message, status) =>
+    setEspResponses((p) => [...p.slice(-19), { message, timestamp: Date.now(), type, status }])
 
   const sendCommand = async (command) => {
+    const t0 = Date.now()
     try {
-      const response = await fetch(`${BACKEND_URL}/api/pusher/send-command`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+      const res = await fetch(`${BACKEND_URL}/api/pusher/send-command`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ deviceId: "ESP-6", command, data: {}, channel: "private-device-ESP-6" }),
       })
-
-      const data = await response.json()
-      if (!response.ok) throw new Error(data.message || "Error enviando comando")
-      addMessage("ESP-6", "command", `Comando enviado: ${command}`, "info")
-    } catch (error) {
-      console.error("Error:", error)
-      addMessage("ESP-6", "error", `Error: ${error.message}`, "error")
+      setResponseTime(`${Date.now() - t0} ms`)
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.message)
+      addMsg("command", `Comando: ${command}`, "info")
+    } catch (e) {
+      addMsg("error", `Error: ${e.message}`, "error")
     }
   }
 
-  const toggleStreamCell1 = async () => {
-    const newState = !streamingStates.cell1
-    await sendCommand(newState ? "START_CELL1" : "STOP_CELL1")
-    setStreamingStates((p) => ({ ...p, cell1: newState }))
-  }
-
-  const toggleStreamCell2 = async () => {
-    const newState = !streamingStates.cell2
-    await sendCommand(newState ? "START_CELL2" : "STOP_CELL2")
-    setStreamingStates((p) => ({ ...p, cell2: newState }))
-  }
-
-  const toggleStreamMpuX = async () => {
-    const newState = !streamingStates.mpuX
-    await sendCommand(newState ? "START_MPUX" : "STOP_MPUX")
-    setStreamingStates((p) => ({ ...p, mpuX: newState }))
-  }
-
-  const toggleStreamMpuY = async () => {
-    const newState = !streamingStates.mpuY
-    await sendCommand(newState ? "START_MPUY" : "STOP_MPUY")
-    setStreamingStates((p) => ({ ...p, mpuY: newState }))
-  }
-
-  const toggleStreamMpuZ = async () => {
-    const newState = !streamingStates.mpuZ
-    await sendCommand(newState ? "START_MPUZ" : "STOP_MPUZ")
-    setStreamingStates((p) => ({ ...p, mpuZ: newState }))
-  }
-
-  const checkConnection = async () => {
-    await sendCommand("CHECK")
-  }
-
-  const getMessageColor = (status) => {
-    switch (status) {
-      case "success":
-        return "text-emerald-700"
-      case "error":
-        return "text-rose-700"
-      case "info":
-        return "text-indigo-700"
-      default:
-        return "text-violet-700"
-    }
-  }
+  const last = sensorData[sensorData.length - 1] || {}
+  const mpuText = [
+    last.MPUX !== undefined ? `X: ${Number(last.MPUX).toFixed(4)}` : "",
+    last.MPUY !== undefined ? `Y: ${Number(last.MPUY).toFixed(4)}` : "",
+    last.MPUZ !== undefined ? `Z: ${Number(last.MPUZ).toFixed(4)}` : "",
+  ].filter(Boolean).join("\n")
 
   return (
-    <div className="min-h-screen bg-white text-slate-900 px-4 md:px-6 lg:px-8 py-6" style={brandStyle}>
-      <div className="max-w-7xl mx-auto space-y-6">
-        {/* HEADER */}
-        <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-5">
-            <div className="flex items-center gap-3">
-              <div className="p-3 rounded-xl bg-[color:var(--brand)] text-white shadow-md">
-                <Cpu className="h-7 w-7" />
-              </div>
-              <div>
-                <h1 className="text-2xl md:text-3xl font-semibold tracking-tight">ESP 6 Monitor</h1>
-                <p className="text-sm text-slate-600">Monitoreo del microcontrolador en tiempo real</p>
-              </div>
+    <>
+      <style>{css}</style>
+      <div className="root">
+        <div className="wrap">
+
+          {/* Avatar */}
+          <div className="avatar-zone">
+            <div className="avatar-circle">
+              <User size={26} color="#9ca3af" strokeWidth={1.5} />
             </div>
-           
-          </div>
-          <div className="h-1 w-full bg-gradient-to-r from-[color:var(--brand)] via-[color:var(--brand-2)] to-[color:var(--brand)]" />
-        </div>
-
-       
-        {/* CONTROL & MONITOR */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2">
-            <Card className="rounded-2xl border border-slate-200 bg-white shadow-sm">
-              <CardHeader className="border-b border-slate-200 bg-gradient-to-r from-indigo-50 to-violet-50">
-                <CardTitle className="flex items-center gap-3 text-xl md:text-2xl">
-                  <div className="p-2 rounded-lg bg-[color:var(--brand)] text-white">
-                    <Settings className="h-5 w-5 md:h-6 md:w-6" />
-                  </div>
-                  Control de Sensores
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-4 md:p-6">
-                <Tabs defaultValue="celdas" className="w-full">
-                  <TabsList className="grid w-full grid-cols-3 gap-2 bg-slate-100 p-2 h-auto rounded-lg">
-                    <TabsTrigger
-                      value="celdas"
-                      className="data-[state=active]:bg-[color:var(--brand)] data-[state=active]:text-white rounded-md"
-                    >
-                      Celdas
-                    </TabsTrigger>
-                    <TabsTrigger
-                      value="mpu"
-                      className="data-[state=active]:bg-[color:var(--brand)] data-[state=active]:text-white rounded-md"
-                    >
-                      MPU
-                    </TabsTrigger>
-                    <TabsTrigger
-                      value="conexion"
-                      className="data-[state=active]:bg-[color:var(--brand)] data-[state=active]:text-white rounded-md"
-                    >
-                      Conexión
-                    </TabsTrigger>
-                  </TabsList>
-
-                  {/* CELDAS */}
-                  <TabsContent value="celdas" className="space-y-4 mt-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <Card className="rounded-xl border border-indigo-200 bg-white hover:border-indigo-300 transition-colors">
-                        <CardHeader>
-                          <CardTitle className="text-lg text-slate-900 flex items-center gap-2">
-                            <TrendingUp className="h-5 w-5 text-indigo-700" />
-                            Celda 1
-                          </CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-3">
-                          <p className="text-sm text-slate-600">
-                            {streamingStates.cell1 ? "✓ Streaming activo..." : "○ Streaming inactivo"}
-                          </p>
-                          <Button
-                            onClick={toggleStreamCell1}
-                            className={`w-full h-11 rounded-lg ${
-                              streamingStates.cell1 ? "bg-rose-600 hover:bg-rose-700" : "bg-emerald-600 hover:bg-emerald-700"
-                            } text-white`}
-                          >
-                            {streamingStates.cell1 ? (
-                              <>
-                                <PowerOff className="h-5 w-5 mr-2" />
-                                Detener
-                              </>
-                            ) : (
-                              <>
-                                <Power className="h-5 w-5 mr-2" />
-                                Iniciar
-                              </>
-                            )}
-                          </Button>
-                        </CardContent>
-                      </Card>
-
-                      <Card className="rounded-xl border border-violet-200 bg-white hover:border-violet-300 transition-colors">
-                        <CardHeader>
-                          <CardTitle className="text-lg text-slate-900 flex items-center gap-2">
-                            <TrendingUp className="h-5 w-5 text-violet-700" />
-                            Celda 2
-                          </CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-3">
-                          <p className="text-sm text-slate-600">
-                            {streamingStates.cell2 ? "✓ Streaming activo..." : "○ Streaming inactivo"}
-                          </p>
-                          <Button
-                            onClick={toggleStreamCell2}
-                            className={`w-full h-11 rounded-lg ${
-                              streamingStates.cell2 ? "bg-rose-600 hover:bg-rose-700" : "bg-emerald-600 hover:bg-emerald-700"
-                            } text-white`}
-                          >
-                            {streamingStates.cell2 ? (
-                              <>
-                                <PowerOff className="h-5 w-5 mr-2" />
-                                Detener
-                              </>
-                            ) : (
-                              <>
-                                <Power className="h-5 w-5 mr-2" />
-                                Iniciar
-                              </>
-                            )}
-                          </Button>
-                        </CardContent>
-                      </Card>
-                    </div>
-                  </TabsContent>
-
-                  {/* MPU */}
-                  <TabsContent value="mpu" className="space-y-4 mt-6">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <Card className="rounded-xl border border-indigo-200 bg-white hover:border-indigo-300 transition-colors">
-                        <CardHeader>
-                          <CardTitle className="text-lg">Eje X</CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-3">
-                          <p className="text-sm text-slate-600">
-                            {streamingStates.mpuX ? "✓ Streaming activo..." : "○ Streaming inactivo"}
-                          </p>
-                          <Button
-                            onClick={toggleStreamMpuX}
-                            className={`w-full h-11 rounded-lg ${
-                              streamingStates.mpuX ? "bg-rose-600 hover:bg-rose-700" : "bg-emerald-600 hover:bg-emerald-700"
-                            } text-white`}
-                          >
-                            {streamingStates.mpuX ? "Detener" : "Iniciar"}
-                          </Button>
-                        </CardContent>
-                      </Card>
-
-                      <Card className="rounded-xl border border-indigo-200 bg-white hover:border-indigo-300 transition-colors">
-                        <CardHeader>
-                          <CardTitle className="text-lg">Eje Y</CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-3">
-                          <p className="text-sm text-slate-600">
-                            {streamingStates.mpuY ? "✓ Streaming activo..." : "○ Streaming inactivo"}
-                          </p>
-                          <Button
-                            onClick={toggleStreamMpuY}
-                            className={`w-full h-11 rounded-lg ${
-                              streamingStates.mpuY ? "bg-rose-600 hover:bg-rose-700" : "bg-emerald-600 hover:bg-emerald-700"
-                            } text-white`}
-                          >
-                            {streamingStates.mpuY ? "Detener" : "Iniciar"}
-                          </Button>
-                        </CardContent>
-                      </Card>
-
-                      <Card className="rounded-xl border border-violet-200 bg-white hover:border-violet-300 transition-colors">
-                        <CardHeader>
-                          <CardTitle className="text-lg">Eje Z</CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-3">
-                          <p className="text-sm text-slate-600">
-                            {streamingStates.mpuZ ? "✓ Streaming activo..." : "○ Streaming inactivo"}
-                          </p>
-                          <Button
-                            onClick={toggleStreamMpuZ}
-                            className={`w-full h-11 rounded-lg ${
-                              streamingStates.mpuZ ? "bg-rose-600 hover:bg-rose-700" : "bg-emerald-600 hover:bg-emerald-700"
-                            } text-white`}
-                          >
-                            {streamingStates.mpuZ ? "Detener" : "Iniciar"}
-                          </Button>
-                        </CardContent>
-                      </Card>
-                    </div>
-                  </TabsContent>
-
-                  {/* CONEXIÓN */}
-                  <TabsContent value="conexion" className="space-y-4 mt-6">
-                    <Card className="rounded-xl border border-slate-200 bg-white">
-                      <CardHeader>
-                        <CardTitle className="text-lg">Prueba de Conexión</CardTitle>
-                      </CardHeader>
-                      <CardContent className="space-y-3">
-                        <p className="text-sm text-slate-600">Verifica que el ESP-6 responde correctamente</p>
-                        <Button
-                          onClick={checkConnection}
-                          className="w-full h-11 bg-[color:var(--brand)] hover:brightness-110 text-white rounded-lg"
-                        >
-                          Comprobar Conexión
-                        </Button>
-                      </CardContent>
-                    </Card>
-                  </TabsContent>
-                </Tabs>
-              </CardContent>
-            </Card>
+            <span className="avatar-label">Técnico</span>
           </div>
 
-          {/* MONITOR */}
-          <Card className="rounded-2xl border border-slate-200 bg-white lg:col-span-1 h-fit shadow-sm">
-            <CardHeader className="border-b border-slate-200 bg-gradient-to-r from-indigo-50 to-violet-50 rounded-t-2xl">
-              <CardTitle className="flex items-center gap-3 text-lg">
-                <Activity className="h-5 w-5 text-indigo-700" />
-                Monitor en Vivo
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-0">
-              <div className="bg-white rounded-b-2xl p-3 h-96 overflow-y-auto border-t border-slate-200">
-                {espResponses.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center h-full text-slate-500">
-                    <Activity className="h-8 w-8 mb-2 animate-pulse" />
-                    <p className="text-xs">Esperando mensajes...</p>
+          {/* Tabs */}
+          <div className="tab-bar">
+            {["sensores", "microcontrolador"].map((t) => (
+              <button key={t} className={`tab-btn ${activeTab === t ? "active" : ""}`} onClick={() => setActiveTab(t)}>
+                {t.charAt(0).toUpperCase() + t.slice(1)}
+              </button>
+            ))}
+          </div>
+
+          {/* Panel */}
+          <div className="card">
+
+            {/* SENSORES */}
+            {activeTab === "sensores" && (
+              <div className="sensors-layout">
+                <SensorCol
+                  title="Sensor MPU6050"
+                  isActive={pusherConnected && (streamingStates.mpuX || streamingStates.mpuY || streamingStates.mpuZ)}
+                  readingData={mpuText}
+                  calibData=""
+                  onCalibStart={() => sendCommand("CALIB_MPU")}
+                />
+                <div className="v-divider" />
+                <SensorCol
+                  title="Sensor Celda de Carga 1"
+                  isActive={pusherConnected && streamingStates.cell1}
+                  readingData={last.CELL1 !== undefined ? `${Number(last.CELL1).toFixed(4)} kg` : ""}
+                  calibData=""
+                  onCalibStart={() => sendCommand("CALIB_CELL1")}
+                />
+                <div className="v-divider" />
+                <SensorCol
+                  title="Sensor Celda de Carga 2"
+                  isActive={pusherConnected && streamingStates.cell2}
+                  readingData={last.CELL2 !== undefined ? `${Number(last.CELL2).toFixed(4)} kg` : ""}
+                  calibData=""
+                  onCalibStart={() => sendCommand("CALIB_CELL2")}
+                />
+              </div>
+            )}
+
+            {/* MICROCONTROLADOR */}
+            {activeTab === "microcontrolador" && (
+              <div className="micro-layout">
+
+                {/* Left */}
+                <div>
+                  <span className="flabel">Estado de Conexión</span>
+                  <div className="conn-row">
+                    <span className={`pill ${pusherConnected ? "pill-on" : "pill-off"}`}>
+                      <span className="pill-dot" />{pusherConnected ? "Activo" : "Inactivo"}
+                    </span>
+                    <button className="btn-ghost" onClick={() => sendCommand("CHECK")}>
+                      <RefreshCw size={11} strokeWidth={2.5} />
+                      Reconectar
+                    </button>
                   </div>
-                ) : (
-                  <div className="space-y-1">
-                    {espResponses.map((msg, idx) => (
-                      <div
-                        key={idx}
-                        className="text-xs font-mono bg-white p-2 rounded border border-slate-200 hover:border-indigo-300 transition-colors"
-                      >
-                        <span className="text-indigo-700">[{new Date(msg.timestamp).toLocaleTimeString()}]</span>{" "}
-                        <span className="text-slate-900 font-semibold">{msg.device}:</span>{" "}
-                        <span className={getMessageColor(msg.status)}>{msg.message}</span>
-                      </div>
+
+                  <span className="estab-label">Estabilidad de Conexión</span>
+                  <div className="radio-group">
+                    {["excelente", "intermitente", "inestable"].map((v) => (
+                      <label key={v} className="radio-item">
+                        <input type="radio" name="stab" value={v} checked={stability === v} onChange={() => setStability(v)} />
+                        {v.charAt(0).toUpperCase() + v.slice(1)}
+                      </label>
                     ))}
                   </div>
-                )}
+                </div>
+
+                {/* Right */}
+                <div>
+                  <span className="flabel">Estado del Servidor</span>
+                  <div className="server-box">
+                    <div className="server-box-head">Diagnóstico del sistema</div>
+                    <div className="server-box-body">
+                      <div className="server-row">
+                        <span className="server-row-lbl">API</span>
+                        <span className={`pill ${pusherConnected ? "pill-on" : "pill-off"}`} style={{ alignSelf: "flex-start" }}>
+                          <span className="pill-dot" />{pusherConnected ? "Activo" : "Inactivo"}
+                        </span>
+                      </div>
+                      <div className="server-row">
+                        <span className="server-row-lbl">Base de Datos</span>
+                        <span className="pill pill-off" style={{ alignSelf: "flex-start" }}>
+                          <span className="pill-dot" />Conectado / Desconectado
+                        </span>
+                      </div>
+                      <div className="server-row">
+                        <span className="server-row-lbl">Tiempo de Respuesta</span>
+                        <div className="response-box">{responseTime || "—"}</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
               </div>
-            </CardContent>
-          </Card>
-          
-        </div>
-         {/* CHARTS */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <Card className="rounded-2xl border border-indigo-200 bg-white shadow-sm">
-            <CardHeader className="rounded-t-2xl border-b border-indigo-200 bg-indigo-50">
-              <CardTitle className="text-lg text-slate-900 flex items-center gap-2">
-                <div className="h-3 w-3 rounded-full bg-indigo-600 animate-pulse" />
-                Celdas de Carga
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="pt-4">
-              {sensorData.length > 0 ? (
-                <ResponsiveContainer width="100%" height={320}>
-                  <LineChart data={sensorData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                    <XAxis
-                      dataKey="timestamp"
-                      tickFormatter={(ts) => new Date(ts).toLocaleTimeString()}
-                      stroke="#334155"
-                    />
-                    <YAxis stroke="#334155" />
-                    <Tooltip
-                      contentStyle={{
-                        backgroundColor: "#ffffff",
-                        border: "1px solid #c7d2fe",
-                        borderRadius: "8px",
-                        color: "#0f172a",
-                      }}
-                      labelFormatter={(ts) => new Date(ts).toLocaleTimeString()}
-                    />
-                    <Legend wrapperStyle={{ color: "#334155" }} />
-                    {sensorData.some((d) => d.CELL1 !== undefined) && (
-                      <Line
-                        type="monotone"
-                        dataKey="CELL1"
-                        stroke="#4338ca" // indigo-700
-                        dot={false}
-                        name="Celda 1"
-                        strokeWidth={2}
-                        animationDuration={400}
-                      />
-                    )}
-                    {sensorData.some((d) => d.CELL2 !== undefined) && (
-                      <Line
-                        type="monotone"
-                        dataKey="CELL2"
-                        stroke="#6d28d9" // violet-700
-                        dot={false}
-                        name="Celda 2"
-                        strokeWidth={2}
-                        animationDuration={400}
-                      />
-                    )}
-                  </LineChart>
-                </ResponsiveContainer>
-              ) : (
-                <div className="h-80 flex flex-col items-center justify-center text-slate-400">
-                  <TrendingUp className="h-12 w-12 mb-3 opacity-60" />
-                  <p className="text-center text-sm">Sin datos - Inicia el streaming</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+            )}
 
-          <Card className="rounded-2xl border border-violet-200 bg-white shadow-sm">
-            <CardHeader className="rounded-t-2xl border-b border-violet-200 bg-violet-50">
-              <CardTitle className="text-lg text-slate-900 flex items-center gap-2">
-                <div className="h-3 w-3 rounded-full bg-violet-600 animate-pulse" />
-                Aceleración MPU6050
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="pt-4">
-              {sensorData.length > 0 ? (
-                <ResponsiveContainer width="100%" height={320}>
-                  <LineChart data={sensorData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                    <XAxis
-                      dataKey="timestamp"
-                      tickFormatter={(ts) => new Date(ts).toLocaleTimeString()}
-                      stroke="#334155"
-                    />
-                    <YAxis stroke="#334155" />
-                    <Tooltip
-                      contentStyle={{
-                        backgroundColor: "#ffffff",
-                        border: "1px solid #ddd6fe",
-                        borderRadius: "8px",
-                        color: "#0f172a",
-                      }}
-                      labelFormatter={(ts) => new Date(ts).toLocaleTimeString()}
-                    />
-                    <Legend wrapperStyle={{ color: "#334155" }} />
-                    {sensorData.some((d) => d.MPUX !== undefined) && (
-                      <Line
-                        type="monotone"
-                        dataKey="MPUX"
-                        stroke="#4f46e5" // indigo-600
-                        dot={false}
-                        name="Eje X"
-                        strokeWidth={2}
-                        animationDuration={400}
-                      />
-                    )}
-                    {sensorData.some((d) => d.MPUY !== undefined) && (
-                      <Line
-                        type="monotone"
-                        dataKey="MPUY"
-                        stroke="#7c3aed" // violet-600
-                        dot={false}
-                        name="Eje Y"
-                        strokeWidth={2}
-                        animationDuration={400}
-                      />
-                    )}
-                    {sensorData.some((d) => d.MPUZ !== undefined) && (
-                      <Line
-                        type="monotone"
-                        dataKey="MPUZ"
-                        stroke="#0891b2" // cyan-700 para contraste
-                        dot={false}
-                        name="Eje Z"
-                        strokeWidth={2}
-                        animationDuration={400}
-                      />
-                    )}
-                  </LineChart>
-                </ResponsiveContainer>
-              ) : (
-                <div className="h-80 flex flex-col items-center justify-center text-slate-400">
-                  <TrendingUp className="h-12 w-12 mb-3 opacity-60" />
-                  <p className="text-center text-sm">Sin datos - Inicia el streaming</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+          </div>
         </div>
-
       </div>
-    </div>
+    </>
   )
 }

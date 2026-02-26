@@ -99,7 +99,7 @@ export default function PruebasPage() {
   const [selectedPlayer, setSelectedPlayer] = useState(null)
   const [jugadores, setJugadores] = useState([])
 
-  // Refs
+  // ── Refs para estado de prueba ──
   const testActiveSequentialRef = useRef(false)
   const currentActiveESPSequentialRef = useRef(null)
   const waitingForResponseSequentialRef = useRef(false)
@@ -119,6 +119,11 @@ export default function PruebasPage() {
   const responseTimeoutManualRef = useRef(null)
 
   const selectedESPsRef = useRef([1, 2, 3, 4, 5])
+
+  // ── REFS PARA ESTADÍSTICAS (fix: evita closures stale en finalizar) ──
+  const estadisticasSequentialRef = useRef({ intentos: 0, aciertos: 0, errores: 0 })
+  const estadisticasRandomRef = useRef({ intentos: 0, aciertos: 0, errores: 0 })
+  const estadisticasManualRef = useRef({ intentos: 0, aciertos: 0, errores: 0 })
 
   useEffect(() => {
     testActiveSequentialRef.current = testActiveSequential
@@ -354,6 +359,10 @@ export default function PruebasPage() {
     }
   }
 
+  // ─────────────────────────────────────────────
+  // SECUENCIAL
+  // ─────────────────────────────────────────────
+
   const iniciarPruebaSecuencial = async () => {
     if (!selectedPlayer) {
       showNotification("error", "Debe seleccionar un jugador")
@@ -379,7 +388,9 @@ export default function PruebasPage() {
         setModoActual("secuencial")
         setCurrentRound(1)
         setCurrentSequence(1)
-        setEstadisticasSequential({ intentos: 0, aciertos: 0, errores: 0 })
+        const initStats = { intentos: 0, aciertos: 0, errores: 0 }
+        setEstadisticasSequential(initStats)
+        estadisticasSequentialRef.current = initStats
         iniciarCronometroGeneral()
         showNotification(
           "success",
@@ -436,11 +447,16 @@ export default function PruebasPage() {
       responseTimeoutSequentialRef.current = null
     }
 
-    setEstadisticasSequential((prev) => ({
-      intentos: prev.intentos + 1,
-      aciertos: responseType === "acierto" ? prev.aciertos + 1 : prev.aciertos,
-      errores: responseType === "error" ? prev.errores + 1 : prev.errores,
-    }))
+    // ── Actualizar estado Y ref ──
+    setEstadisticasSequential((prev) => {
+      const newStats = {
+        intentos: prev.intentos + 1,
+        aciertos: responseType === "acierto" ? prev.aciertos + 1 : prev.aciertos,
+        errores: responseType === "error" ? prev.errores + 1 : prev.errores,
+      }
+      estadisticasSequentialRef.current = newStats
+      return newStats
+    })
 
     setWaitingForResponseSequential(false)
     setMicroControllers((prev) =>
@@ -467,7 +483,7 @@ export default function PruebasPage() {
             showNotification("success", `Iniciando ronda ${prevRound + 1}`)
             setTimeout(() => {
               setCurrentSequence(1)
-              activateNextMicrocontrollerSequential(selectedESPs.current[0])
+              activateNextMicrocontrollerSequential(selectedESPsRef.current[0])
             }, 2000)
             return prevRound + 1
           } else {
@@ -511,6 +527,8 @@ export default function PruebasPage() {
     detenerCronometroGeneral()
 
     const pruebaId = localStorage.getItem("prueba_secuencial_id")
+    // ── Leer desde ref para evitar closure stale ──
+    const stats = { ...estadisticasSequentialRef.current }
 
     if (pruebaId) {
       try {
@@ -518,9 +536,9 @@ export default function PruebasPage() {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            cantidad_intentos: estadisticasSequential.intentos,
-            cantidad_aciertos: estadisticasSequential.aciertos,
-            cantidad_errores: estadisticasSequential.errores,
+            cantidad_intentos: stats.intentos,
+            cantidad_aciertos: stats.aciertos,
+            cantidad_errores: stats.errores,
           }),
         })
 
@@ -531,7 +549,7 @@ export default function PruebasPage() {
       }
     }
 
-    abrirResumen("secuencial", { ...estadisticasSequential })
+    abrirResumen("secuencial", stats)
     limpiarPruebaSecuencial()
   }
 
@@ -542,7 +560,9 @@ export default function PruebasPage() {
     setCurrentRound(0)
     setCurrentSequence(0)
     setPruebaActualSequential(null)
-    setEstadisticasSequential({ intentos: 0, aciertos: 0, errores: 0 })
+    const resetStats = { intentos: 0, aciertos: 0, errores: 0 }
+    setEstadisticasSequential(resetStats)
+    estadisticasSequentialRef.current = resetStats
     setTiempoTranscurrido(0)
 
     if (responseTimeoutSequentialRef.current) {
@@ -567,6 +587,10 @@ export default function PruebasPage() {
     setMicroControllers((prev) => prev.map((mc) => ({ ...mc, active: false, status: "", lastResponse: null })))
     processingResponseSequentialRef.current = false
   }
+
+  // ─────────────────────────────────────────────
+  // ALEATORIO
+  // ─────────────────────────────────────────────
 
   const iniciarPruebaAleatoria = async () => {
     if (!selectedPlayer) {
@@ -595,7 +619,9 @@ export default function PruebasPage() {
         setTestActiveRandom(true)
         setModoActual("aleatorio")
         setTiempoRestante(tiempoPrueba)
-        setEstadisticasRandom({ intentos: 0, aciertos: 0, errores: 0 })
+        const initStats = { intentos: 0, aciertos: 0, errores: 0 }
+        setEstadisticasRandom(initStats)
+        estadisticasRandomRef.current = initStats
         iniciarCronometroGeneral()
         showNotification("success", `Prueba aleatoria iniciada - ${tiempoPrueba}s con ESP: ${selectedESPs.join(", ")}`)
 
@@ -667,11 +693,16 @@ export default function PruebasPage() {
       responseTimeoutRandomRef.current = null
     }
 
-    setEstadisticasRandom((prev) => ({
-      intentos: prev.intentos + 1,
-      aciertos: responseType === "acierto" ? prev.aciertos + 1 : prev.aciertos,
-      errores: responseType === "error" ? prev.errores + 1 : prev.errores,
-    }))
+    // ── Actualizar estado Y ref ──
+    setEstadisticasRandom((prev) => {
+      const newStats = {
+        intentos: prev.intentos + 1,
+        aciertos: responseType === "acierto" ? prev.aciertos + 1 : prev.aciertos,
+        errores: responseType === "error" ? prev.errores + 1 : prev.errores,
+      }
+      estadisticasRandomRef.current = newStats
+      return newStats
+    })
 
     setWaitingForResponseRandom(false)
     setMicroControllers((prev) =>
@@ -700,6 +731,8 @@ export default function PruebasPage() {
     }
 
     const pruebaId = localStorage.getItem("prueba_aleatoria_id")
+    // ── Leer desde ref para evitar closure stale ──
+    const stats = { ...estadisticasRandomRef.current }
 
     if (pruebaId) {
       try {
@@ -707,9 +740,9 @@ export default function PruebasPage() {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            cantidad_intentos: estadisticasRandom.intentos,
-            cantidad_aciertos: estadisticasRandom.aciertos,
-            cantidad_errores: estadisticasRandom.errores,
+            cantidad_intentos: stats.intentos,
+            cantidad_aciertos: stats.aciertos,
+            cantidad_errores: stats.errores,
           }),
         })
 
@@ -720,7 +753,7 @@ export default function PruebasPage() {
       }
     }
 
-    abrirResumen("aleatorio", { ...estadisticasRandom })
+    abrirResumen("aleatorio", stats)
     limpiarPruebaAleatoria()
   }
 
@@ -729,7 +762,9 @@ export default function PruebasPage() {
     setCurrentActiveESPRandom(null)
     setWaitingForResponseRandom(false)
     setPruebaActualRandom(null)
-    setEstadisticasRandom({ intentos: 0, aciertos: 0, errores: 0 })
+    const resetStats = { intentos: 0, aciertos: 0, errores: 0 }
+    setEstadisticasRandom(resetStats)
+    estadisticasRandomRef.current = resetStats
     setTiempoRestante(0)
 
     if (timerInterval) {
@@ -745,6 +780,10 @@ export default function PruebasPage() {
     setMicroControllers((prev) => prev.map((mc) => ({ ...mc, active: false, status: "", lastResponse: null })))
     processingResponseRandomRef.current = false
   }
+
+  // ─────────────────────────────────────────────
+  // MANUAL
+  // ─────────────────────────────────────────────
 
   const iniciarPruebaManual = async () => {
     if (!selectedPlayer) {
@@ -769,12 +808,15 @@ export default function PruebasPage() {
         setPruebaActualManual(data.data)
         setTestActiveManual(true)
         setModoActual("manual")
-        setEstadisticasManual({ intentos: 0, aciertos: 0, errores: 0 })
+        const initStats = { intentos: 0, aciertos: 0, errores: 0 }
+        setEstadisticasManual(initStats)
+        estadisticasManualRef.current = initStats
 
         setTiempoRestante(tiempoPrueba)
         const interval = setInterval(() => {
           setTiempoRestante((prev) => {
             if (prev <= 1) {
+              clearInterval(interval)
               finalizarPruebaManual()
               return 0
             }
@@ -841,11 +883,16 @@ export default function PruebasPage() {
       responseTimeoutManualRef.current = null
     }
 
-    setEstadisticasManual((prev) => ({
-      intentos: prev.intentos + 1,
-      aciertos: responseType === "acierto" ? prev.aciertos + 1 : prev.aciertos,
-      errores: responseType === "error" ? prev.errores + 1 : prev.errores,
-    }))
+    // ── Actualizar estado Y ref ──
+    setEstadisticasManual((prev) => {
+      const newStats = {
+        intentos: prev.intentos + 1,
+        aciertos: responseType === "acierto" ? prev.aciertos + 1 : prev.aciertos,
+        errores: responseType === "error" ? prev.errores + 1 : prev.errores,
+      }
+      estadisticasManualRef.current = newStats
+      return newStats
+    })
 
     setWaitingForResponseManual(false)
     setCurrentActiveESPManual(null)
@@ -870,6 +917,8 @@ export default function PruebasPage() {
     }
 
     const pruebaId = localStorage.getItem("prueba_manual_id")
+    // ── Leer desde ref para evitar closure stale ──
+    const stats = { ...estadisticasManualRef.current }
 
     if (pruebaId) {
       try {
@@ -877,9 +926,9 @@ export default function PruebasPage() {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            cantidad_intentos: estadisticasManual.intentos,
-            cantidad_aciertos: estadisticasManual.aciertos,
-            cantidad_errores: estadisticasManual.errores,
+            cantidad_intentos: stats.intentos,
+            cantidad_aciertos: stats.aciertos,
+            cantidad_errores: stats.errores,
           }),
         })
 
@@ -890,7 +939,7 @@ export default function PruebasPage() {
       }
     }
 
-    abrirResumen("manual", { ...estadisticasManual })
+    abrirResumen("manual", stats)
     limpiarPruebaManual()
   }
 
@@ -899,7 +948,9 @@ export default function PruebasPage() {
     setCurrentActiveESPManual(null)
     setWaitingForResponseManual(false)
     setPruebaActualManual(null)
-    setEstadisticasManual({ intentos: 0, aciertos: 0, errores: 0 })
+    const resetStats = { intentos: 0, aciertos: 0, errores: 0 }
+    setEstadisticasManual(resetStats)
+    estadisticasManualRef.current = resetStats
     setTiempoRestante(0)
 
     if (timerInterval) {
@@ -915,6 +966,10 @@ export default function PruebasPage() {
     setMicroControllers((prev) => prev.map((mc) => ({ ...mc, active: false, status: "", lastResponse: null })))
     processingResponseManualRef.current = false
   }
+
+  // ─────────────────────────────────────────────
+  // HELPERS
+  // ─────────────────────────────────────────────
 
   const formatTime = (seconds) => {
     const mins = Math.floor(seconds / 60)
@@ -1015,7 +1070,7 @@ export default function PruebasPage() {
                           className="w-full appearance-none bg-white border border-gray-200 rounded-lg px-3 py-2.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-300 disabled:opacity-50 font-medium"
                           disabled={testActive}
                         >
-                          <option value="">Select</option>
+                          <option value="">Selecciona un jugador</option>
                           {jugadores.map((jugador) => (
                             <option key={jugador.id} value={jugador.id}>
                               {jugador.nombres} {jugador.apellidos}
@@ -1033,7 +1088,6 @@ export default function PruebasPage() {
                   </div>
                 ) : (
                   <div className="flex flex-col gap-4 md:flex-row md:items-center md:gap-6">
-                    {/* Left: Dropdown */}
                     <div className="flex-1">
                       <div className="relative">
                         <select
@@ -1055,7 +1109,6 @@ export default function PruebasPage() {
                       </div>
                     </div>
 
-                    {/* Right: Avatar + Name + Position + X Button */}
                     <div className="flex items-center gap-4 flex-shrink-0 md:justify-end">
                       <div className="relative">
                         <div className="w-16 h-16 rounded-full overflow-hidden bg-gray-300 flex items-center justify-center border-2 border-gray-400 shadow-sm">
@@ -1091,19 +1144,17 @@ export default function PruebasPage() {
 
             {/* CONFIG CARD */}
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-              
               <div className="p-6 space-y-5">
 
-                {/* Test type + Capsules */}
                 <div className="grid grid-cols-2 gap-5">
                   <div>
                     <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-widest mb-2.5">Tipo de prueba</p>
                     <div className="flex bg-gray-100 rounded-xl p-1 gap-1">
                       {[
-                        { key: "secuencial", label: "Secuencial" },
-                        { key: "aleatorio", label: "Aletorio" },
-                        { key: "manual",   label: "Mananual" },
-                      ].map(({ key, icon, label }) => (
+                        { key: "secuencial", label: "Sec." },
+                        { key: "aleatorio",  label: "Alea." },
+                        { key: "manual",     label: "Manual" },
+                      ].map(({ key, label }) => (
                         <button
                           key={key}
                           onClick={() => setModoActual(key)}
@@ -1114,7 +1165,7 @@ export default function PruebasPage() {
                               : "text-gray-500 hover:text-gray-700"
                           } disabled:opacity-50`}
                         >
-                          {icon}{label}
+                          {label}
                         </button>
                       ))}
                     </div>
@@ -1141,11 +1192,10 @@ export default function PruebasPage() {
                   </div>
                 </div>
 
-                {/* Params + Button */}
                 <div className="grid grid-cols-3 gap-3">
                   <div>
                     <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-widest mb-2">
-                      {modoActual === "secuencial" ? " N° Rondas" : "Duración (s)"}
+                      {modoActual === "secuencial" ? "N° Rondas" : "Duración (s)"}
                     </p>
                     <input
                       type="number"
@@ -1162,33 +1212,31 @@ export default function PruebasPage() {
                     />
                   </div>
 
-                <div>
-                  <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-widest mb-2">
-                    Tiempo de encendido (S)
-                  </p>
-                  <input
-                    type="number"
-                    step="0.1"
-                    min="0.1"
-                    max="5"
-                    value={tiempoReaccion}
-                    onChange={(e) => {
-                      let value = Number.parseFloat(e.target.value);
-                      if (isNaN(value)) value = 0.1;
-                      if (value < 0.1) value = 0.1;
-                      if (value > 5) value = 5;
-
-                      setTiempoReaccion(value);
-                    }}
-                    disabled={testActive}
-                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5 text-center text-sm font-semibold text-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-300 disabled:opacity-50"
-                  />
-                </div>
-
+                  <div>
+                    <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-widest mb-2">
+                      Tiempo encendido (s)
+                    </p>
+                    <input
+                      type="number"
+                      step="0.1"
+                      min="0.1"
+                      max="5"
+                      value={tiempoReaccion}
+                      onChange={(e) => {
+                        let value = Number.parseFloat(e.target.value)
+                        if (isNaN(value)) value = 0.1
+                        if (value < 0.1) value = 0.1
+                        if (value > 5) value = 5
+                        setTiempoReaccion(value)
+                      }}
+                      disabled={testActive}
+                      className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5 text-center text-sm font-semibold text-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-300 disabled:opacity-50"
+                    />
+                  </div>
 
                   <div className="flex flex-col justify-end">
                     {!testActive ? (
-                    <button
+                      <button
                         onClick={() => {
                           if (modoActual === "secuencial") iniciarPruebaSecuencial()
                           else if (modoActual === "aleatorio") iniciarPruebaAleatoria()
@@ -1222,7 +1270,6 @@ export default function PruebasPage() {
           <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
             <div className="px-6 pt-5 pb-4 border-b border-gray-200 flex items-center justify-between">
               <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-widest">Estado de Cápsulas</p>
-             
             </div>
             <div className="p-3 md:p-6 grid grid-cols-5 gap-2.5 md:gap-4">
               {microControllers.map((mc, index) => {
@@ -1245,7 +1292,6 @@ export default function PruebasPage() {
                       ${!isSelected && testActive ? "opacity-40" : ""}
                     `}
                   >
-                    {/* Status dot */}
                     <div className="absolute top-2 md:top-3 right-2 md:right-3">
                       <div className={`w-2.5 h-2.5 rounded-full transition-colors ${
                         isActive ? "bg-blue-500 animate-pulse" :
@@ -1256,7 +1302,6 @@ export default function PruebasPage() {
                     </div>
 
                     <div className="p-2.5 md:p-4">
-                      {/* Image */}
                       <div className="w-full aspect-square rounded-lg md:rounded-xl overflow-hidden bg-white flex items-center justify-center mb-2.5 md:mb-3 border border-gray-100">
                         <img
                           src={getMicroImage(mc) || "/placeholder.svg"}
@@ -1265,7 +1310,6 @@ export default function PruebasPage() {
                         />
                       </div>
 
-                      {/* Label */}
                       <div className="text-center">
                         <p className="text-xs md:text-xs font-bold text-gray-600 uppercase tracking-wide">
                           <span className="hidden md:inline">Cápsula </span>{mc.id}
@@ -1294,98 +1338,81 @@ export default function PruebasPage() {
                     <Timer className="w-4 h-4 text-gray-600" />
                   </div>
                   <div>
-                    <p className="text-sm font-semibold text-gray-800">
-                      {modoActual === "secuencial" ? "Progreso de rondas" : "Tiempo restante"}
-                    </p>
-                    
+                    <p className="text-sm font-semibold text-gray-800">Tiempo restante</p>
                   </div>
                 </div>
                 <div className="text-right">
                   <p className="text-2xl font-black text-gray-900 tabular-nums">
-                    {modoActual === "secuencial"
-                      ? `${totalRounds > 0 ? Math.round((currentRound / totalRounds) * 100) : 0}%`
-                      : formatTime(tiempoRestante)}
+                    {formatTime(tiempoRestante)}
                   </p>
-                  <p className="text-[11px] text-gray-400">
-                    {modoActual === "secuencial" ? "completado" : "restante"}
-                  </p>
+                  <p className="text-[11px] text-gray-400">restante</p>
                 </div>
               </div>
 
-              {/* Bar track */}
               <div className="relative h-2.5 bg-gray-100 rounded-full overflow-hidden">
                 <div
                   className={`absolute inset-y-0 left-0 rounded-full transition-all duration-500 ${
-                    modoActual === "secuencial"
-                      ? "bg-blue-900"
-                      : tiempoRestante < tiempoPrueba * 0.2
-                        ? "bg-red-600"
-                        : tiempoRestante < tiempoPrueba * 0.5
-                          ? "bg-amber-500"
-                          : "bg-blue-900"
+                    tiempoRestante < tiempoPrueba * 0.2
+                      ? "bg-red-600"
+                      : tiempoRestante < tiempoPrueba * 0.5
+                        ? "bg-amber-500"
+                        : "bg-blue-900"
                   }`}
                   style={{ width: `${progressPct}%` }}
                 />
               </div>
 
               <div className="flex justify-between mt-2">
-                <span className="text-[11px] text-gray-400">
-                  {modoActual === "secuencial" ? "Inicio" : "0s"}
-                </span>
-                <span className="text-[11px] text-gray-400">
-                  {modoActual === "secuencial" ? `${totalRounds} rondas` : `${tiempoPrueba}s`}
-                </span>
+                <span className="text-[11px] text-gray-400">0s</span>
+                <span className="text-[11px] text-gray-400">{tiempoPrueba}s</span>
               </div>
             </div>
           )}
 
           {/* ── RESULTS CARD ── */}
-<div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden max-w-lg mx-auto">
-  <div className="px-5 pt-4 pb-3 border-b border-gray-200 flex items-center justify-between">
-    <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest">Resultados</p>
-  </div>
+          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden max-w-lg mx-auto">
+            <div className="px-5 pt-4 pb-3 border-b border-gray-200 flex items-center justify-between">
+              <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest">Resultados</p>
+            </div>
 
-  <div className="p-4">
-    <div className="grid grid-cols-2 gap-3 items-stretch">
+            <div className="p-4">
+              <div className="grid grid-cols-2 gap-3 items-stretch">
 
-      {/* Aciertos */}
-      <div className="relative rounded-lg bg-emerald-50 border border-emerald-200 p-4 overflow-hidden flex flex-col justify-between h-full">
-        <div className="absolute top-2 right-2 opacity-[0.08]">
-          <Target className="w-8 h-8 text-emerald-900" />
-        </div>
-        <div>
-          <div className="w-6 h-6 rounded-md bg-emerald-100 flex items-center justify-center mb-2">
-            <Target className="w-3.5 h-3.5 text-emerald-700" />
+                <div className="relative rounded-lg bg-emerald-50 border border-emerald-200 p-4 overflow-hidden flex flex-col justify-between h-full">
+                  <div className="absolute top-2 right-2 opacity-[0.08]">
+                    <Target className="w-8 h-8 text-emerald-900" />
+                  </div>
+                  <div>
+                    <div className="w-6 h-6 rounded-md bg-emerald-100 flex items-center justify-center mb-2">
+                      <Target className="w-3.5 h-3.5 text-emerald-700" />
+                    </div>
+                    <p className="text-[9px] font-semibold text-emerald-700/70 uppercase tracking-widest mb-1">Aciertos</p>
+                    <p className="text-2xl font-black text-emerald-800 tabular-nums leading-none">{estadisticas.aciertos}</p>
+                  </div>
+                  {totalAttempts > 0 && (
+                    <p className="text-xs text-emerald-600 mt-2 font-medium">{accuracy}%</p>
+                  )}
+                </div>
+
+                <div className="relative rounded-lg bg-red-50 border border-red-200 p-4 overflow-hidden flex flex-col justify-between h-full">
+                  <div className="absolute top-2 right-2 opacity-[0.08]">
+                    <XCircle className="w-8 h-8 text-red-900" />
+                  </div>
+                  <div>
+                    <div className="w-6 h-6 rounded-md bg-red-100 flex items-center justify-center mb-2">
+                      <XCircle className="w-3.5 h-3.5 text-red-600" />
+                    </div>
+                    <p className="text-[9px] font-semibold text-red-700/70 uppercase tracking-widest mb-1">Fallos</p>
+                    <p className="text-2xl font-black text-red-800 tabular-nums leading-none">{estadisticas.errores}</p>
+                  </div>
+                  {totalAttempts > 0 && (
+                    <p className="text-xs text-red-600 mt-2 font-medium">{100 - accuracy}%</p>
+                  )}
+                </div>
+
+              </div>
+            </div>
           </div>
-          <p className="text-[9px] font-semibold text-emerald-700/70 uppercase tracking-widest mb-1">Aciertos</p>
-          <p className="text-2xl font-black text-emerald-800 tabular-nums leading-none">{estadisticas.aciertos}</p>
-        </div>
-        {totalAttempts > 0 && (
-          <p className="text-xs text-emerald-600 mt-2 font-medium">{accuracy}%</p>
-        )}
-      </div>
-
-      {/* Fallos */}
-      <div className="relative rounded-lg bg-red-50 border border-red-200 p-4 overflow-hidden flex flex-col justify-between h-full">
-        <div className="absolute top-2 right-2 opacity-[0.08]">
-          <XCircle className="w-8 h-8 text-red-900" />
-        </div>
-        <div>
-          <div className="w-6 h-6 rounded-md bg-red-100 flex items-center justify-center mb-2">
-            <XCircle className="w-3.5 h-3.5 text-red-600" />
-          </div>
-          <p className="text-[9px] font-semibold text-red-700/70 uppercase tracking-widest mb-1">Fallos</p>
-          <p className="text-2xl font-black text-red-800 tabular-nums leading-none">{estadisticas.errores}</p>
-        </div>
-        {totalAttempts > 0 && (
-          <p className="text-xs text-red-600 mt-2 font-medium">{100 - accuracy}%</p>
-        )}
-      </div>
-
-    </div>
-  </div>
-</div>
-
 
         </div>
       </div>
@@ -1396,7 +1423,6 @@ export default function PruebasPage() {
           <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" onClick={() => setShowSummary(false)} />
           <div className="relative w-full max-w-2xl bg-white rounded-3xl shadow-2xl border border-gray-100 overflow-hidden">
 
-            {/* Modal header */}
             <div className="px-7 py-6 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-blue-50">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
@@ -1421,9 +1447,7 @@ export default function PruebasPage() {
 
             <div className="p-7 space-y-6">
 
-              {/* Main results grid */}
               <div className="grid grid-cols-3 gap-4">
-                {/* Aciertos */}
                 <div className="rounded-2xl bg-emerald-50 border border-emerald-200 p-5 text-center hover:shadow-md transition-shadow">
                   <div className="w-10 h-10 rounded-lg bg-emerald-100 flex items-center justify-center mx-auto mb-2">
                     <Target className="w-5 h-5 text-emerald-700" />
@@ -1431,13 +1455,12 @@ export default function PruebasPage() {
                   <p className="text-[10px] font-bold text-emerald-700 uppercase tracking-widest mb-2">Aciertos</p>
                   <p className="text-4xl font-black text-emerald-800">{summaryData.resultados?.aciertos || 0}</p>
                   <p className="text-xs text-emerald-600 mt-2 font-medium">
-                    {summaryData.resultados?.intentos > 0 
+                    {summaryData.resultados?.intentos > 0
                       ? `${Math.round((summaryData.resultados.aciertos / summaryData.resultados.intentos) * 100)}%`
                       : "0%"}
                   </p>
                 </div>
 
-                {/* Errores */}
                 <div className="rounded-2xl bg-red-50 border border-red-200 p-5 text-center hover:shadow-md transition-shadow">
                   <div className="w-10 h-10 rounded-lg bg-red-100 flex items-center justify-center mx-auto mb-2">
                     <XCircle className="w-5 h-5 text-red-600" />
@@ -1451,10 +1474,16 @@ export default function PruebasPage() {
                   </p>
                 </div>
 
-              
+                <div className="rounded-2xl bg-blue-50 border border-blue-200 p-5 text-center hover:shadow-md transition-shadow">
+                  <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center mx-auto mb-2">
+                    <Activity className="w-5 h-5 text-blue-700" />
+                  </div>
+                  <p className="text-[10px] font-bold text-blue-700 uppercase tracking-widest mb-2">Intentos</p>
+                  <p className="text-4xl font-black text-blue-800">{summaryData.resultados?.intentos || 0}</p>
+                  <p className="text-xs text-blue-600 mt-2 font-medium">total</p>
+                </div>
               </div>
 
-              {/* Metadata section */}
               <div className="border-t border-gray-200 pt-6 space-y-4">
                 <h4 className="text-sm font-semibold text-gray-700">Información de la prueba</h4>
                 <div className="grid grid-cols-2 gap-4">
@@ -1478,11 +1507,13 @@ export default function PruebasPage() {
                     <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2">Tipo de prueba</p>
                     <p className="text-sm font-bold text-gray-900 capitalize">{summaryData.tipo}</p>
                   </div>
-                 
+                  <div className="rounded-lg bg-gray-50 border border-gray-100 p-4">
+                    <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2">Cápsulas</p>
+                    <p className="text-sm font-bold text-gray-900">{summaryData.esp_seleccionadas?.join(", ") || "Todas"}</p>
+                  </div>
                 </div>
               </div>
 
-              {/* Actions */}
               <div className="flex gap-3 pt-4 border-t border-gray-200">
                 <button
                   onClick={() => copySummary()}
