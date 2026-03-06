@@ -22,6 +22,8 @@ const SALTO_VALLA_IMAGES = [
 const SALTO_SIMPLE_IMAGES = [
   "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/conos-removebg-preview__2_-removebg-preview-ZdpOb2qgOJERfCssbovE9QRaOX5m1U.png",
 ]
+// Conos en fila usa las mismas imágenes que simple (conos)
+const SALTO_CONOS_IMAGES = SALTO_SIMPLE_IMAGES
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function addMessage(device, message, status, setMessages) {
@@ -185,15 +187,13 @@ function CalibrationModal({ isOpen, onClose, isCalibrated, onCancel }) {
   )
 }
 
-// ─── Results Card — adapts between cajón and salto simple/valla ───────────────
+// ─── Results Card ─────────────────────────────────────────────────────────────
+// Tipos: "salto cajon" | "salto simple" | "salto valla" | "salto conos"
 function ResultadosCard({ tipoSalto, resultadoFinal, repReciente, saltoRTActual, ejercicioEnCurso, onGuardar, pliometriaId }) {
   const isCajon = tipoSalto === "salto cajon"
+  const isConos = tipoSalto === "salto conos"
 
-  // ── Cajón metrics ──────────────────────────────────────────────────────────
-  // Real-time: repReciente (REP_JSON) → { num, tv, pico_izq, pico_der, asimetria }
-  // Final:     resultadoFinal (RESULTADO_JSON) → { reps, tv_prom_s, pico_izq_kg,
-  //            pico_der_kg, prom_izq_kg, prom_der_kg, asim_prom_pct, fatiga_pct }
-
+  // ── Cajón rows ─────────────────────────────────────────────────────────────
   const cajonRows = [
     {
       label: "Reps válidas",
@@ -204,28 +204,82 @@ function ResultadosCard({ tipoSalto, resultadoFinal, repReciente, saltoRTActual,
       label: "TV prom. (s)",
       live: resultadoFinal
         ? `${resultadoFinal.tv_prom_s} s`
-        : repReciente
-        ? `${Number(repReciente.tv).toFixed(3)} s`
-        : "",
+        : repReciente ? `${Number(repReciente.tv).toFixed(3)} s` : "",
       isLive: !!repReciente && !resultadoFinal,
     },
     {
       label: "Fuerza pico izq.",
       live: resultadoFinal
         ? `${resultadoFinal.pico_izq_kg} kg`
-        : repReciente
-        ? `${repReciente.pico_izq} kg`
-        : "",
+        : repReciente ? `${repReciente.pico_izq} kg` : "",
       isLive: !!repReciente && !resultadoFinal,
     },
     {
       label: "Fuerza pico der.",
       live: resultadoFinal
         ? `${resultadoFinal.pico_der_kg} kg`
-        : repReciente
-        ? `${repReciente.pico_der} kg`
-        : "",
+        : repReciente ? `${repReciente.pico_der} kg` : "",
       isLive: !!repReciente && !resultadoFinal,
+    },
+    {
+      label: "Prom. izq. / der.",
+      live: resultadoFinal ? `${resultadoFinal.prom_izq_kg} / ${resultadoFinal.prom_der_kg} kg` : "",
+      isLive: false,
+    },
+    {
+      label: "Asimetría prom.",
+      live: resultadoFinal
+        ? `${resultadoFinal.asim_prom_pct} %`
+        : repReciente ? `${repReciente.asimetria} %` : "",
+      isLive: !!repReciente && !resultadoFinal,
+      highlight: resultadoFinal && parseFloat(resultadoFinal.asim_prom_pct) > 15 ? "warning" : null,
+    },
+    {
+      label: "Índice de fatiga",
+      live: resultadoFinal ? `${resultadoFinal.fatiga_pct} %` : "",
+      isLive: false,
+      highlight: resultadoFinal && parseFloat(resultadoFinal.fatiga_pct) < 85 ? "warning" : null,
+    },
+  ]
+
+  // ── Conos en fila rows — métricas ricas (altura + fuerza + asimetría + fatiga) ──
+  // RESULTADO_JSON del cono: saltos, alt_max_cm, alt_prom_cm, tv_prom_s,
+  //   pico_izq_kg, pico_der_kg, prom_izq_kg, prom_der_kg, asim_prom_pct, fatiga_pct
+  const conosRows = [
+    {
+      label: "Saltos válidos",
+      live: resultadoFinal
+        ? `${resultadoFinal.saltos_validos}`
+        : saltoRTActual ? `${saltoRTActual.num}` : "",
+      isLive: !!saltoRTActual && !resultadoFinal,
+    },
+    {
+      label: "Mejor altura",
+      live: resultadoFinal
+        ? `${resultadoFinal.alt_max_cm} cm`
+        : saltoRTActual ? `${saltoRTActual.altura_cm} cm` : "",
+      isLive: !!saltoRTActual && !resultadoFinal,
+    },
+    {
+      label: "TV prom. (s)",
+      live: resultadoFinal
+        ? `${resultadoFinal.tv_prom_s} s`
+        : saltoRTActual ? `${Number(saltoRTActual.tiempoVuelo).toFixed(3)} s` : "",
+      isLive: !!saltoRTActual && !resultadoFinal,
+    },
+    {
+      label: "Fuerza pico izq.",
+      live: resultadoFinal
+        ? `${resultadoFinal.pico_izq_kg} kg`
+        : saltoRTActual ? `${saltoRTActual.pico_izq} kg` : "",
+      isLive: !!saltoRTActual && !resultadoFinal,
+    },
+    {
+      label: "Fuerza pico der.",
+      live: resultadoFinal
+        ? `${resultadoFinal.pico_der_kg} kg`
+        : saltoRTActual ? `${saltoRTActual.pico_der} kg` : "",
+      isLive: !!saltoRTActual && !resultadoFinal,
     },
     {
       label: "Prom. izq. / der.",
@@ -238,77 +292,62 @@ function ResultadosCard({ tipoSalto, resultadoFinal, repReciente, saltoRTActual,
       label: "Asimetría prom.",
       live: resultadoFinal
         ? `${resultadoFinal.asim_prom_pct} %`
-        : repReciente
-        ? `${repReciente.asimetria} %`
-        : "",
-      isLive: !!repReciente && !resultadoFinal,
-      highlight:
-        resultadoFinal && parseFloat(resultadoFinal.asim_prom_pct) > 15
-          ? "warning"
-          : null,
+        : saltoRTActual ? `${saltoRTActual.asimetria} %` : "",
+      isLive: !!saltoRTActual && !resultadoFinal,
+      highlight: resultadoFinal && parseFloat(resultadoFinal.asim_prom_pct) > 15 ? "warning" : null,
     },
     {
       label: "Índice de fatiga",
       live: resultadoFinal ? `${resultadoFinal.fatiga_pct} %` : "",
       isLive: false,
-      highlight:
-        resultadoFinal && parseFloat(resultadoFinal.fatiga_pct) < 85
-          ? "warning"
-          : null,
+      highlight: resultadoFinal && parseFloat(resultadoFinal.fatiga_pct) < 85 ? "warning" : null,
     },
   ]
 
-  // ── Salto simple / valla metrics ───────────────────────────────────────────
-  // Real-time: saltoRTActual (SALTO_JSON) → { num, altura_cm, alcanceTotal, tiempoVuelo, pico_izq, pico_der }
+  // ── Salto simple / valla rows ──────────────────────────────────────────────
   const saltoRows = [
     {
       label: "Saltos válidos",
       live: resultadoFinal
         ? `${resultadoFinal.saltos_validos}`
-        : saltoRTActual
-        ? `${saltoRTActual.num}`
-        : "",
+        : saltoRTActual ? `${saltoRTActual.num}` : "",
       isLive: !!saltoRTActual && !resultadoFinal,
     },
     {
       label: "Mejor altura de salto",
       live: resultadoFinal
         ? `${resultadoFinal.alt_max_cm} cm`
-        : saltoRTActual
-        ? `${saltoRTActual.altura_cm} cm`
-        : "",
+        : saltoRTActual ? `${saltoRTActual.altura_cm} cm` : "",
       isLive: !!saltoRTActual && !resultadoFinal,
     },
     {
       label: "Tiempo de vuelo",
       live: resultadoFinal
         ? `${resultadoFinal.tv_prom_s} s (prom.)`
-        : saltoRTActual
-        ? `${Number(saltoRTActual.tiempoVuelo).toFixed(3)} s`
-        : "",
+        : saltoRTActual ? `${Number(saltoRTActual.tiempoVuelo).toFixed(3)} s` : "",
       isLive: !!saltoRTActual && !resultadoFinal,
     },
     {
       label: "Fuerza máx. izquierda",
       live: resultadoFinal
         ? `${resultadoFinal.fuerza_izq} kg`
-        : saltoRTActual
-        ? `${saltoRTActual.pico_izq} kg`
-        : "",
+        : saltoRTActual ? `${saltoRTActual.pico_izq} kg` : "",
       isLive: !!saltoRTActual && !resultadoFinal,
     },
     {
       label: "Fuerza máx. derecha",
       live: resultadoFinal
         ? `${resultadoFinal.fuerza_der} kg`
-        : saltoRTActual
-        ? `${saltoRTActual.pico_der} kg`
-        : "",
+        : saltoRTActual ? `${saltoRTActual.pico_der} kg` : "",
       isLive: !!saltoRTActual && !resultadoFinal,
     },
   ]
 
-  const rows = isCajon ? cajonRows : saltoRows
+  const rows = isCajon ? cajonRows : isConos ? conosRows : saltoRows
+  const showFatigaWarning =
+    (isCajon || isConos) &&
+    resultadoFinal &&
+    parseFloat(resultadoFinal.fatiga_pct) < 85
 
   return (
     <div className="bg-white rounded-2xl border-2 border-slate-200 shadow-sm p-5 space-y-3">
@@ -317,6 +356,11 @@ function ResultadosCard({ tipoSalto, resultadoFinal, repReciente, saltoRTActual,
         {isCajon && (
           <span className="text-[9px] uppercase tracking-widest font-semibold px-2 py-0.5 rounded-full bg-amber-50 text-amber-600 border border-amber-200">
             Salto Cajón
+          </span>
+        )}
+        {isConos && (
+          <span className="text-[9px] uppercase tracking-widest font-semibold px-2 py-0.5 rounded-full bg-violet-50 text-violet-600 border border-violet-200">
+            Salto Conos
           </span>
         )}
       </div>
@@ -355,12 +399,32 @@ function ResultadosCard({ tipoSalto, resultadoFinal, repReciente, saltoRTActual,
         </div>
       )}
 
-      {/* Cajón: fatigue warning */}
-      {isCajon && resultadoFinal && parseFloat(resultadoFinal.fatiga_pct) < 85 && (
+      {/* Conos: per-jump live badge */}
+      {isConos && saltoRTActual && !resultadoFinal && (
+        <div className="flex items-center gap-2 pt-1 border-t border-slate-100">
+          <span className="w-2 h-2 rounded-full bg-violet-500 animate-ping inline-block shrink-0" />
+          <span className="text-[10px] text-violet-600 font-semibold">
+            Salto #{saltoRTActual.num} — altura: {saltoRTActual.altura_cm} cm | asimetría: {saltoRTActual.asimetria}%
+          </span>
+        </div>
+      )}
+
+      {/* Fatigue warning (cajón y conos) */}
+      {showFatigaWarning && (
         <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
           <span className="text-amber-500 text-sm shrink-0">⚠</span>
           <p className="text-[10px] text-amber-700 leading-tight">
             Índice de fatiga bajo ({resultadoFinal.fatiga_pct}%) — caída de rendimiento al final de la serie
+          </p>
+        </div>
+      )}
+
+      {/* Asimetría warning (conos) */}
+      {isConos && resultadoFinal && parseFloat(resultadoFinal.asim_prom_pct) > 15 && (
+        <div className="flex items-start gap-2 bg-orange-50 border border-orange-200 rounded-lg px-3 py-2">
+          <span className="text-orange-500 text-sm shrink-0">⚠</span>
+          <p className="text-[10px] text-orange-700 leading-tight">
+            Asimetría elevada ({resultadoFinal.asim_prom_pct}%) — revisar equilibrio izq/der en los saltos
           </p>
         </div>
       )}
@@ -415,9 +479,9 @@ export default function SistemaUnificadoPage() {
   const [progresoSegundos, setProgresoSegundos] = useState(0)
 
   // Shared result state
-  const [saltoRTActual, setSaltoRTActual] = useState(null)    // best SALTO_JSON (simple/valla)
-  const [repReciente, setRepReciente] = useState(null)        // latest REP_JSON (cajón)
-  const [resultadoFinal, setResultadoFinal] = useState(null)  // RESULTADO_JSON parsed
+  const [saltoRTActual, setSaltoRTActual] = useState(null)
+  const [repReciente, setRepReciente] = useState(null)
+  const [resultadoFinal, setResultadoFinal] = useState(null)
 
   const jugadorRef = useRef(null)
   const tipoSaltoRef = useRef(tipoSalto)
@@ -455,7 +519,7 @@ export default function SistemaUnificadoPage() {
   }
 
   // ─────────────────────────────────────────────────────────────────────────────
-  // PUSHER — message handling
+  // PUSHER
   // ─────────────────────────────────────────────────────────────────────────────
   const subscribeToESP = (pusher) => {
     const channel = pusher.subscribe(`private-device-${DEVICE_ID}`)
@@ -512,19 +576,17 @@ export default function SistemaUnificadoPage() {
         return
       }
 
-      // ── 4a. REP_JSON (cajón — per-rep real-time) ──
-      // Format: REP_JSON:{"num":1,"tv":0.350,"pico_izq":45.20,"pico_der":38.10,"asimetria":15.8}
+      // ── 4a. REP_JSON (cajón) ──
       if (msg.startsWith("REP_JSON:")) {
         try {
           const json = JSON.parse(msg.slice("REP_JSON:".length))
-          const repData = {
+          setRepReciente({
             num: json.num,
             tv: json.tv,
             pico_izq: json.pico_izq,
             pico_der: json.pico_der,
             asimetria: json.asimetria,
-          }
-          setRepReciente(repData)
+          })
           addMessage(
             DEVICE_ID,
             `Rep #${json.num} — TV: ${Number(json.tv).toFixed(3)}s | Izq: ${json.pico_izq}kg | Der: ${json.pico_der}kg | Asim: ${json.asimetria}%`,
@@ -537,14 +599,25 @@ export default function SistemaUnificadoPage() {
         return
       }
 
-      // ── 4b. SALTO_JSON (simple/valla — per-jump real-time) ──
+      // ── 4b. SALTO_JSON (simple / valla / conos) ──
+      // Formato ESP conos: { num, tv, altura_cm, pico_izq, pico_der, asimetria }
       if (msg.startsWith("SALTO_JSON:")) {
         try {
           const json = JSON.parse(msg.slice("SALTO_JSON:".length))
+          const currentTipo = tipoSaltoRef.current
           const alcanceEstaticoCm = getAlcanceEstaticoCm()
           const alcanceTotal = parseFloat((alcanceEstaticoCm + json.altura_cm).toFixed(1))
-          const randomOffset = (Math.random() * 10) * (Math.random() < 0.5 ? 1 : -1)
-          const fuerza_der_calculada = parseFloat((json.pico_izq + randomOffset).toFixed(2))
+
+          // Para conos: el ESP ya calcula asimetría y envía pico_izq / pico_der reales.
+          // Para simple/valla: pico_der se calcula con offset aleatorio (comportamiento original).
+          let pico_der_final
+          if (currentTipo === "salto conos") {
+            // Usar el valor real enviado por el ESP (campo asimetria también disponible)
+            pico_der_final = json.pico_der ?? 0
+          } else {
+            const randomOffset = (Math.random() * 10) * (Math.random() < 0.5 ? 1 : -1)
+            pico_der_final = parseFloat((json.pico_izq + randomOffset).toFixed(2))
+          }
 
           const saltoData = {
             num: json.num,
@@ -552,17 +625,20 @@ export default function SistemaUnificadoPage() {
             alcanceTotal,
             tiempoVuelo: json.tv,
             pico_izq: json.pico_izq,
-            pico_der: fuerza_der_calculada,
+            pico_der: pico_der_final,
+            asimetria: json.asimetria ?? null,
           }
 
           setSaltoRTActual((prev) => {
             if (!prev || json.altura_cm > prev.altura_cm) return saltoData
+            // Para conos mostramos el más reciente (no solo el mejor)
+            if (currentTipo === "salto conos") return saltoData
             return prev
           })
 
           addMessage(
             DEVICE_ID,
-            `Salto #${json.num} — vuelo: ${Number(json.tv).toFixed(3)}s | altura: ${json.altura_cm}cm | F.izq: ${json.pico_izq}kg`,
+            `Salto #${json.num} — vuelo: ${Number(json.tv).toFixed(3)}s | altura: ${json.altura_cm}cm | F.izq: ${json.pico_izq}kg${json.asimetria != null ? ` | Asim: ${json.asimetria}%` : ""}`,
             "success",
             setMessages
           )
@@ -572,7 +648,7 @@ export default function SistemaUnificadoPage() {
         return
       }
 
-      // ── 5. RESULTADO_JSON (final summary — two formats) ──
+      // ── 5. RESULTADO_JSON ──
       if (msg.startsWith("RESULTADO_JSON:")) {
         try {
           const json = JSON.parse(msg.slice("RESULTADO_JSON:".length))
@@ -581,8 +657,6 @@ export default function SistemaUnificadoPage() {
           let resultado = null
 
           if (currentTipo === "salto cajon") {
-            // Cajón format: reps, tv_prom_s, pico_izq_kg, pico_der_kg,
-            //               prom_izq_kg, prom_der_kg, asim_prom_pct, fatiga_pct
             resultado = {
               _tipo: "cajon",
               reps:           json.reps,
@@ -596,13 +670,38 @@ export default function SistemaUnificadoPage() {
             }
             addMessage(
               DEVICE_ID,
-              `Sesión cajón finalizada — reps: ${json.reps} | TV prom: ${json.tv_prom_s}s | Pico izq: ${json.pico_izq_kg}kg | Fatiga: ${json.fatiga_pct}%`,
+              `Sesión cajón — reps: ${json.reps} | TV prom: ${json.tv_prom_s}s | Pico izq: ${json.pico_izq_kg}kg | Fatiga: ${json.fatiga_pct}%`,
               "success",
               setMessages
             )
+
+          } else if (currentTipo === "salto conos") {
+            // ESP cono RESULTADO_JSON:
+            //   { saltos, alt_max_cm, alt_prom_cm, tv_prom_s,
+            //     pico_izq_kg, pico_der_kg, prom_izq_kg, prom_der_kg,
+            //     asim_prom_pct, fatiga_pct }
+            resultado = {
+              _tipo: "conos",
+              saltos_validos:  json.saltos,
+              alt_max_cm:      Number(json.alt_max_cm).toFixed(1),
+              alt_prom_cm:     Number(json.alt_prom_cm).toFixed(1),
+              tv_prom_s:       Number(json.tv_prom_s).toFixed(3),
+              pico_izq_kg:     Number(json.pico_izq_kg).toFixed(2),
+              pico_der_kg:     Number(json.pico_der_kg).toFixed(2),
+              prom_izq_kg:     Number(json.prom_izq_kg).toFixed(2),
+              prom_der_kg:     Number(json.prom_der_kg).toFixed(2),
+              asim_prom_pct:   Number(json.asim_prom_pct).toFixed(1),
+              fatiga_pct:      Number(json.fatiga_pct).toFixed(1),
+            }
+            addMessage(
+              DEVICE_ID,
+              `Sesión conos — saltos: ${json.saltos} | alt.máx: ${json.alt_max_cm}cm | TV prom: ${json.tv_prom_s}s | Fatiga: ${json.fatiga_pct}%`,
+              "success",
+              setMessages
+            )
+
           } else {
-            // Simple/Valla format: saltos, alt_max_m, alt_max_cm, alt_prom_m,
-            //                      alt_prom_cm, tv_prom_s, fuerza_izq, fuerza_der
+            // simple / valla
             const alcanceEstaticoCm = getAlcanceEstaticoCm()
             const alcanceTotal = parseFloat((alcanceEstaticoCm + json.alt_max_cm).toFixed(1))
 
@@ -626,7 +725,6 @@ export default function SistemaUnificadoPage() {
               return prev
             })
 
-            // Alcance: incremento vs anterior
             const previo = ultimoAlcanceRef.current
             if (previo?.alcance != null) {
               const inc = alcanceTotal - parseFloat(previo.alcance)
@@ -728,10 +826,10 @@ export default function SistemaUnificadoPage() {
   const handleGuardarAlcance = async () => {
     if (!resultadoFinal || !cuentaSeleccionada) return
     try {
-      const alcance = resultadoFinal._tipo === "cajon"
-        ? null  // cajón doesn't save alcance
+      const alcance = resultadoFinal._tipo === "cajon" || resultadoFinal._tipo === "conos"
+        ? null
         : resultadoFinal.alcanceTotal
-      if (!alcance) { notify("error", "Salto cajón no guarda alcance"); return }
+      if (!alcance) { notify("error", "Este tipo de salto no guarda alcance"); return }
       const res = await fetch(`${BACKEND_URL}/api/alcances`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -802,6 +900,7 @@ export default function SistemaUnificadoPage() {
     setResultadoFinal(null)
     setProgresoSegundos(0)
 
+    // Todos los tipos usan START:<segundos>
     addMessage("SISTEMA", `Enviando START:${duracion} al ESP...`, "info", setMessages)
     await sendCommand(`START:${duracion}`, setMessages)
 
@@ -836,21 +935,40 @@ export default function SistemaUnificadoPage() {
     if (!pliometriaId || !resultadoFinal) { notify("error", "No hay datos para guardar"); return }
     try {
       const isCajon = resultadoFinal._tipo === "cajon"
-      const body = isCajon
-        ? {
-            reps_validas:   resultadoFinal.reps,
-            tv_prom_s:      resultadoFinal.tv_prom_s,
-            pico_izq_kg:    resultadoFinal.pico_izq_kg,
-            pico_der_kg:    resultadoFinal.pico_der_kg,
-            prom_izq_kg:    resultadoFinal.prom_izq_kg,
-            prom_der_kg:    resultadoFinal.prom_der_kg,
-            asim_prom_pct:  resultadoFinal.asim_prom_pct,
-            fatiga_pct:     resultadoFinal.fatiga_pct,
-          }
-        : {
-            mejor_altura_m: resultadoFinal.alt_max_m,
-            saltos_validos: resultadoFinal.saltos_validos,
-          }
+      const isConos = resultadoFinal._tipo === "conos"
+
+      let body
+      if (isCajon) {
+        body = {
+          reps_validas:   resultadoFinal.reps,
+          tv_prom_s:      resultadoFinal.tv_prom_s,
+          pico_izq_kg:    resultadoFinal.pico_izq_kg,
+          pico_der_kg:    resultadoFinal.pico_der_kg,
+          prom_izq_kg:    resultadoFinal.prom_izq_kg,
+          prom_der_kg:    resultadoFinal.prom_der_kg,
+          asim_prom_pct:  resultadoFinal.asim_prom_pct,
+          fatiga_pct:     resultadoFinal.fatiga_pct,
+        }
+      } else if (isConos) {
+        // Salto conos: envía todas las métricas ricas al backend
+        body = {
+          saltos_validos:  resultadoFinal.saltos_validos,
+          alt_max_cm:      resultadoFinal.alt_max_cm,
+          alt_prom_cm:     resultadoFinal.alt_prom_cm,
+          tv_prom_s:       resultadoFinal.tv_prom_s,
+          pico_izq_kg:     resultadoFinal.pico_izq_kg,
+          pico_der_kg:     resultadoFinal.pico_der_kg,
+          prom_izq_kg:     resultadoFinal.prom_izq_kg,
+          prom_der_kg:     resultadoFinal.prom_der_kg,
+          asim_prom_pct:   resultadoFinal.asim_prom_pct,
+          fatiga_pct:      resultadoFinal.fatiga_pct,
+        }
+      } else {
+        body = {
+          mejor_altura_m: resultadoFinal.alt_max_m,
+          saltos_validos: resultadoFinal.saltos_validos,
+        }
+      }
 
       const res = await fetch(`${BACKEND_URL}/api/pliometrias/finalizar/${pliometriaId}`, {
         method: "PUT",
@@ -859,26 +977,42 @@ export default function SistemaUnificadoPage() {
       })
       const d = await res.json()
       if (d.success) {
-        const guardadoData = isCajon
-          ? {
-              "Tipo de salto":          tipoSalto,
-              "Reps válidas":           `${resultadoFinal.reps}`,
-              "TV promedio":            `${resultadoFinal.tv_prom_s} s`,
-              "Fuerza pico izq.":       `${resultadoFinal.pico_izq_kg} kg`,
-              "Fuerza pico der.":       `${resultadoFinal.pico_der_kg} kg`,
-              "Prom. izq. / der.":      `${resultadoFinal.prom_izq_kg} / ${resultadoFinal.prom_der_kg} kg`,
-              "Asimetría promedio":     `${resultadoFinal.asim_prom_pct} %`,
-              "Índice de fatiga":       `${resultadoFinal.fatiga_pct} %`,
-            }
-          : {
-              "Tipo de salto":          tipoSalto,
-              "Mejor altura":           `${resultadoFinal.alt_max_cm} cm`,
-              "Saltos válidos":         `${resultadoFinal.saltos_validos}`,
-              "Alcance total":          `${resultadoFinal.alcanceTotal} cm`,
-              "Tiempo de vuelo prom.":  `${resultadoFinal.tv_prom_s} s`,
-              "Fuerza máx. izquierda":  `${resultadoFinal.fuerza_izq} kg`,
-              "Fuerza máx. derecha":    `${resultadoFinal.fuerza_der} kg`,
-            }
+        let guardadoData
+        if (isCajon) {
+          guardadoData = {
+            "Tipo de salto":      tipoSalto,
+            "Reps válidas":       `${resultadoFinal.reps}`,
+            "TV promedio":        `${resultadoFinal.tv_prom_s} s`,
+            "Fuerza pico izq.":   `${resultadoFinal.pico_izq_kg} kg`,
+            "Fuerza pico der.":   `${resultadoFinal.pico_der_kg} kg`,
+            "Prom. izq. / der.":  `${resultadoFinal.prom_izq_kg} / ${resultadoFinal.prom_der_kg} kg`,
+            "Asimetría promedio": `${resultadoFinal.asim_prom_pct} %`,
+            "Índice de fatiga":   `${resultadoFinal.fatiga_pct} %`,
+          }
+        } else if (isConos) {
+          guardadoData = {
+            "Tipo de salto":      tipoSalto,
+            "Saltos válidos":     `${resultadoFinal.saltos_validos}`,
+            "Altura máxima":      `${resultadoFinal.alt_max_cm} cm`,
+            "Altura promedio":    `${resultadoFinal.alt_prom_cm} cm`,
+            "TV promedio":        `${resultadoFinal.tv_prom_s} s`,
+            "Fuerza pico izq.":   `${resultadoFinal.pico_izq_kg} kg`,
+            "Fuerza pico der.":   `${resultadoFinal.pico_der_kg} kg`,
+            "Prom. izq. / der.":  `${resultadoFinal.prom_izq_kg} / ${resultadoFinal.prom_der_kg} kg`,
+            "Asimetría promedio": `${resultadoFinal.asim_prom_pct} %`,
+            "Índice de fatiga":   `${resultadoFinal.fatiga_pct} %`,
+          }
+        } else {
+          guardadoData = {
+            "Tipo de salto":          tipoSalto,
+            "Mejor altura":           `${resultadoFinal.alt_max_cm} cm`,
+            "Saltos válidos":         `${resultadoFinal.saltos_validos}`,
+            "Alcance total":          `${resultadoFinal.alcanceTotal} cm`,
+            "Tiempo de vuelo prom.":  `${resultadoFinal.tv_prom_s} s`,
+            "Fuerza máx. izquierda":  `${resultadoFinal.fuerza_izq} kg`,
+            "Fuerza máx. derecha":    `${resultadoFinal.fuerza_der} kg`,
+          }
+        }
 
         setPliometriaGuardada(guardadoData)
         setModalPliometriaOpen(true)
@@ -926,9 +1060,27 @@ export default function SistemaUnificadoPage() {
     s === "done" ? "text-emerald-600" : s === "active" ? "text-slate-700" : "text-slate-400"
 
   const saltoImages =
-    tipoSalto === "salto cajon" ? SALTO_CAJON_IMAGES :
-    tipoSalto === "salto valla" ? SALTO_VALLA_IMAGES :
+    tipoSalto === "salto cajon"  ? SALTO_CAJON_IMAGES  :
+    tipoSalto === "salto valla"  ? SALTO_VALLA_IMAGES  :
+    tipoSalto === "salto conos"  ? SALTO_CONOS_IMAGES  :
     SALTO_SIMPLE_IMAGES
+
+  // Descripción de pasos según tipo
+  const getPasoInicio = () => {
+    if (tipoSalto === "salto cajon")
+      return `Envía START:${tiempoPliometria || "N"}s → espera SESION_INICIADA. Cada rep llega en REP_JSON.`
+    if (tipoSalto === "salto conos")
+      return `Envía START:${tiempoPliometria || "N"}s → espera SESION_INICIADA. Cada salto llega en SALTO_JSON con altura, fuerza y asimetría.`
+    return `Envía START:${tiempoPliometria || "N"}s → espera SESION_INICIADA. Cada salto llega en SALTO_JSON.`
+  }
+
+  const getPasoFin = () => {
+    if (tipoSalto === "salto cajon")
+      return "Envía DETENER → ESP responde SESION_FINALIZADA + RESULTADO_JSON con reps, fuerzas, asimetría e índice de fatiga."
+    if (tipoSalto === "salto conos")
+      return "Envía DETENER → ESP responde SESION_FINALIZADA + RESULTADO_JSON con saltos, alturas, fuerzas por pierna, asimetría e índice de fatiga."
+    return "Envía DETENER → ESP responde SESION_FINALIZADA + RESULTADO_JSON con el resumen."
+  }
 
   // ─────────────────────────────────────────────────────────────────────────────
   // RENDER
@@ -1059,7 +1211,7 @@ export default function SistemaUnificadoPage() {
             </div>
           )}
 
-          {/* ③ RESULTADOS — alcance (only for simple/valla, not cajón) */}
+          {/* ③ RESULTADOS — alcance (solo simple/valla) */}
           {activeTab === "alcance" && (
             <div className="w-full lg:w-80 shrink-0 bg-white rounded-2xl border border-slate-200 shadow-sm p-4 flex flex-col gap-3">
               <span className="text-[9px] uppercase tracking-widest font-semibold text-slate-400">Resultados</span>
@@ -1109,7 +1261,7 @@ export default function SistemaUnificadoPage() {
               <div className="flex justify-end">
                 <button
                   onClick={handleGuardarAlcance}
-                  disabled={faseAlcance !== "done" || !resultadoFinal || resultadoFinal._tipo === "cajon"}
+                  disabled={faseAlcance !== "done" || !resultadoFinal || resultadoFinal._tipo === "cajon" || resultadoFinal._tipo === "conos"}
                   className="px-5 py-2 rounded-xl text-sm font-semibold bg-slate-700 text-white
                              hover:bg-slate-600 active:scale-95 transition-all
                              disabled:opacity-30 disabled:cursor-not-allowed"
@@ -1131,6 +1283,7 @@ export default function SistemaUnificadoPage() {
                     { key: "salto simple", label: "Simple" },
                     { key: "salto cajon",  label: "Cajón"  },
                     { key: "salto valla",  label: "Valla"  },
+                    { key: "salto conos",  label: "Conos"  },
                   ].map(({ key, label }) => (
                     <button
                       key={key}
@@ -1301,15 +1454,11 @@ export default function SistemaUnificadoPage() {
                   },
                   {
                     label: "Inicio de prueba",
-                    sub: tipoSalto === "salto cajon"
-                      ? `Envía START:${tiempoPliometria || "N"}s → espera SESION_INICIADA. Cada rep llega en REP_JSON.`
-                      : `Envía START:${tiempoPliometria || "N"}s → espera SESION_INICIADA. Cada salto llega en SALTO_JSON.`,
+                    sub: getPasoInicio(),
                   },
                   {
                     label: "Finalización",
-                    sub: tipoSalto === "salto cajon"
-                      ? "Envía DETENER → ESP responde SESION_FINALIZADA + RESULTADO_JSON con reps, fuerzas, asimetría e índice de fatiga."
-                      : "Envía DETENER → ESP responde SESION_FINALIZADA + RESULTADO_JSON con el resumen.",
+                    sub: getPasoFin(),
                   },
                 ].map(({ label, sub }, idx) => (
                   <div key={idx} className="flex flex-col gap-2">
@@ -1346,7 +1495,7 @@ export default function SistemaUnificadoPage() {
                 </div>
               </div>
 
-              {/* Results card — adapts to exercise type */}
+              {/* Results card */}
               <ResultadosCard
                 tipoSalto={tipoSalto}
                 resultadoFinal={resultadoFinal}
