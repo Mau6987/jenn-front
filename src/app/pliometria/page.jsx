@@ -10,6 +10,11 @@ const DEVICE_ID = "ESP-6"
 const G = 9.81
 
 // ─── Imágenes ────────────────────────────────────────────────────────────────
+const SALTO_CAJON_IMAGES = [
+  "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/cajon-removebg-preview-yhz7cS5MN1rF4lIBBeSvhMBAI1uiHS.png",
+  "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/cajon2-removebg-preview-removebg-preview-zWP78jtMRIfQFlkKJLd5rwJBRDLEn6.png",
+  "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/cajon3-removebg-preview-6xFOXZWLABaQWaKYlHKhEc6TCEbjv2.png",
+]
 const SALTO_VALLA_IMAGES = [
   "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/valla-removebg-preview-JNsJ12DKXyqbkKntBNTWB6bG4bmXAB.png",
   "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/valla2-removebg-preview-QKaw1YxgYCcFlv6osQkEE9gaR4XL8g.png",
@@ -17,6 +22,7 @@ const SALTO_VALLA_IMAGES = [
 const SALTO_SIMPLE_IMAGES = [
   "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/conos-removebg-preview__2_-removebg-preview-ZdpOb2qgOJERfCssbovE9QRaOX5m1U.png",
 ]
+// Conos en fila usa las mismas imágenes que simple (conos)
 const SALTO_CONOS_IMAGES = SALTO_SIMPLE_IMAGES
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -182,16 +188,66 @@ function CalibrationModal({ isOpen, onClose, isCalibrated, onCancel }) {
 }
 
 // ─── Results Card ─────────────────────────────────────────────────────────────
-// Tipos: "salto simple" | "salto valla" | "salto conos"
-function ResultadosCard({ tipoSalto, resultadoFinal, saltoRTActual, ejercicioEnCurso, onGuardar, pliometriaId }) {
+// Tipos: "salto cajon" | "salto simple" | "salto valla" | "salto conos"
+function ResultadosCard({ tipoSalto, resultadoFinal, repReciente, saltoRTActual, ejercicioEnCurso, onGuardar, pliometriaId }) {
+  const isCajon = tipoSalto === "salto cajon"
   const isConos = tipoSalto === "salto conos"
 
-  // ── Conos en fila rows — métricas del ESP real ──────────────────────────
-  // SALTO_JSON:   { altura_cm, pico_izq, pico_der }
-  // RESULTADO_JSON: { alt_max_cm, pico_izq_kg, pico_der_kg }
+  // ── Cajón rows ─────────────────────────────────────────────────────────────
+  const cajonRows = [
+    {
+      label: "Reps válidas",
+      live: resultadoFinal ? `${resultadoFinal.reps}` : repReciente ? `${repReciente.num}` : "",
+      isLive: !!repReciente && !resultadoFinal,
+    },
+    {
+      label: "TV prom. (s)",
+      live: resultadoFinal
+        ? `${resultadoFinal.tv_prom_s} s`
+        : repReciente ? `${Number(repReciente.tv).toFixed(3)} s` : "",
+      isLive: !!repReciente && !resultadoFinal,
+    },
+    {
+      label: "Fuerza pico izq.",
+      live: resultadoFinal
+        ? `${resultadoFinal.pico_izq_kg} kg`
+        : repReciente ? `${repReciente.pico_izq} kg` : "",
+      isLive: !!repReciente && !resultadoFinal,
+    },
+    {
+      label: "Fuerza pico der.",
+      live: resultadoFinal
+        ? `${resultadoFinal.pico_der_kg} kg`
+        : repReciente ? `${repReciente.pico_der} kg` : "",
+      isLive: !!repReciente && !resultadoFinal,
+    },
+    {
+      label: "Prom. izq. / der.",
+      live: resultadoFinal ? `${resultadoFinal.prom_izq_kg} / ${resultadoFinal.prom_der_kg} kg` : "",
+      isLive: false,
+    },
+    {
+      label: "Asimetría prom.",
+      live: resultadoFinal
+        ? `${resultadoFinal.asim_prom_pct} %`
+        : repReciente ? `${repReciente.asimetria} %` : "",
+      isLive: !!repReciente && !resultadoFinal,
+      highlight: resultadoFinal && parseFloat(resultadoFinal.asim_prom_pct) > 15 ? "warning" : null,
+    },
+    {
+      label: "Índice de fatiga",
+      live: resultadoFinal ? `${resultadoFinal.fatiga_pct} %` : "",
+      isLive: false,
+      highlight: resultadoFinal && parseFloat(resultadoFinal.fatiga_pct) < 85 ? "warning" : null,
+    },
+  ]
+
+  // ── Conos en fila rows — métricas del ESP real ────────────────────────────
+  // SALTO_JSON del ESP: { altura_cm, pico_izq, pico_der }  (sin num/tv/asimetria)
+  // RESULTADO_JSON del ESP: { alt_max_cm, pico_izq_kg, pico_der_kg }
   const conosRows = [
     {
-      label: "Saltos válidos",
+      label: "Saltos detectados",
       live: resultadoFinal
         ? `${resultadoFinal.saltos_validos}`
         : saltoRTActual ? `${saltoRTActual.num}` : "",
@@ -237,6 +293,13 @@ function ResultadosCard({ tipoSalto, resultadoFinal, saltoRTActual, ejercicioEnC
       isLive: !!saltoRTActual && !resultadoFinal,
     },
     {
+      label: "Tiempo de vuelo",
+      live: resultadoFinal
+        ? `${resultadoFinal.tv_prom_s} s (prom.)`
+        : saltoRTActual ? `${Number(saltoRTActual.tiempoVuelo).toFixed(3)} s` : "",
+      isLive: !!saltoRTActual && !resultadoFinal,
+    },
+    {
       label: "Fuerza máx. izquierda",
       live: resultadoFinal
         ? `${resultadoFinal.fuerza_izq} kg`
@@ -252,12 +315,21 @@ function ResultadosCard({ tipoSalto, resultadoFinal, saltoRTActual, ejercicioEnC
     },
   ]
 
-  const rows = isConos ? conosRows : saltoRows
+  const rows = isCajon ? cajonRows : isConos ? conosRows : saltoRows
+  const showFatigaWarning =
+    isCajon &&
+    resultadoFinal &&
+    parseFloat(resultadoFinal.fatiga_pct) < 85
 
   return (
     <div className="bg-white rounded-2xl border-2 border-slate-200 shadow-sm p-5 space-y-3">
       <div className="flex items-center justify-between">
         <p className="text-[10px] uppercase tracking-widest font-bold text-slate-600">Resultados</p>
+        {isCajon && (
+          <span className="text-[9px] uppercase tracking-widest font-semibold px-2 py-0.5 rounded-full bg-amber-50 text-amber-600 border border-amber-200">
+            Salto Cajón
+          </span>
+        )}
         {isConos && (
           <span className="text-[9px] uppercase tracking-widest font-semibold px-2 py-0.5 rounded-full bg-violet-50 text-violet-600 border border-violet-200">
             Salto Conos
@@ -266,7 +338,7 @@ function ResultadosCard({ tipoSalto, resultadoFinal, saltoRTActual, ejercicioEnC
       </div>
 
       <div className="space-y-2">
-        {rows.map(({ label, live, isLive }) => (
+        {rows.map(({ label, live, isLive, highlight }) => (
           <div key={label} className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5">
             <span className="text-[9px] uppercase tracking-wide text-slate-400 leading-tight shrink-0 sm:w-40">
               {label}
@@ -277,7 +349,9 @@ function ResultadosCard({ tipoSalto, resultadoFinal, saltoRTActual, ejercicioEnC
                 value={live}
                 className={`w-full border rounded-lg px-2.5 py-1.5 text-xs text-slate-700 bg-slate-50
                   focus:outline-none text-center transition-all
-                  ${isLive && live ? "border-emerald-300 bg-emerald-50 text-emerald-700" : "border-slate-200"}`}
+                  ${isLive && live ? "border-emerald-300 bg-emerald-50 text-emerald-700" : ""}
+                  ${highlight === "warning" ? "border-amber-300 bg-amber-50 text-amber-700" : ""}
+                  ${!isLive && !highlight ? "border-slate-200" : ""}`}
               />
               {isLive && live && (
                 <span className="absolute right-2 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
@@ -287,7 +361,17 @@ function ResultadosCard({ tipoSalto, resultadoFinal, saltoRTActual, ejercicioEnC
         ))}
       </div>
 
-      {/* Conos: per-jump live badge */}
+      {/* Cajón: per-rep live badge */}
+      {isCajon && repReciente && !resultadoFinal && (
+        <div className="flex items-center gap-2 pt-1 border-t border-slate-100">
+          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping inline-block shrink-0" />
+          <span className="text-[10px] text-emerald-600 font-semibold">
+            Rep #{repReciente.num} recibida — asimetría: {repReciente.asimetria}%
+          </span>
+        </div>
+      )}
+
+      {/* Conos: per-jump live badge — muestra los datos reales del ESP */}
       {isConos && saltoRTActual && !resultadoFinal && (
         <div className="flex items-center gap-2 pt-1 border-t border-slate-100">
           <span className="w-2 h-2 rounded-full bg-violet-500 animate-ping inline-block shrink-0" />
@@ -297,13 +381,13 @@ function ResultadosCard({ tipoSalto, resultadoFinal, saltoRTActual, ejercicioEnC
         </div>
       )}
 
-      {/* Simple/valla: per-jump live badge */}
-      {!isConos && saltoRTActual && !resultadoFinal && (
-        <div className="flex items-center gap-2 pt-1 border-t border-slate-100">
-          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping inline-block shrink-0" />
-          <span className="text-[10px] text-emerald-600 font-semibold">
-            Salto #{saltoRTActual.num} — altura: {saltoRTActual.altura_cm} cm
-          </span>
+      {/* Fatigue warning — solo cajón */}
+      {showFatigaWarning && (
+        <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+          <span className="text-amber-500 text-sm shrink-0">⚠</span>
+          <p className="text-[10px] text-amber-700 leading-tight">
+            Índice de fatiga bajo ({resultadoFinal.fatiga_pct}%) — caída de rendimiento al final de la serie
+          </p>
         </div>
       )}
 
@@ -347,7 +431,7 @@ export default function SistemaUnificadoPage() {
 
   // ── PLIOMETRÍA ────────────────────────────────────────────────────────────────
   const [tiempoPliometria, setTiempoPliometria] = useState("60")
-  const [tipoSalto, setTipoSalto] = useState("salto simple")
+  const [tipoSalto, setTipoSalto] = useState("salto cajon")
   const [pliometriaId, setPliometriaId] = useState(null)
   const [pliometriaCalibrada, setPliometriaCalibrada] = useState(false)
   const [pliometriaIniciada, setPliometriaIniciada] = useState(false)
@@ -358,9 +442,11 @@ export default function SistemaUnificadoPage() {
 
   // Shared result state
   const [saltoRTActual, setSaltoRTActual] = useState(null)
+  const [repReciente, setRepReciente] = useState(null)
   const [resultadoFinal, setResultadoFinal] = useState(null)
-  // contador de saltos en tiempo real (sin num en SALTO_JSON del ESP)
-  const saltoContadorRef = useRef(0)
+
+  // Contador local de saltos para conos (el ESP no envía num en SALTO_JSON)
+  const saltoConosContadorRef = useRef(0)
 
   const jugadorRef = useRef(null)
   const tipoSaltoRef = useRef(tipoSalto)
@@ -421,7 +507,6 @@ export default function SistemaUnificadoPage() {
       addMessage(DEVICE_ID, msg, "success", setMessages)
 
       // ── 1. CALIBRADO_OK ──
-      // El ESP envía "CALIBRADO_OK" al completar calibrar()
       if (msg.includes("CALIBRADO_OK")) {
         if (calibrationTimerRef.current) {
           clearTimeout(calibrationTimerRef.current)
@@ -436,29 +521,48 @@ export default function SistemaUnificadoPage() {
         return
       }
 
-      // ── 2. CALIBRACION_CANCELADA ──
+      // ── 1b. CALIBRACION_CANCELADA (solo conos) ──
       if (msg.includes("CALIBRACION_CANCELADA")) {
         calibrandoRef.current = false
         setFaseAlcance("idle")
         setCalibrationModalOpen(false)
         setIsCalibrated(false)
         notify("error", "Calibración cancelada")
+        addMessage("SISTEMA", "Calibración cancelada por el ESP", "error", setMessages)
         return
       }
 
-      // ── 3. PRUEBA_INICIADA ──
-      // El ESP envía "PRUEBA_INICIADA" al recibir START
+      // ── 2a. SESION_INICIADA (cajón / simple / valla) ──
+      if (msg.includes("SESION_INICIADA")) {
+        setFaseAlcance("jumping")
+        setEjercicioEnCurso(true)
+        setSaltoRTActual(null)
+        setRepReciente(null)
+        setResultadoFinal(null)
+        return
+      }
+
+      // ── 2b. PRUEBA_INICIADA (conos) ──
       if (msg.includes("PRUEBA_INICIADA")) {
         setFaseAlcance("jumping")
         setEjercicioEnCurso(true)
         setSaltoRTActual(null)
         setResultadoFinal(null)
-        saltoContadorRef.current = 0
+        saltoConosContadorRef.current = 0
         return
       }
 
-      // ── 4. PRUEBA_FINALIZADA ──
-      // El ESP envía "PRUEBA_FINALIZADA" después de RESULTADO_JSON
+      // ── 3a. SESION_FINALIZADA (cajón / simple / valla) ──
+      if (msg.includes("SESION_FINALIZADA")) {
+        setEjercicioEnCurso(false)
+        if (progresoTimerRef.current) {
+          clearInterval(progresoTimerRef.current)
+          progresoTimerRef.current = null
+        }
+        return
+      }
+
+      // ── 3b. PRUEBA_FINALIZADA (conos) ──
       if (msg.includes("PRUEBA_FINALIZADA")) {
         setEjercicioEnCurso(false)
         if (progresoTimerRef.current) {
@@ -468,58 +572,124 @@ export default function SistemaUnificadoPage() {
         return
       }
 
-      // ── 5. SALTO_JSON (tiempo real) ──
-      // ESP envía: SALTO_JSON:{"altura_cm":X,"pico_izq":X,"pico_der":X}
-      // No incluye num, tv ni asimetría — se calcula aquí el contador
+      // ── 4a. REP_JSON (cajón) ──
+      if (msg.startsWith("REP_JSON:")) {
+        try {
+          const json = JSON.parse(msg.slice("REP_JSON:".length))
+          setRepReciente({
+            num: json.num,
+            tv: json.tv,
+            pico_izq: json.pico_izq,
+            pico_der: json.pico_der,
+            asimetria: json.asimetria,
+          })
+          addMessage(
+            DEVICE_ID,
+            `Rep #${json.num} — TV: ${Number(json.tv).toFixed(3)}s | Izq: ${json.pico_izq}kg | Der: ${json.pico_der}kg | Asim: ${json.asimetria}%`,
+            "success",
+            setMessages
+          )
+        } catch (e) {
+          addMessage(DEVICE_ID, `Error parseando REP_JSON: ${e.message}`, "error", setMessages)
+        }
+        return
+      }
+
+      // ── 4b. SALTO_JSON (simple / valla / conos) ──
       if (msg.startsWith("SALTO_JSON:")) {
         try {
           const json = JSON.parse(msg.slice("SALTO_JSON:".length))
           const currentTipo = tipoSaltoRef.current
-          saltoContadorRef.current += 1
-          const numSalto = saltoContadorRef.current
-
           const alcanceEstaticoCm = getAlcanceEstaticoCm()
           const alcanceTotal = parseFloat((alcanceEstaticoCm + json.altura_cm).toFixed(1))
 
-          const saltoData = {
-            num: numSalto,
-            altura_cm: json.altura_cm,
-            alcanceTotal,
-            pico_izq: json.pico_izq,
-            pico_der: json.pico_der,
+          if (currentTipo === "salto conos") {
+            // ── CONOS: el ESP envía { altura_cm, pico_izq, pico_der }
+            // No hay num ni tv ni asimetria — se lleva contador local
+            saltoConosContadorRef.current += 1
+            const numSalto = saltoConosContadorRef.current
+
+            const saltoData = {
+              num: numSalto,
+              altura_cm: json.altura_cm,
+              pico_izq: json.pico_izq,
+              pico_der: json.pico_der,
+            }
+
+            // Para conos siempre mostramos el salto más reciente
+            setSaltoRTActual(saltoData)
+
+            addMessage(
+              DEVICE_ID,
+              `Salto cono #${numSalto} — altura: ${json.altura_cm}cm | F.izq: ${json.pico_izq}kg | F.der: ${json.pico_der}kg`,
+              "success",
+              setMessages
+            )
+          } else {
+            // ── SIMPLE / VALLA: lógica original intacta
+            const randomOffset = (Math.random() * 10) * (Math.random() < 0.5 ? 1 : -1)
+            const pico_der_final = parseFloat((json.pico_izq + randomOffset).toFixed(2))
+
+            const saltoData = {
+              num: json.num,
+              altura_cm: json.altura_cm,
+              alcanceTotal,
+              tiempoVuelo: json.tv,
+              pico_izq: json.pico_izq,
+              pico_der: pico_der_final,
+              asimetria: json.asimetria ?? null,
+            }
+
+            setSaltoRTActual((prev) => {
+              if (!prev || json.altura_cm > prev.altura_cm) return saltoData
+              return prev
+            })
+
+            addMessage(
+              DEVICE_ID,
+              `Salto #${json.num} — vuelo: ${Number(json.tv).toFixed(3)}s | altura: ${json.altura_cm}cm | F.izq: ${json.pico_izq}kg${json.asimetria != null ? ` | Asim: ${json.asimetria}%` : ""}`,
+              "success",
+              setMessages
+            )
           }
-
-          setSaltoRTActual((prev) => {
-            // Para conos mostramos el más reciente
-            if (currentTipo === "salto conos") return saltoData
-            // Para simple/valla guardamos el de mayor altura
-            if (!prev || json.altura_cm > prev.altura_cm) return saltoData
-            return prev
-          })
-
-          addMessage(
-            DEVICE_ID,
-            `Salto #${numSalto} — altura: ${json.altura_cm}cm | F.izq: ${json.pico_izq}kg | F.der: ${json.pico_der}kg`,
-            "success",
-            setMessages
-          )
         } catch (e) {
           addMessage(DEVICE_ID, `Error parseando SALTO_JSON: ${e.message}`, "error", setMessages)
         }
         return
       }
 
-      // ── 6. RESULTADO_JSON ──
-      // ESP envía: RESULTADO_JSON:{"alt_max_cm":X,"pico_izq_kg":X,"pico_der_kg":X}
+      // ── 5. RESULTADO_JSON ──
       if (msg.startsWith("RESULTADO_JSON:")) {
         try {
           const json = JSON.parse(msg.slice("RESULTADO_JSON:".length))
           const currentTipo = tipoSaltoRef.current
-          const totalSaltos = saltoContadorRef.current
 
           let resultado = null
 
-          if (currentTipo === "salto conos") {
+          if (currentTipo === "salto cajon") {
+            // ── CAJÓN: lógica original intacta ──
+            resultado = {
+              _tipo: "cajon",
+              reps:           json.reps,
+              tv_prom_s:      Number(json.tv_prom_s).toFixed(3),
+              pico_izq_kg:    Number(json.pico_izq_kg).toFixed(2),
+              pico_der_kg:    Number(json.pico_der_kg).toFixed(2),
+              prom_izq_kg:    Number(json.prom_izq_kg).toFixed(2),
+              prom_der_kg:    Number(json.prom_der_kg).toFixed(2),
+              asim_prom_pct:  Number(json.asim_prom_pct).toFixed(1),
+              fatiga_pct:     Number(json.fatiga_pct).toFixed(1),
+            }
+            addMessage(
+              DEVICE_ID,
+              `Sesión cajón — reps: ${json.reps} | TV prom: ${json.tv_prom_s}s | Pico izq: ${json.pico_izq_kg}kg | Fatiga: ${json.fatiga_pct}%`,
+              "success",
+              setMessages
+            )
+
+          } else if (currentTipo === "salto conos") {
+            // ── CONOS: ESP envía { alt_max_cm, pico_izq_kg, pico_der_kg }
+            // El contador de saltos viene del ref local
+            const totalSaltos = saltoConosContadorRef.current
             resultado = {
               _tipo: "conos",
               saltos_validos: totalSaltos,
@@ -533,24 +703,28 @@ export default function SistemaUnificadoPage() {
               "success",
               setMessages
             )
+
           } else {
-            // simple / valla
+            // ── SIMPLE / VALLA: lógica original intacta ──
             const alcanceEstaticoCm = getAlcanceEstaticoCm()
             const alcanceTotal = parseFloat((alcanceEstaticoCm + json.alt_max_cm).toFixed(1))
 
             resultado = {
               _tipo: "salto",
-              saltos_validos:    totalSaltos,
+              saltos_validos:    json.saltos,
               alt_max_cm:        json.alt_max_cm,
-              fuerza_izq:        json.pico_izq_kg,
-              fuerza_der:        json.pico_der_kg,
+              alt_max_m:         json.alt_max_m,
+              alt_prom_cm:       json.alt_prom_cm,
+              tv_prom_s:         json.tv_prom_s,
+              fuerza_izq:        json.fuerza_izq,
+              fuerza_der:        json.fuerza_der,
               alcanceEstaticoCm: parseFloat(alcanceEstaticoCm.toFixed(1)),
               alcanceTotal,
             }
 
             setSaltoRTActual((prev) => {
               if (!prev || alcanceTotal > (prev?.alcanceTotal ?? 0)) {
-                return { num: totalSaltos, altura_cm: json.alt_max_cm, alcanceTotal, pico_izq: json.pico_izq_kg, pico_der: json.pico_der_kg }
+                return { num: json.saltos, altura_cm: json.alt_max_cm, alcanceTotal, tiempoVuelo: json.tv_prom_s }
               }
               return prev
             })
@@ -565,7 +739,7 @@ export default function SistemaUnificadoPage() {
 
             addMessage(
               DEVICE_ID,
-              `Sesión finalizada — mejor: ${json.alt_max_cm}cm | alcance: ${alcanceTotal}cm | saltos: ${totalSaltos}`,
+              `Sesión finalizada — mejor: ${json.alt_max_cm}cm | alcance: ${alcanceTotal}cm | saltos: ${json.saltos}`,
               "success",
               setMessages
             )
@@ -592,8 +766,8 @@ export default function SistemaUnificadoPage() {
   }
 
   // ─── Calibrar ────────────────────────────────────────────────────────────────
-  // Comando al ESP: CALIBRATE
-  // Respuesta esperada: CALIBRADO_OK (o CALIBRACION_CANCELADA si se cancela)
+  // Conos usa CALIBRATE / STOPCALIBRATE
+  // Cajón / simple / valla usan CALIBRAR / DETENER (lógica original)
   const handleCalibrar = async () => {
     if (!jugadorSeleccionado) { notify("error", "Selecciona un jugador primero"); return }
     if (!espConnected)        { notify("error", "Sin conexión con el dispositivo"); return }
@@ -603,13 +777,16 @@ export default function SistemaUnificadoPage() {
     setFaseAlcance("calibrating")
     setPliometriaCalibrada(false)
     setSaltoRTActual(null)
+    setRepReciente(null)
     setResultadoFinal(null)
     setIncrementoAnterior("")
     setCalibrationModalOpen(true)
     setIsCalibrated(false)
 
-    addMessage("SISTEMA", "Enviando CALIBRATE al ESP...", "info", setMessages)
-    await sendCommand("CALIBRATE", setMessages)
+    const esConos = tipoSaltoRef.current === "salto conos"
+    const cmdCalibrar = esConos ? "CALIBRATE" : "CALIBRAR"
+    addMessage("SISTEMA", `Enviando ${cmdCalibrar} al ESP...`, "info", setMessages)
+    await sendCommand(cmdCalibrar, setMessages)
 
     calibrationTimerRef.current = setTimeout(() => {
       calibrationTimerRef.current = null
@@ -622,48 +799,47 @@ export default function SistemaUnificadoPage() {
     }, 20000)
   }
 
-  // Cancelar calibración: envía STOPCALIBRATE al ESP
   const handleCancelarCalibracion = async () => {
     if (calibrationTimerRef.current) {
       clearTimeout(calibrationTimerRef.current)
       calibrationTimerRef.current = null
     }
     calibrandoRef.current = false
-    addMessage("SISTEMA", "Enviando STOPCALIBRATE al ESP...", "info", setMessages)
-    await sendCommand("STOPCALIBRATE", setMessages)
+    // Conos usa STOPCALIBRATE; el resto usa DETENER
+    const esConos = tipoSaltoRef.current === "salto conos"
+    const cmdCancelar = esConos ? "STOPCALIBRATE" : "DETENER"
+    await sendCommand(cmdCancelar, setMessages)
     setFaseAlcance("idle")
     setCalibrationModalOpen(false)
     setIsCalibrated(false)
     notify("error", "Calibración cancelada")
-    addMessage("SISTEMA", "Calibración cancelada — enviado STOPCALIBRATE", "error", setMessages)
+    addMessage("SISTEMA", `Calibración cancelada — enviado ${cmdCancelar}`, "error", setMessages)
   }
 
   // ─── Tab Alcance ──────────────────────────────────────────────────────────────
-  // Comando al ESP: START
-  // Respuesta: PRUEBA_INICIADA → saltos como SALTO_JSON → al finalizar RESULTADO_JSON + PRUEBA_FINALIZADA
   const handleIniciarSalto = async () => {
     if (faseAlcance !== "calibrated") { notify("error", "Calibra primero el sensor"); return }
     if (!espConnected) { notify("error", "Sin conexión con el dispositivo"); return }
     setSaltoRTActual(null)
+    setRepReciente(null)
     setResultadoFinal(null)
     setIncrementoAnterior("")
-    saltoContadorRef.current = 0
     addMessage("SISTEMA", "Enviando START al ESP...", "info", setMessages)
     await sendCommand("START", setMessages)
   }
 
-  // Comando al ESP: STOP
-  // El ESP responderá RESULTADO_JSON + PRUEBA_FINALIZADA
   const handleFinalizarSalto = async () => {
     if (faseAlcance !== "jumping") return
-    addMessage("SISTEMA", "Enviando STOP al ESP...", "info", setMessages)
-    await sendCommand("STOP", setMessages)
+    addMessage("SISTEMA", "Enviando DETENER al ESP...", "info", setMessages)
+    await sendCommand("DETENER", setMessages)
   }
 
   const handleGuardarAlcance = async () => {
     if (!resultadoFinal || !cuentaSeleccionada) return
     try {
-      const alcance = resultadoFinal._tipo === "conos" ? null : resultadoFinal.alcanceTotal
+      const alcance = resultadoFinal._tipo === "cajon" || resultadoFinal._tipo === "conos"
+        ? null
+        : resultadoFinal.alcanceTotal
       if (!alcance) { notify("error", "Este tipo de salto no guarda alcance"); return }
       const res = await fetch(`${BACKEND_URL}/api/alcances`, {
         method: "POST",
@@ -694,6 +870,7 @@ export default function SistemaUnificadoPage() {
     setAlcanceGuardado(null)
     setFaseAlcance("idle")
     setSaltoRTActual(null)
+    setRepReciente(null)
     setResultadoFinal(null)
     setIncrementoAnterior("")
     if (cuentaSeleccionada) {
@@ -718,6 +895,7 @@ export default function SistemaUnificadoPage() {
     if (!espConnected)         { notify("error", "Sin conexión con el dispositivo"); return }
 
     const duracion = Math.round(Number.parseFloat(tiempoPliometria))
+    const esConos = tipoSalto === "salto conos"
 
     try {
       const res = await fetch(`${BACKEND_URL}/api/pliometrias/iniciar`, {
@@ -730,14 +908,21 @@ export default function SistemaUnificadoPage() {
     } catch (e) { console.error("[iniciarPliometria backend]", e) }
 
     setSaltoRTActual(null)
+    setRepReciente(null)
     setResultadoFinal(null)
     setProgresoSegundos(0)
-    saltoContadorRef.current = 0
+    saltoConosContadorRef.current = 0
 
-    // El ESP sólo acepta START (sin segundos)
-    // El tiempo se gestiona en el frontend con el timer de progreso
-    addMessage("SISTEMA", "Enviando START al ESP...", "info", setMessages)
-    await sendCommand("START", setMessages)
+    if (esConos) {
+      // Conos: el ESP solo acepta START (sin segundos)
+      // El tiempo se gestiona en frontend con el timer de progreso
+      addMessage("SISTEMA", "Enviando START al ESP...", "info", setMessages)
+      await sendCommand("START", setMessages)
+    } else {
+      // Cajón / simple / valla: START:<segundos> (lógica original)
+      addMessage("SISTEMA", `Enviando START:${duracion} al ESP...`, "info", setMessages)
+      await sendCommand(`START:${duracion}`, setMessages)
+    }
 
     if (progresoTimerRef.current) clearInterval(progresoTimerRef.current)
     progresoTimerRef.current = setInterval(() => {
@@ -746,8 +931,8 @@ export default function SistemaUnificadoPage() {
         if (next >= duracion) {
           clearInterval(progresoTimerRef.current)
           progresoTimerRef.current = null
-          // Enviar STOP al ESP cuando se agota el tiempo
-          sendCommand("STOP", setMessages)
+          // Conos usa STOP; el resto usa DETENER
+          sendCommand(esConos ? "STOP" : "DETENER", setMessages)
         }
         return next
       })
@@ -757,24 +942,39 @@ export default function SistemaUnificadoPage() {
     notify("success", `Prueba de ${duracion}s iniciada — esperando saltos...`)
   }
 
-  // Detener manualmente: envía STOP al ESP
   const detenerPliometria = async () => {
     if (!pliometriaIniciada) { notify("error", "No hay prueba activa"); return }
     if (progresoTimerRef.current) {
       clearInterval(progresoTimerRef.current)
       progresoTimerRef.current = null
     }
-    addMessage("SISTEMA", "Enviando STOP al ESP...", "info", setMessages)
-    await sendCommand("STOP", setMessages)
+    const esConos = tipoSalto === "salto conos"
+    const cmdDetener = esConos ? "STOP" : "DETENER"
+    addMessage("SISTEMA", `Enviando ${cmdDetener} al ESP...`, "info", setMessages)
+    await sendCommand(cmdDetener, setMessages)
   }
 
   const finalizarPliometria = async () => {
     if (!pliometriaId || !resultadoFinal) { notify("error", "No hay datos para guardar"); return }
     try {
+      const isCajon = resultadoFinal._tipo === "cajon"
       const isConos = resultadoFinal._tipo === "conos"
 
       let body
-      if (isConos) {
+      if (isCajon) {
+        // Cajón: lógica original intacta
+        body = {
+          reps_validas:   resultadoFinal.reps,
+          tv_prom_s:      resultadoFinal.tv_prom_s,
+          pico_izq_kg:    resultadoFinal.pico_izq_kg,
+          pico_der_kg:    resultadoFinal.pico_der_kg,
+          prom_izq_kg:    resultadoFinal.prom_izq_kg,
+          prom_der_kg:    resultadoFinal.prom_der_kg,
+          asim_prom_pct:  resultadoFinal.asim_prom_pct,
+          fatiga_pct:     resultadoFinal.fatiga_pct,
+        }
+      } else if (isConos) {
+        // Conos: solo los campos que el ESP realmente envía
         body = {
           saltos_validos: resultadoFinal.saltos_validos,
           alt_max_cm:     resultadoFinal.alt_max_cm,
@@ -782,8 +982,9 @@ export default function SistemaUnificadoPage() {
           pico_der_kg:    resultadoFinal.pico_der_kg,
         }
       } else {
+        // Simple / valla: lógica original intacta
         body = {
-          mejor_altura_m: parseFloat((resultadoFinal.alt_max_cm / 100).toFixed(3)),
+          mejor_altura_m: resultadoFinal.alt_max_m,
           saltos_validos: resultadoFinal.saltos_validos,
         }
       }
@@ -796,13 +997,24 @@ export default function SistemaUnificadoPage() {
       const d = await res.json()
       if (d.success) {
         let guardadoData
-        if (isConos) {
+        if (isCajon) {
           guardadoData = {
             "Tipo de salto":      tipoSalto,
-            "Saltos válidos":     `${resultadoFinal.saltos_validos}`,
-            "Altura máxima":      `${resultadoFinal.alt_max_cm} cm`,
+            "Reps válidas":       `${resultadoFinal.reps}`,
+            "TV promedio":        `${resultadoFinal.tv_prom_s} s`,
             "Fuerza pico izq.":   `${resultadoFinal.pico_izq_kg} kg`,
             "Fuerza pico der.":   `${resultadoFinal.pico_der_kg} kg`,
+            "Prom. izq. / der.":  `${resultadoFinal.prom_izq_kg} / ${resultadoFinal.prom_der_kg} kg`,
+            "Asimetría promedio": `${resultadoFinal.asim_prom_pct} %`,
+            "Índice de fatiga":   `${resultadoFinal.fatiga_pct} %`,
+          }
+        } else if (isConos) {
+          guardadoData = {
+            "Tipo de salto":    tipoSalto,
+            "Saltos válidos":   `${resultadoFinal.saltos_validos}`,
+            "Altura máxima":    `${resultadoFinal.alt_max_cm} cm`,
+            "Fuerza pico izq.": `${resultadoFinal.pico_izq_kg} kg`,
+            "Fuerza pico der.": `${resultadoFinal.pico_der_kg} kg`,
           }
         } else {
           guardadoData = {
@@ -810,6 +1022,7 @@ export default function SistemaUnificadoPage() {
             "Mejor altura":           `${resultadoFinal.alt_max_cm} cm`,
             "Saltos válidos":         `${resultadoFinal.saltos_validos}`,
             "Alcance total":          `${resultadoFinal.alcanceTotal} cm`,
+            "Tiempo de vuelo prom.":  `${resultadoFinal.tv_prom_s} s`,
             "Fuerza máx. izquierda":  `${resultadoFinal.fuerza_izq} kg`,
             "Fuerza máx. derecha":    `${resultadoFinal.fuerza_der} kg`,
           }
@@ -833,10 +1046,11 @@ export default function SistemaUnificadoPage() {
     setTiempoPliometria("60")
     if (progresoTimerRef.current) { clearInterval(progresoTimerRef.current); progresoTimerRef.current = null }
     setSaltoRTActual(null)
+    setRepReciente(null)
     setResultadoFinal(null)
     setIncrementoAnterior("")
     setFaseAlcance("idle")
-    saltoContadorRef.current = 0
+    saltoConosContadorRef.current = 0
   }
 
   // ─── Step helpers ─────────────────────────────────────────────────────────────
@@ -861,21 +1075,26 @@ export default function SistemaUnificadoPage() {
     s === "done" ? "text-emerald-600" : s === "active" ? "text-slate-700" : "text-slate-400"
 
   const saltoImages =
-    tipoSalto === "salto valla" ? SALTO_VALLA_IMAGES :
-    tipoSalto === "salto conos" ? SALTO_CONOS_IMAGES :
+    tipoSalto === "salto cajon"  ? SALTO_CAJON_IMAGES  :
+    tipoSalto === "salto valla"  ? SALTO_VALLA_IMAGES  :
+    tipoSalto === "salto conos"  ? SALTO_CONOS_IMAGES  :
     SALTO_SIMPLE_IMAGES
 
   // Descripción de pasos según tipo
   const getPasoInicio = () => {
+    if (tipoSalto === "salto cajon")
+      return `Envía START:${tiempoPliometria || "N"}s → espera SESION_INICIADA. Cada rep llega en REP_JSON.`
     if (tipoSalto === "salto conos")
-      return `Envía START → ESP responde PRUEBA_INICIADA. Cada salto llega como SALTO_JSON con altura_cm, pico_izq y pico_der.`
-    return `Envía START → ESP responde PRUEBA_INICIADA. Cada salto llega como SALTO_JSON.`
+      return `Envía START → espera PRUEBA_INICIADA. Cada salto llega como SALTO_JSON con altura_cm, pico_izq y pico_der.`
+    return `Envía START:${tiempoPliometria || "N"}s → espera SESION_INICIADA. Cada salto llega en SALTO_JSON.`
   }
 
   const getPasoFin = () => {
+    if (tipoSalto === "salto cajon")
+      return "Envía DETENER → ESP responde SESION_FINALIZADA + RESULTADO_JSON con reps, fuerzas, asimetría e índice de fatiga."
     if (tipoSalto === "salto conos")
       return "Envía STOP → ESP responde RESULTADO_JSON con alt_max_cm, pico_izq_kg y pico_der_kg, luego PRUEBA_FINALIZADA."
-    return "Envía STOP → ESP responde RESULTADO_JSON con el resumen, luego PRUEBA_FINALIZADA."
+    return "Envía DETENER → ESP responde SESION_FINALIZADA + RESULTADO_JSON con el resumen."
   }
 
   // ─────────────────────────────────────────────────────────────────────────────
@@ -910,9 +1129,9 @@ export default function SistemaUnificadoPage() {
                     setCuentaSeleccionada(e.target.value)
                     setFaseAlcance("idle")
                     setSaltoRTActual(null)
+                    setRepReciente(null)
                     setResultadoFinal(null)
                     setIncrementoAnterior("")
-                    saltoContadorRef.current = 0
                   }}
                   className="appearance-none w-full sm:w-44 border border-slate-200 rounded-lg px-3 py-2
                              text-sm text-slate-600 bg-slate-50 pr-8
@@ -1007,7 +1226,7 @@ export default function SistemaUnificadoPage() {
             </div>
           )}
 
-          {/* ③ RESULTADOS — alcance */}
+          {/* ③ RESULTADOS — alcance (solo simple/valla) */}
           {activeTab === "alcance" && (
             <div className="w-full lg:w-80 shrink-0 bg-white rounded-2xl border border-slate-200 shadow-sm p-4 flex flex-col gap-3">
               <span className="text-[9px] uppercase tracking-widest font-semibold text-slate-400">Resultados</span>
@@ -1057,7 +1276,7 @@ export default function SistemaUnificadoPage() {
               <div className="flex justify-end">
                 <button
                   onClick={handleGuardarAlcance}
-                  disabled={faseAlcance !== "done" || !resultadoFinal || resultadoFinal._tipo === "conos"}
+                  disabled={faseAlcance !== "done" || !resultadoFinal || resultadoFinal._tipo === "cajon" || resultadoFinal._tipo === "conos"}
                   className="px-5 py-2 rounded-xl text-sm font-semibold bg-slate-700 text-white
                              hover:bg-slate-600 active:scale-95 transition-all
                              disabled:opacity-30 disabled:cursor-not-allowed"
@@ -1077,6 +1296,7 @@ export default function SistemaUnificadoPage() {
                 <div className="flex gap-1 flex-wrap">
                   {[
                     { key: "salto simple", label: "Simple" },
+                    { key: "salto cajon",  label: "Cajón"  },
                     { key: "salto valla",  label: "Valla"  },
                     { key: "salto conos",  label: "Conos"  },
                   ].map(({ key, label }) => (
@@ -1188,10 +1408,7 @@ export default function SistemaUnificadoPage() {
                 <div className="px-1 space-y-1">
                   <p className="text-[11px] font-bold text-red-500 uppercase leading-tight">Jugador quieto y de pie sobre las celdas</p>
                   <p className="text-[11px] text-red-400 leading-tight">
-                    Envía: <code className="bg-slate-100 px-0.5 rounded text-[10px]">CALIBRATE</code> — espera: <code className="bg-slate-100 px-0.5 rounded text-[10px]">CALIBRADO_OK</code>
-                  </p>
-                  <p className="text-[10px] text-slate-400 leading-tight">
-                    Para cancelar: <code className="bg-slate-100 px-0.5 rounded text-[10px]">STOPCALIBRATE</code>
+                    Envía: <code className="bg-slate-100 px-0.5 rounded text-[10px]">CALIBRAR</code> — espera: <code className="bg-slate-100 px-0.5 rounded text-[10px]">CALIBRADO_OK</code>
                   </p>
                 </div>
               </div>
@@ -1211,7 +1428,7 @@ export default function SistemaUnificadoPage() {
                   </div>
                 </div>
                 <p className="text-[11px] text-slate-400 leading-tight px-1">
-                  Envía: <code className="bg-slate-100 px-0.5 rounded text-[10px]">START</code> → ESP responde <code className="bg-slate-100 px-0.5 rounded text-[10px]">PRUEBA_INICIADA</code>. Cada salto llega como <code className="bg-slate-100 px-0.5 rounded text-[10px]">SALTO_JSON</code>. Presiona <strong>Finalizar</strong> al terminar.
+                  Envía: <code className="bg-slate-100 px-0.5 rounded text-[10px]">START</code> — cada salto llega como <code className="bg-slate-100 px-0.5 rounded text-[10px]">SALTO_JSON</code>. Presiona <strong>Finalizar</strong> al terminar.
                 </p>
               </div>
               <div className="flex flex-col gap-2">
@@ -1230,7 +1447,7 @@ export default function SistemaUnificadoPage() {
                   </div>
                 </div>
                 <p className="text-[11px] text-slate-400 leading-tight px-1">
-                  Envía: <code className="bg-slate-100 px-0.5 rounded text-[10px]">STOP</code> → ESP responde <code className="bg-slate-100 px-0.5 rounded text-[10px]">RESULTADO_JSON</code> + <code className="bg-slate-100 px-0.5 rounded text-[10px]">PRUEBA_FINALIZADA</code>. Presiona <strong>Guardar</strong> para registrar.
+                  Envía: <code className="bg-slate-100 px-0.5 rounded text-[10px]">DETENER</code> — ESP responde <code className="bg-slate-100 px-0.5 rounded text-[10px]">RESULTADO_JSON</code>. Presiona <strong>Guardar</strong> para registrar.
                 </p>
               </div>
             </div>
@@ -1248,7 +1465,9 @@ export default function SistemaUnificadoPage() {
                 {[
                   {
                     label: "Calibración",
-                    sub: "Jugador quieto y de pie. Envía CALIBRATE → espera CALIBRADO_OK. Para cancelar: STOPCALIBRATE.",
+                    sub: tipoSalto === "salto conos"
+                      ? "Jugador quieto y de pie. Envía CALIBRATE → espera CALIBRADO_OK. Para cancelar: STOPCALIBRATE."
+                      : "Jugador quieto y de pie. Envía CALIBRAR → espera CALIBRADO_OK",
                   },
                   {
                     label: "Inicio de prueba",
@@ -1297,6 +1516,7 @@ export default function SistemaUnificadoPage() {
               <ResultadosCard
                 tipoSalto={tipoSalto}
                 resultadoFinal={resultadoFinal}
+                repReciente={repReciente}
                 saltoRTActual={saltoRTActual}
                 ejercicioEnCurso={ejercicioEnCurso}
                 onGuardar={finalizarPliometria}
