@@ -21,9 +21,10 @@ function addMessage(device, message, status, setMessages) {
   setMessages((prev) => [...prev, { device, message, status, timestamp }])
 }
 
+// Usa el endpoint B (nuevas credenciales)
 async function sendCommand(command, setMessages) {
   try {
-    const res = await fetch(`${BACKEND_URL}/api/pusher/send-command`, {
+    const res = await fetch(`${BACKEND_URL}/api/pusher/send-command-b`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -68,11 +69,12 @@ function loadPusher(subscribeToESP) {
   }
 }
 
+// Usa la key B y el authEndpoint B (nuevas credenciales)
 function initializePusher(subscribeToESP) {
-  const pusher = new window.Pusher("4f85ef5c792df94cebc9", {
+  const pusher = new window.Pusher("069e235fe8764addd340", {
     cluster: "us2",
     encrypted: true,
-    authEndpoint: `${BACKEND_URL}/api/pusher/pusher/auth`,
+    authEndpoint: `${BACKEND_URL}/api/pusher/pusher/auth-b`,
     forceTLS: true,
   })
   subscribeToESP(pusher)
@@ -178,13 +180,9 @@ function CalibrationModal({ isOpen, onClose, isCalibrated, onCancel }) {
 }
 
 // ─── Results Card ─────────────────────────────────────────────────────────────
-// Tipos: "salto simple" | "salto conos"
 function ResultadosCard({ tipoSalto, resultadoFinal, saltoRTActual, ejercicioEnCurso, onGuardar, pliometriaId }) {
   const isConos = tipoSalto === "salto conos"
 
-  // ── Conos en fila rows — métricas del ESP real ────────────────────────────
-  // SALTO_JSON del ESP: { altura_cm, pico_izq, pico_der }  (sin num/tv/asimetria)
-  // RESULTADO_JSON del ESP: { alt_max_cm, pico_izq_kg, pico_der_kg }
   const conosRows = [
     {
       label: "Saltos detectados",
@@ -216,7 +214,6 @@ function ResultadosCard({ tipoSalto, resultadoFinal, saltoRTActual, ejercicioEnC
     },
   ]
 
-  // ── Salto simple rows ──────────────────────────────────────────────────────
   const saltoRows = [
     {
       label: "Saltos válidos",
@@ -292,7 +289,6 @@ function ResultadosCard({ tipoSalto, resultadoFinal, saltoRTActual, ejercicioEnC
         ))}
       </div>
 
-      {/* Conos: per-jump live badge — muestra los datos reales del ESP */}
       {isConos && saltoRTActual && !resultadoFinal && (
         <div className="flex items-center gap-2 pt-1 border-t border-slate-100">
           <span className="w-2 h-2 rounded-full bg-violet-500 animate-ping inline-block shrink-0" />
@@ -301,7 +297,6 @@ function ResultadosCard({ tipoSalto, resultadoFinal, saltoRTActual, ejercicioEnC
           </span>
         </div>
       )}
-
 
       <div className="flex justify-end pt-1">
         <button
@@ -352,11 +347,9 @@ export default function SistemaUnificadoPage() {
   const [modalPliometriaOpen, setModalPliometriaOpen] = useState(false)
   const [progresoSegundos, setProgresoSegundos] = useState(0)
 
-  // Shared result state
   const [saltoRTActual, setSaltoRTActual] = useState(null)
   const [resultadoFinal, setResultadoFinal] = useState(null)
 
-  // Contador local de saltos para conos (el ESP no envía num en SALTO_JSON)
   const saltoConosContadorRef = useRef(0)
 
   const jugadorRef = useRef(null)
@@ -417,7 +410,6 @@ export default function SistemaUnificadoPage() {
       const msg = String(rawMsg).trim()
       addMessage(DEVICE_ID, msg, "success", setMessages)
 
-      // ── 1. CALIBRADO_OK ──
       if (msg.includes("CALIBRADO_OK")) {
         if (calibrationTimerRef.current) {
           clearTimeout(calibrationTimerRef.current)
@@ -432,7 +424,6 @@ export default function SistemaUnificadoPage() {
         return
       }
 
-      // ── 1b. CALIBRACION_CANCELADA (solo conos) ──
       if (msg.includes("CALIBRACION_CANCELADA")) {
         calibrandoRef.current = false
         setFaseAlcance("idle")
@@ -443,7 +434,6 @@ export default function SistemaUnificadoPage() {
         return
       }
 
-      // ── 2. PRUEBA_INICIADA ──
       if (msg.includes("PRUEBA_INICIADA")) {
         setFaseAlcance("jumping")
         setEjercicioEnCurso(true)
@@ -453,7 +443,6 @@ export default function SistemaUnificadoPage() {
         return
       }
 
-      // ── 3. PRUEBA_FINALIZADA ──
       if (msg.includes("PRUEBA_FINALIZADA")) {
         setEjercicioEnCurso(false)
         if (progresoTimerRef.current) {
@@ -463,7 +452,6 @@ export default function SistemaUnificadoPage() {
         return
       }
 
-      // ── 4b. SALTO_JSON (simple / conos) ──
       if (msg.startsWith("SALTO_JSON:")) {
         try {
           const json = JSON.parse(msg.slice("SALTO_JSON:".length))
@@ -472,21 +460,15 @@ export default function SistemaUnificadoPage() {
           const alcanceTotal = parseFloat((alcanceEstaticoCm + json.altura_cm).toFixed(1))
 
           if (currentTipo === "salto conos") {
-            // ── CONOS: el ESP envía { altura_cm, pico_izq, pico_der }
-            // No hay num ni tv ni asimetria — se lleva contador local
             saltoConosContadorRef.current += 1
             const numSalto = saltoConosContadorRef.current
-
             const saltoData = {
               num: numSalto,
               altura_cm: json.altura_cm,
               pico_izq: json.pico_izq,
               pico_der: json.pico_der,
             }
-
-            // Para conos siempre mostramos el salto más reciente
             setSaltoRTActual(saltoData)
-
             addMessage(
               DEVICE_ID,
               `Salto cono #${numSalto} — altura: ${json.altura_cm}cm | F.izq: ${json.pico_izq}kg | F.der: ${json.pico_der}kg`,
@@ -494,10 +476,8 @@ export default function SistemaUnificadoPage() {
               setMessages
             )
           } else {
-            // ── SIMPLE ──
             const randomOffset = (Math.random() * 10) * (Math.random() < 0.5 ? 1 : -1)
             const pico_der_final = parseFloat((json.pico_izq + randomOffset).toFixed(2))
-
             const saltoData = {
               num: json.num,
               altura_cm: json.altura_cm,
@@ -507,12 +487,10 @@ export default function SistemaUnificadoPage() {
               pico_der: pico_der_final,
               asimetria: json.asimetria ?? null,
             }
-
             setSaltoRTActual((prev) => {
               if (!prev || json.altura_cm > prev.altura_cm) return saltoData
               return prev
             })
-
             addMessage(
               DEVICE_ID,
               `Salto #${json.num} — vuelo: ${Number(json.tv).toFixed(3)}s | altura: ${json.altura_cm}cm | F.izq: ${json.pico_izq}kg${json.asimetria != null ? ` | Asim: ${json.asimetria}%` : ""}`,
@@ -526,24 +504,20 @@ export default function SistemaUnificadoPage() {
         return
       }
 
-      // ── 5. RESULTADO_JSON ──
       if (msg.startsWith("RESULTADO_JSON:")) {
         try {
           const json = JSON.parse(msg.slice("RESULTADO_JSON:".length))
           const currentTipo = tipoSaltoRef.current
-
           let resultado = null
 
           if (currentTipo === "salto conos") {
-            // ── CONOS: ESP envía { alt_max_cm, pico_izq_kg, pico_der_kg }
-            // El contador de saltos viene del ref local
             const totalSaltos = saltoConosContadorRef.current
             resultado = {
               _tipo: "conos",
               saltos_validos: totalSaltos,
-              alt_max_cm:     Number(json.alt_max_cm).toFixed(1),
-              pico_izq_kg:    Number(json.pico_izq_kg).toFixed(2),
-              pico_der_kg:    Number(json.pico_der_kg).toFixed(2),
+              alt_max_cm:  Number(json.alt_max_cm).toFixed(1),
+              pico_izq_kg: Number(json.pico_izq_kg).toFixed(2),
+              pico_der_kg: Number(json.pico_der_kg).toFixed(2),
             }
             addMessage(
               DEVICE_ID,
@@ -551,12 +525,9 @@ export default function SistemaUnificadoPage() {
               "success",
               setMessages
             )
-
           } else {
-            // ── SIMPLE: lógica de salto ──
             const alcanceEstaticoCm = getAlcanceEstaticoCm()
             const alcanceTotal = parseFloat((alcanceEstaticoCm + json.alt_max_cm).toFixed(1))
-
             resultado = {
               _tipo: "salto",
               saltos_validos:    json.saltos,
@@ -569,14 +540,12 @@ export default function SistemaUnificadoPage() {
               alcanceEstaticoCm: parseFloat(alcanceEstaticoCm.toFixed(1)),
               alcanceTotal,
             }
-
             setSaltoRTActual((prev) => {
               if (!prev || alcanceTotal > (prev?.alcanceTotal ?? 0)) {
                 return { num: json.saltos, altura_cm: json.alt_max_cm, alcanceTotal, tiempoVuelo: json.tv_prom_s }
               }
               return prev
             })
-
             const previo = ultimoAlcanceRef.current
             if (previo?.alcance != null) {
               const inc = alcanceTotal - parseFloat(previo.alcance)
@@ -584,7 +553,6 @@ export default function SistemaUnificadoPage() {
             } else {
               setIncrementoAnterior("Sin registro previo")
             }
-
             addMessage(
               DEVICE_ID,
               `Sesión finalizada — mejor: ${json.alt_max_cm}cm | alcance: ${alcanceTotal}cm | saltos: ${json.saltos}`,
@@ -614,7 +582,6 @@ export default function SistemaUnificadoPage() {
   }
 
   // ─── Calibrar ────────────────────────────────────────────────────────────────
-  // Todos los tipos usan CALIBRATE / STOPCALIBRATE
   const handleCalibrar = async () => {
     if (!jugadorSeleccionado) { notify("error", "Selecciona un jugador primero"); return }
     if (!espConnected)        { notify("error", "Sin conexión con el dispositivo"); return }
@@ -677,9 +644,7 @@ export default function SistemaUnificadoPage() {
   const handleGuardarAlcance = async () => {
     if (!resultadoFinal || !cuentaSeleccionada) return
     try {
-      const alcance = resultadoFinal._tipo === "conos"
-        ? null
-        : resultadoFinal.alcanceTotal
+      const alcance = resultadoFinal._tipo === "conos" ? null : resultadoFinal.alcanceTotal
       if (!alcance) { notify("error", "Este tipo de salto no guarda alcance"); return }
       const res = await fetch(`${BACKEND_URL}/api/alcances`, {
         method: "POST",
@@ -689,12 +654,12 @@ export default function SistemaUnificadoPage() {
       const d = await res.json()
       if (d.success) {
         setAlcanceGuardado({
-          "Alcance registrado":      `${resultadoFinal.alcanceTotal} cm`,
-          "Altura del salto (ESP)":  `${resultadoFinal.alt_max_cm} cm`,
-          "Alcance estático":        `${resultadoFinal.alcanceEstaticoCm} cm`,
-          "Saltos válidos":          `${resultadoFinal.saltos_validos}`,
-          "Fuerza máx. izquierda":   `${resultadoFinal.fuerza_izq} kg`,
-          "Fuerza máx. derecha":     `${resultadoFinal.fuerza_der} kg`,
+          "Alcance registrado":     `${resultadoFinal.alcanceTotal} cm`,
+          "Altura del salto (ESP)": `${resultadoFinal.alt_max_cm} cm`,
+          "Alcance estático":       `${resultadoFinal.alcanceEstaticoCm} cm`,
+          "Saltos válidos":         `${resultadoFinal.saltos_validos}`,
+          "Fuerza máx. izquierda":  `${resultadoFinal.fuerza_izq} kg`,
+          "Fuerza máx. derecha":    `${resultadoFinal.fuerza_der} kg`,
         })
         setModalAlcanceOpen(true)
         notify("success", "Guardado correctamente")
@@ -727,14 +692,13 @@ export default function SistemaUnificadoPage() {
   const calibrarEjercicio = () => handleCalibrar()
 
   const iniciarPliometria = async () => {
-    if (!cuentaSeleccionada)   { notify("error", "Selecciona un jugador primero"); return }
-    if (!pliometriaCalibrada)  { notify("error", "Calibra primero el sensor"); return }
+    if (!cuentaSeleccionada)  { notify("error", "Selecciona un jugador primero"); return }
+    if (!pliometriaCalibrada) { notify("error", "Calibra primero el sensor"); return }
     if (!tiempoPliometria || Number.parseFloat(tiempoPliometria) <= 0)
-                                { notify("error", "Ingresa un tiempo válido"); return }
-    if (!espConnected)         { notify("error", "Sin conexión con el dispositivo"); return }
+                               { notify("error", "Ingresa un tiempo válido"); return }
+    if (!espConnected)        { notify("error", "Sin conexión con el dispositivo"); return }
 
     const duracion = Math.round(Number.parseFloat(tiempoPliometria))
-    const esConos = tipoSalto === "salto conos"
 
     try {
       const res = await fetch(`${BACKEND_URL}/api/pliometrias/iniciar`, {
@@ -751,7 +715,6 @@ export default function SistemaUnificadoPage() {
     setProgresoSegundos(0)
     saltoConosContadorRef.current = 0
 
-    // Todos los tipos usan START (sin segundos) — el timer de frontend controla la duración
     addMessage("SISTEMA", "Enviando START al ESP...", "info", setMessages)
     await sendCommand("START", setMessages)
 
@@ -786,7 +749,6 @@ export default function SistemaUnificadoPage() {
     if (!pliometriaId || !resultadoFinal) { notify("error", "No hay datos para guardar"); return }
     try {
       const isConos = resultadoFinal._tipo === "conos"
-
       let body
       if (isConos) {
         body = {
@@ -796,10 +758,14 @@ export default function SistemaUnificadoPage() {
           pico_der_kg:    resultadoFinal.pico_der_kg,
         }
       } else {
-        // Simple
         body = {
-          mejor_altura_m: resultadoFinal.alt_max_m,
           saltos_validos: resultadoFinal.saltos_validos,
+          alt_max_cm:     resultadoFinal.alt_max_cm,
+          alt_max_m:      resultadoFinal.alt_max_m,
+          alt_prom_cm:    resultadoFinal.alt_prom_cm,
+          tv_prom_s:      resultadoFinal.tv_prom_s,
+          fuerza_izq:     resultadoFinal.fuerza_izq,
+          fuerza_der:     resultadoFinal.fuerza_der,
         }
       }
 
@@ -821,16 +787,15 @@ export default function SistemaUnificadoPage() {
           }
         } else {
           guardadoData = {
-            "Tipo de salto":          tipoSalto,
-            "Mejor altura":           `${resultadoFinal.alt_max_cm} cm`,
-            "Saltos válidos":         `${resultadoFinal.saltos_validos}`,
-            "Alcance total":          `${resultadoFinal.alcanceTotal} cm`,
-            "Tiempo de vuelo prom.":  `${resultadoFinal.tv_prom_s} s`,
-            "Fuerza máx. izquierda":  `${resultadoFinal.fuerza_izq} kg`,
-            "Fuerza máx. derecha":    `${resultadoFinal.fuerza_der} kg`,
+            "Tipo de salto":         tipoSalto,
+            "Mejor altura":          `${resultadoFinal.alt_max_cm} cm`,
+            "Saltos válidos":        `${resultadoFinal.saltos_validos}`,
+            "Alcance total":         `${resultadoFinal.alcanceTotal} cm`,
+            "Tiempo de vuelo prom.": `${resultadoFinal.tv_prom_s} s`,
+            "Fuerza máx. izquierda": `${resultadoFinal.fuerza_izq} kg`,
+            "Fuerza máx. derecha":   `${resultadoFinal.fuerza_der} kg`,
           }
         }
-
         setPliometriaGuardada(guardadoData)
         setModalPliometriaOpen(true)
         notify("success", "Pliometría guardada")
@@ -876,10 +841,8 @@ export default function SistemaUnificadoPage() {
   const titleCls = (s) =>
     s === "done" ? "text-emerald-600" : s === "active" ? "text-slate-700" : "text-slate-400"
 
-  const saltoImages =
-    tipoSalto === "salto conos" ? SALTO_CONOS_IMAGES : SALTO_SIMPLE_IMAGES
+  const saltoImages = tipoSalto === "salto conos" ? SALTO_CONOS_IMAGES : SALTO_SIMPLE_IMAGES
 
-  // Descripción de pasos según tipo
   const getPasoInicio = () => {
     if (tipoSalto === "salto conos")
       return `Envía START → espera PRUEBA_INICIADA. Cada salto llega como SALTO_JSON con altura_cm, pico_izq y pico_der.`
@@ -1020,7 +983,7 @@ export default function SistemaUnificadoPage() {
             </div>
           )}
 
-          {/* ③ RESULTADOS — alcance (solo simple/valla) */}
+          {/* ③ RESULTADOS — alcance */}
           {activeTab === "alcance" && (
             <div className="w-full lg:w-80 shrink-0 bg-white rounded-2xl border border-slate-200 shadow-sm p-4 flex flex-col gap-3">
               <span className="text-[9px] uppercase tracking-widest font-semibold text-slate-400">Resultados</span>
@@ -1261,14 +1224,8 @@ export default function SistemaUnificadoPage() {
                       ? "Jugador quieto y de pie. Envía CALIBRATE → espera CALIBRADO_OK. Para cancelar: STOPCALIBRATE."
                       : "Jugador quieto y de pie. Envía CALIBRAR → espera CALIBRADO_OK",
                   },
-                  {
-                    label: "Inicio de prueba",
-                    sub: getPasoInicio(),
-                  },
-                  {
-                    label: "Finalización",
-                    sub: getPasoFin(),
-                  },
+                  { label: "Inicio de prueba", sub: getPasoInicio() },
+                  { label: "Finalización",     sub: getPasoFin()    },
                 ].map(({ label, sub }, idx) => (
                   <div key={idx} className="flex flex-col gap-2">
                     <p className="text-[10px] font-semibold uppercase tracking-widest text-center text-slate-400">{label}</p>
@@ -1284,7 +1241,6 @@ export default function SistemaUnificadoPage() {
             </div>
 
             <div className="w-full lg:w-80 shrink-0 space-y-4">
-              {/* Progress bar */}
               <div className="space-y-1.5">
                 <div className="flex justify-between items-center">
                   <p className="text-[9px] uppercase tracking-widest font-semibold text-slate-500">Tiempo transcurrido</p>
@@ -1304,7 +1260,6 @@ export default function SistemaUnificadoPage() {
                 </div>
               </div>
 
-              {/* Results card */}
               <ResultadosCard
                 tipoSalto={tipoSalto}
                 resultadoFinal={resultadoFinal}

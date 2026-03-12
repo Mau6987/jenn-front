@@ -26,11 +26,11 @@ const MEDAL = {
   3: { ring: "#F97316", bg: "#FFF7ED", text: "#C2410C", bar: "linear-gradient(160deg,#FED7AA,#F97316)" },
 }
 
+// ─── Solo los tipos válidos ───────────────────────────────────────────────────
 const TIPOS_SALTO = [
   { key: "todos",        label: "Filtrar por tipo de ejercicio de salto" },
-  { key: "salto simple", label: "Salto simple" },
-  { key: "salto cajon",  label: "Cajón"        },
-  { key: "salto valla",  label: "Valla"        },
+  { key: "salto simple", label: "Salto simple"                           },
+  { key: "salto conos",  label: "Salto conos"                            },
 ]
 
 const PERIODOS = [
@@ -121,8 +121,7 @@ function Podium({ players, onPlayerClick }) {
     <div className="flex items-end justify-center gap-0 pt-8 px-4">
       {slots.map(({ player, pos }) => {
         if (!player) return <div key={`e-${pos}`} style={{ flex: 1 }} />
-        const mc    = MEDAL[pos]
-        const valor = player.mejor_altura_promedio ?? "—"
+        const mc = MEDAL[pos]
 
         return (
           <motion.div
@@ -167,7 +166,7 @@ function Podium({ players, onPlayerClick }) {
               </span>
             </div>
 
-            {/* Badge valor */}
+            {/* Badge — fuerza total */}
             <div
               className="text-[9px] font-bold uppercase tracking-wide px-2.5 py-0.5 rounded-full mb-2"
               style={{
@@ -176,7 +175,7 @@ function Podium({ players, onPlayerClick }) {
                 border: `1px solid ${mc.ring}`,
               }}
             >
-              {valor} cm
+              {player.mejor_fuerza_total ?? "—"} kg
             </div>
 
             {/* Barra */}
@@ -195,8 +194,6 @@ function Podium({ players, onPlayerClick }) {
 
 /* ── Fila lista 4+ ────────────────────────────────────────────────────────── */
 function RankRow({ player, delay = 0, onPlayerClick }) {
-  const valor = player.mejor_altura_promedio ?? "—"
-
   return (
     <motion.div
       className="flex items-center gap-3 px-4 py-3 rounded-xl cursor-pointer group transition-all"
@@ -237,10 +234,10 @@ function RankRow({ player, delay = 0, onPlayerClick }) {
       {/* Valor */}
       <div className="text-right shrink-0">
         <p className="text-sm font-extrabold tabular-nums" style={{ color: T.accent }}>
-          {valor} cm
+          {player.mejor_fuerza_total ?? "—"} kg
         </p>
         <p className="text-[10px] uppercase tracking-wide" style={{ color: T.mutedSoft }}>
-          mejor alt. prom.
+          {player.mejor_altura ?? "—"} cm · {player.mejor_cantidad ?? "—"} saltos
         </p>
       </div>
     </motion.div>
@@ -248,9 +245,10 @@ function RankRow({ player, delay = 0, onPlayerClick }) {
 }
 
 /* ── Modal ────────────────────────────────────────────────────────────────── */
-function PlayerModal({ player, onClose }) {
+function PlayerModal({ player, tipoSalto, onClose }) {
   if (!player) return null
-  const posIcon = getPositionIcon(player.jugador?.posicion_principal)
+  const posIcon  = getPositionIcon(player.jugador?.posicion_principal)
+  const isSimple = tipoSalto === "salto simple"
 
   return (
     <AnimatePresence>
@@ -304,11 +302,16 @@ function PlayerModal({ player, onClose }) {
             )}
           </div>
 
-          {/* Stats */}
+          {/* Stats — igual estructura que el original, datos nuevos */}
           <div className="px-5 py-5 grid grid-cols-2 gap-3">
             {[
-              { label: "Altura promedio", value: `${player.mejor_altura_promedio ?? "—"} cm`, color: T.accent },
-              { label: "Potencia",        value: player.mejor_potencia ?? "—",               color: "#7c3aed" },
+              { label: "Fuerza total",  value: `${player.mejor_fuerza_total ?? "—"} kg`, color: T.accent   },
+              { label: "Altura",        value: `${player.mejor_altura       ?? "—"} cm`, color: "#0891b2"  },
+              { label: "Saltos",        value: `${player.mejor_cantidad     ?? "—"}`,     color: "#7c3aed"  },
+              ...(isSimple
+                ? [{ label: "Potencia", value: `${player.mejor_potencia ?? "—"} W`,      color: "#d97706"  }]
+                : []
+              ),
             ].map(({ label, value, color }) => (
               <div key={label} className="rounded-xl p-3 text-center"
                 style={{ background: T.pageBg, border: `1.5px solid ${T.border}` }}>
@@ -349,19 +352,23 @@ export default function RankingPage() {
     try {
       setLoading(true)
       let url = `${BACKEND_URL}/api/ranking/pliometria?limit=10`
-      if (periodo !== "general") url += `&periodo=${periodo}`
+      if (periodo   !== "general") url += `&periodo=${periodo}`
       if (tipoSalto !== "todos")  url += `&tipo=${encodeURIComponent(tipoSalto)}`
+
       const res    = await fetch(url)
       const result = await res.json()
+
       if (result.success) {
         setData((result.data?.top || []).map((item, i) => ({
-          cuentaId:              item.cuentaId,
-          nombre:                `${item.jugador.nombres} ${item.jugador.apellidos}`,
-          imagen:                getPositionIcon(item.jugador.posicion_principal) || item.jugador.imagen || "/placeholder.svg",
-          mejor_altura_promedio: item.mejor_fuerza_total ?? item.mejor_alcance,
-          mejor_potencia:        item.mejor_potencia,
-          posicion:              i + 1,
-          jugador:               item.jugador,
+          cuentaId:           item.cuentaId,
+          nombre:             `${item.jugador.nombres} ${item.jugador.apellidos}`,
+          imagen:             getPositionIcon(item.jugador.posicion_principal) || item.jugador.imagen || "/placeholder.svg",
+          mejor_fuerza_total: item.mejor_fuerza_total,
+          mejor_altura:       item.mejor_altura,
+          mejor_cantidad:     item.mejor_cantidad,
+          mejor_potencia:     item.mejor_potencia,
+          posicion:           i + 1,
+          jugador:            item.jugador,
         })))
       } else setData([])
     } catch (e) {
@@ -459,12 +466,9 @@ export default function RankingPage() {
                 </p>
               ) : (
                 <>
-                  {/* Podio */}
                   {top3.length > 0 && (
                     <Podium players={top3} onPlayerClick={setSelectedPlayer} />
                   )}
-
-                  {/* Lista 4–10 */}
                   {rest.length > 0 && (
                     <div className="px-5 py-5 space-y-2">
                       {rest.map((player, i) => (
@@ -487,7 +491,11 @@ export default function RankingPage() {
 
       {/* Modal */}
       {selectedPlayer && (
-        <PlayerModal player={selectedPlayer} onClose={() => setSelectedPlayer(null)} />
+        <PlayerModal
+          player={selectedPlayer}
+          tipoSalto={tipoSalto}
+          onClose={() => setSelectedPlayer(null)}
+        />
       )}
     </div>
   )

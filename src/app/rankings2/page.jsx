@@ -25,6 +25,33 @@ const T = {
   barDownBg: "#fee2e2",
 }
 
+// ─── Tipos de salto disponibles ───────────────────────────────────────────────
+const TIPOS_SALTO = [
+  { key: "salto simple", label: "Simple" },
+  { key: "salto conos",  label: "Conos"  },
+]
+
+// ─── Métricas por tipo de salto ───────────────────────────────────────────────
+// salto simple: tiene fuerza, potencia, aceleracion, cantidad_saltos, indice_fatiga, altura_promedio
+// salto conos:  tiene fuerza (pico), cantidad_saltos, indice_fatiga, altura_promedio
+//               NO tiene potencia ni aceleracion (el ESP de conos no las manda)
+const getMetricasPliometria = (tipo) => {
+  const base = [
+    { label: "Cantidad de saltos",              dataKey: "cantidad_saltos", unit: "",   decimals: 0 },
+    { label: "Índice de fatiga",                dataKey: "indice_fatiga",   unit: "%",  decimals: 2 },
+    { label: "Fuerza máxima (izq + der)",       dataKey: "fuerza",          unit: "kg", decimals: 1 },
+    { label: "Altura promedio",                 dataKey: "altura_promedio", unit: "cm", decimals: 1 },
+  ]
+  if (tipo === "salto simple") {
+    return [
+      ...base,
+      { label: "Potencia estimada",             dataKey: "potencia",        unit: "W",  decimals: 1 },
+      { label: "Aceleración de despegue",       dataKey: "aceleracion",     unit: "m/s²", decimals: 2 },
+    ]
+  }
+  return base
+}
+
 // ─── Progress bar row ─────────────────────────────────────────────────────────
 function BarRow({ label, value = 0, max = 1, unit = "", decimals = 2, barColor, barBg }) {
   const pct = max > 0 ? Math.min(100, (Math.abs(value) / Math.abs(max)) * 100) : 0
@@ -60,7 +87,7 @@ function BarRow({ label, value = 0, max = 1, unit = "", decimals = 2, barColor, 
 }
 
 // ─── Metric card ──────────────────────────────────────────────────────────────
-function MetricCard({ title, subtitle, colKey, mode, stats, delay = 0 }) {
+function MetricCard({ title, colKey, mode, stats, tipoSalto, delay = 0 }) {
   const empty = (
     <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, delay }}
@@ -73,21 +100,11 @@ function MetricCard({ title, subtitle, colKey, mode, stats, delay = 0 }) {
 
   if (!stats) return empty
 
-  const incKey = `incremento_${colKey}`
+  const metricas = mode === "alcance"
+    ? [{ label: "Altura de alcance", dataKey: "alcance", unit: "cm", decimals: 0 }]
+    : getMetricasPliometria(tipoSalto)
 
-  // Métricas según modo
-  const rows = mode === "alcance"
-    ? [
-        { label: "Altura de alcance", data: stats.alcance, unit: "cm", decimals: 0 },
-      ]
-    : [
-        { label: "Cantidad de saltos",          data: stats.cantidad_saltos, unit: "",     decimals: 0 },
-        { label: "Resistencia (Índice de fatiga)", data: stats.indice_fatiga,   unit: "%",    decimals: 2 },
-        { label: "Fuerza máxima alcanzada",     data: stats.fuerza,           unit: "N",    decimals: 1 },
-        { label: "Altura promedio",             data: stats.altura_promedio,  unit: "cm",   decimals: 1 },
-      ]
-
-  const validRows = rows.filter((r) => r.data && r.data.mejor > 0)
+  const validRows = metricas.filter((m) => stats[m.dataKey] && stats[m.dataKey].mejor > 0)
   if (validRows.length === 0) return empty
 
   return (
@@ -95,34 +112,32 @@ function MetricCard({ title, subtitle, colKey, mode, stats, delay = 0 }) {
       transition={{ duration: 0.4, delay, ease: [0.22, 1, 0.36, 1] }}
       className="flex-1 rounded-2xl p-5 min-w-0"
       style={{ border: `1.5px solid ${T.border}`, background: T.bg, boxShadow: T.shadowSm }}>
-      <p className="text-[11px] font-bold uppercase tracking-widest" style={{ color: T.mutedSoft }}>{title}</p>
-      {subtitle && <p className="text-[10px] mb-4" style={{ color: T.mutedSoft }}>{subtitle}</p>}
-      {!subtitle && <div className="mb-4" />}
+      <p className="text-[11px] font-bold uppercase tracking-widest mb-4" style={{ color: T.mutedSoft }}>{title}</p>
       <div className="space-y-4">
-        {validRows.map(({ label, data, unit, decimals }) => {
-          const val = data?.[colKey] ?? 0
-          const inc = data?.[incKey] ?? null
+        {validRows.map(({ label, dataKey, unit, decimals }) => {
+          const data   = stats[dataKey]
+          const val    = data?.[colKey] ?? 0
+          const incKey = `incremento_${colKey}`
+          const inc    = data?.[incKey] ?? null
           const incPos = inc !== null && inc > 0
           const incNeg = inc !== null && inc < 0
-          const incBarColor = incPos ? T.barUp : incNeg ? T.barDown : T.bar
+          const incBarColor = incPos ? T.barUp  : incNeg ? T.barDown : T.bar
           const incBarBg    = incPos ? T.barUpBg : incNeg ? T.barDownBg : T.barLight
-          const maxPrincipal = Math.max(data?.mejor ?? 0, 0.001)
+          const maxVal      = Math.max(data?.mejor ?? 0, 0.001)
 
           return (
-            <div key={label} className="space-y-2">
-              {/* Métrica principal */}
+            <div key={dataKey} className="space-y-2">
               <BarRow
                 label={label}
                 value={val}
-                max={maxPrincipal}
+                max={maxVal}
                 unit={unit}
                 decimals={decimals}
               />
-              {/* Incremento respecto al anterior */}
               <BarRow
                 label="Incremento respecto anterior"
                 value={inc ?? 0}
-                max={maxPrincipal}
+                max={maxVal}
                 unit={unit}
                 decimals={decimals}
                 barColor={incBarColor}
@@ -156,7 +171,7 @@ export default function PerfilJugador() {
   const [loading,        setLoading]        = useState(true)
   const [periodo,        setPeriodo]        = useState("general")
   const [activeTab,      setActiveTab]      = useState("alcance")
-  const [tipoSalto,      setTipoSalto]      = useState("salto cajon")
+  const [tipoSalto,      setTipoSalto]      = useState("salto simple")
 
   useEffect(() => { cargarResultados() }, [periodo, tipoSalto])
 
@@ -188,15 +203,9 @@ export default function PerfilJugador() {
   const rankingPos  = currentData?.ranking?.posicion
 
   const COLS = [
-    { key: "actual", title: "ACTUAL", subtitle: activeTab === "pliometria" ? "Altura promedio" : undefined },
-    { key: "mejor",  title: "MEJOR",  subtitle: undefined },
-    { key: "peor",   title: "PEOR",   subtitle: undefined },
-  ]
-
-  const TIPOS_SALTO = [
-    { key: "salto cajon",  label: "Salto vertical"       },
-    { key: "salto simple", label: "Salto hacia adelante" },
-    { key: "salto valla",  label: "Salto con vallas"     },
+    { key: "actual", title: "ACTUAL" },
+    { key: "mejor",  title: "MEJOR"  },
+    { key: "peor",   title: "PEOR"   },
   ]
 
   return (
@@ -271,7 +280,7 @@ export default function PerfilJugador() {
             <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b flex-wrap gap-3"
               style={{ borderColor: T.border }}>
 
-              {/* Filtrar por fecha (periodo) */}
+              {/* Filtrar por periodo */}
               <div className="relative">
                 <select
                   value={periodo}
@@ -288,17 +297,15 @@ export default function PerfilJugador() {
                   style={{ color: T.mutedSoft, background: T.bg }}>Filtrar por fecha</span>
               </div>
 
-              {/* Título central */}
               <span className="text-[11px] font-bold uppercase tracking-widest px-4 py-1.5 rounded-full text-white"
                 style={{ background: T.text }}>
                 Resumen de Rendimiento
               </span>
 
-              {/* Placeholder derecha */}
               <div className="w-28" />
             </div>
 
-            {/* Tabs tipo de salto — solo en pliometría */}
+            {/* ── Sub-tabs: tipo de salto (pruebas) | periodo (alcance) ── */}
             {activeTab === "pliometria" && (
               <div className="flex items-center gap-8 px-6 pt-4 pb-0">
                 {TIPOS_SALTO.map(({ key, label }) => {
@@ -321,7 +328,6 @@ export default function PerfilJugador() {
               </div>
             )}
 
-            {/* Periodo tabs — solo en alcance */}
             {activeTab === "alcance" && (
               <div className="flex items-center justify-center gap-8 px-6 pt-4 pb-0">
                 {[
@@ -364,10 +370,10 @@ export default function PerfilJugador() {
                         <MetricCard
                           key={col.key}
                           title={col.title}
-                          subtitle={col.subtitle}
                           colKey={col.key}
                           mode={activeTab}
                           stats={currentData.estadisticas}
+                          tipoSalto={tipoSalto}
                           delay={i * 0.07}
                         />
                       ))}
@@ -376,6 +382,7 @@ export default function PerfilJugador() {
                 </motion.div>
               </AnimatePresence>
             </div>
+
           </div>
         </motion.div>
 
