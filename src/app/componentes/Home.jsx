@@ -38,16 +38,7 @@ export default function Page() {
                 Nuestra selección universitaria se enorgullece de representar a la Universidad del Valle, fomentando la
                 excelencia deportiva y el espíritu competitivo.
               </p>
-              <div className="flex flex-col sm:flex-row gap-4 animate-fade-in" style={{ animationDelay: "0.4s" }}>
-                <Button
-                  size="lg"
-                  variant="outline"
-                  className="border-2 border-[#800020] text-[#800020] hover:bg-[#800020] hover:text-white px-6 sm:px-8 py-5 sm:py-6 text-base sm:text-lg bg-transparent font-semibold transition-all duration-300 hover:scale-105 hover:shadow-xl"
-                  asChild
-                >
-                  <Link href="/horarios-entrenamiento">Ver Horarios</Link>
-                </Button>
-              </div>
+              
             </div>
 
             <div className="relative animate-fade-in-right">
@@ -85,62 +76,7 @@ export default function Page() {
         </div>
       </main>
 
-      <section className="relative z-10 px-4 sm:px-6 py-8 sm:py-12 bg-gray-50/50">
-        <div className="max-w-7xl mx-auto">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 max-w-3xl mx-auto">
-            <Card className="bg-white border-gray-200 hover:shadow-xl hover:border-[#800020] transition-all duration-500 hover:-translate-y-2 animate-fade-in-up group">
-              <CardHeader className="pb-3 pt-6">
-                <div className="flex items-center gap-3">
-                  <div className="p-3 bg-gradient-to-br from-[#800020] to-[#a64d66] rounded-xl group-hover:scale-110 transition-transform duration-300 group-hover:rotate-6">
-                    <Calendar className="w-7 h-7 sm:w-8 sm:h-8 text-white" />
-                  </div>
-                  <div>
-                    <CardTitle className="text-lg sm:text-xl text-black">Horarios</CardTitle>
-                    <CardDescription className="text-sm text-gray-600">Entrenamientos</CardDescription>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent className="pb-6">
-                <Button
-                  asChild
-                  variant="outline"
-                  size="sm"
-                  className="w-full border-[#800020] text-[#800020] hover:bg-[#800020] hover:text-white bg-transparent transition-all duration-300 hover:scale-105 font-medium"
-                >
-                  <Link href="/horarios-entrenamiento">Ver horarios</Link>
-                </Button>
-              </CardContent>
-            </Card>
-
-            <Card
-              className="bg-white border-gray-200 hover:shadow-xl hover:border-[#800020] transition-all duration-500 hover:-translate-y-2 animate-fade-in-up group"
-              style={{ animationDelay: "0.1s" }}
-            >
-              <CardHeader className="pb-3 pt-6">
-                <div className="flex items-center gap-3">
-                  <div className="p-3 bg-gradient-to-br from-[#800020] to-[#a64d66] rounded-xl group-hover:scale-110 transition-transform duration-300 group-hover:rotate-6">
-                    <Trophy className="w-7 h-7 sm:w-8 sm:h-8 text-white" />
-                  </div>
-                  <div>
-                    <CardTitle className="text-lg sm:text-xl text-black">Logros</CardTitle>
-                    <CardDescription className="text-sm text-gray-600">Competencias</CardDescription>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent className="pb-6">
-                <Button
-                  asChild
-                  variant="outline"
-                  size="sm"
-                  className="w-full border-[#800020] text-[#800020] hover:bg-[#800020] hover:text-white bg-transparent transition-all duration-300 hover:scale-105 font-medium"
-                >
-                  <Link href="/campeonatos">Ver logros</Link>
-                </Button>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-      </section>
+      
 
       <style jsx global>{`
         @keyframes float {

@@ -740,25 +740,30 @@ export default function ESPMonitoringDashboard() {
 
         {/* Profile */}
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }}>
-          {/* Avatar con inicial */}
-          <div style={{
-            width: 64, height: 64, borderRadius: "50%", background: C.accentSoft,
-            border: `2px solid ${C.accent}44`, display: "flex", alignItems: "center", justifyContent: "center",
-            position: "relative",
-          }}>
-            {nombre ? (
-              <span style={{ fontSize: 22, fontWeight: 800, color: C.accent, letterSpacing: "-0.02em" }}>
-                {nombre.charAt(0).toUpperCase()}
-              </span>
-            ) : (
-              <IconUser />
-            )}
-          </div>
+          {/* Profile */}
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }}>
+
+              {/* Avatar */}
+              <div
+                style={{
+                  width: 64,
+                  height: 64,
+                  borderRadius: "50%",
+                  background: C.accentSoft,
+                  border: `2px solid ${C.accent}44`,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  position: "relative",
+                }}
+              >
+                <IconUser />
+              </div>
+
+            </div>
 
           {/* Nombre */}
-          <p style={{ fontSize: 15, fontWeight: 800, color: C.brand, margin: 0 }}>
-            {nombre || "Usuario"}
-          </p>
+         
 
           {/* Chips de rol / posición / id */}
           <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", justifyContent: "center" }}>
@@ -778,30 +783,9 @@ export default function ESPMonitoringDashboard() {
                 {posicion}
               </span>
             )}
-            {idUser && (
-              <span style={{ fontSize: 10, color: C.textSoft, fontFamily: "monospace" }}>
-                #{idUser}
-              </span>
-            )}
+           
           </div>
 
-          {/* Pusher status + logout */}
-          <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, fontWeight: 600, color: pusherConnected ? C.success : C.textSoft }}>
-              <StatusDot color={pusherConnected ? C.success : C.textSoft} pulse={!pusherConnected} />
-              Pusher: {pusherStatus}
-            </div>
-            <button
-              onClick={logout}
-              style={{
-                fontSize: 11, fontWeight: 600, padding: "3px 12px", borderRadius: 999,
-                border: `1.5px solid ${C.border}`, background: C.white, color: C.textMid,
-                cursor: "pointer",
-              }}
-            >
-              Cerrar sesión
-            </button>
-          </div>
         </div>
 
         {/* Main Tabs */}
