@@ -20,37 +20,29 @@ const BACKEND_URL = "https://jenn-back-reac.onrender.com"
 
 /* ─── Design tokens ────────────────────────────────────────────────────────── */
 const C = {
-  // Guindo — solo acentos clave
   guindo:      "#7B1D2E",
   guindoDark:  "#5E1522",
   guindoLight: "#F5E8EA",
   guindoMid:   "#A52A3C",
-  // Slate — color primario de UI
   slate:       "#334155",
   slateDark:   "#1E293B",
   slateLight:  "#EFF3F7",
-  // Neutrales
   grayDark:    "#2C2C2C",
   grayMed:     "#6B6B6B",
   grayLight:   "#E8E8E8",
   grayUltra:   "#F4F4F4",
   white:       "#FFFFFF",
-  // Semáforo
   emerald:     "#1A7A5E",
   emeraldBg:   "#EAF5F1",
   red:         "#B03030",
   redBg:       "#FAEAEA",
-  // Intentos
   blue:        "#2563EB",
   blueBg:      "#EFF6FF",
 }
 
 const styles = {
-  // Labels
   label: { fontSize: 10, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", color: C.grayMed, marginBottom: 6, display: "block", fontFamily: "'DM Sans', sans-serif" },
-  // Cards
   card: { background: C.white, borderRadius: 0, border: `1px solid ${C.grayLight}` },
-  // Input base
   input: {
     border: `1px solid ${C.grayLight}`,
     borderRadius: 4,
@@ -332,7 +324,8 @@ export default function PruebasPage() {
     setCurrentActiveESPSequential(espId); setWaitingForResponseSequential(true)
     setMicroControllers((prev) => prev.map((mc) => ({ ...mc, active: mc.id === espId, status: mc.id === espId ? "Esperando respuesta" : mc.status })))
     sendCommandToESP(espId, { command: "ON" })
-    responseTimeoutSequentialRef.current = setTimeout(() => handleSequentialResponse(espId, "error"), tiempoReaccion * 1000)
+    // ✅ +1 segundo de margen sobre el tiempo de encendido para absorber latencia de red/Pusher
+    responseTimeoutSequentialRef.current = setTimeout(() => handleSequentialResponse(espId, "error"), (tiempoReaccion + 1) * 1000)
   }
 
   const handleSequentialResponse = (espId, responseType) => {
@@ -429,7 +422,8 @@ export default function PruebasPage() {
     setCurrentActiveESPRandom(espId); setWaitingForResponseRandom(true)
     setMicroControllers((prev) => prev.map((mc) => ({ ...mc, active: mc.id === espId, status: mc.id === espId ? "Esperando respuesta" : mc.status })))
     sendCommandToESP(espId, { command: "ON" })
-    responseTimeoutRandomRef.current = setTimeout(() => handleRandomResponse(espId, "error"), tiempoReaccion * 1000)
+    // ✅ +1 segundo de margen sobre el tiempo de encendido para absorber latencia de red/Pusher
+    responseTimeoutRandomRef.current = setTimeout(() => handleRandomResponse(espId, "error"), (tiempoReaccion + 1) * 1000)
   }
 
   const handleRandomResponse = (espId, responseType) => {
@@ -500,7 +494,8 @@ export default function PruebasPage() {
     setCurrentActiveESPManual(espId); setWaitingForResponseManual(true)
     setMicroControllers((prev) => prev.map((mc) => ({ ...mc, active: mc.id === espId, status: mc.id === espId ? "Esperando respuesta" : mc.status })))
     sendCommandToESP(espId, { command: "ON" })
-    responseTimeoutManualRef.current = setTimeout(() => handleManualResponse(espId, "error"), tiempoReaccion * 1000)
+    // ✅ +1 segundo de margen sobre el tiempo de encendido para absorber latencia de red/Pusher
+    responseTimeoutManualRef.current = setTimeout(() => handleManualResponse(espId, "error"), (tiempoReaccion + 1) * 1000)
   }
 
   const handleManualResponse = (espId, responseType) => {
@@ -571,7 +566,6 @@ export default function PruebasPage() {
   // ══════════════════════════════════════════════════════════════════════════
   return (
     <>
-      {/* ── Google Font import ── */}
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
 
@@ -589,7 +583,6 @@ export default function PruebasPage() {
           margin: 0 auto;
         }
 
-        /* ── Tablet ── */
         @media (max-width: 860px) {
           .pruebas-root { padding: 20px 12px; }
           .top-row { flex-direction: column !important; }
@@ -601,7 +594,6 @@ export default function PruebasPage() {
           .results-grid { grid-template-columns: 1fr 1fr 1fr !important; }
         }
 
-        /* ── Mobile ── */
         @media (max-width: 540px) {
           .pruebas-root { padding: 14px 10px; }
           .player-panel { flex-direction: column !important; align-items: flex-start !important; }
@@ -614,7 +606,6 @@ export default function PruebasPage() {
           .stat-num { font-size: 32px !important; }
         }
 
-        /* Micro card hover */
         .micro-card {
           background: #fff;
           border: 1.5px solid #E8E8E8;
@@ -633,14 +624,12 @@ export default function PruebasPage() {
         .micro-card.clickable:hover { border-color: #334155; box-shadow: 0 4px 14px rgba(51,65,85,0.18); transform: translateY(-1px); }
         .micro-card.dimmed { opacity: 0.35; }
 
-        /* Pulse animation for active */
         @keyframes pulse-guindo {
           0%, 100% { box-shadow: 0 0 0 0 rgba(51,65,85,0.4); }
           50% { box-shadow: 0 0 0 6px rgba(51,65,85,0); }
         }
         .dot-active { animation: pulse-guindo 1.2s ease infinite; }
 
-        /* Segment tabs */
         .seg-tab {
           padding: 6px 18px;
           font-size: 11px;
@@ -661,7 +650,6 @@ export default function PruebasPage() {
         .seg-tab:disabled { cursor: not-allowed; opacity: 0.5; }
         .seg-tab:not(:last-child) { border-right: 1.5px solid #E8E8E8; }
 
-        /* Numeric stat */
         .stat-num {
           font-family: 'DM Mono', monospace;
           font-size: 42px;
@@ -669,7 +657,6 @@ export default function PruebasPage() {
           line-height: 1;
         }
 
-        /* Progress bar shimmer */
         @keyframes shimmer {
           0% { background-position: -200% center; }
           100% { background-position: 200% center; }
@@ -683,16 +670,10 @@ export default function PruebasPage() {
           transition: width 1s ease;
         }
 
-        /* Input focus ring */
         .field-input:focus { border-color: #334155 !important; outline: none; box-shadow: 0 0 0 2px rgba(51,65,85,0.12); }
-
-        /* Select arrow reset */
         .player-select { appearance: none; -webkit-appearance: none; }
-
-        /* Divider line */
         .v-divider { width: 1px; background: #E8E8E8; align-self: stretch; margin: 0 24px; }
 
-        /* Modal backdrop */
         .modal-backdrop {
           position: fixed; inset: 0; z-index: 50;
           display: grid; place-items: center; padding: 16px;
@@ -704,7 +685,6 @@ export default function PruebasPage() {
       <div className="pruebas-root">
       <div className="pruebas-inner">
 
-        {/* ── Notification ── */}
         {notification && (
           <div style={{ position: "fixed", top: 20, right: 24, zIndex: 100 }}>
             <div style={{
@@ -726,12 +706,8 @@ export default function PruebasPage() {
           </div>
         )}
 
-        {/* ══════════════════════════════════════════════════════════
-            TOP ROW: Player Panel + Config Panel
-        ══════════════════════════════════════════════════════════ */}
         <div className="top-row" style={{ display: "flex", gap: 16, marginBottom: 24, alignItems: "stretch" }}>
 
-          {/* ── Player Panel ── */}
           <div className="player-panel" style={{
             background: C.white,
             border: `1.5px solid ${C.grayLight}`,
@@ -743,8 +719,6 @@ export default function PruebasPage() {
             flexShrink: 0,
             minWidth: 340,
           }}>
-
-            {/* Dropdown arriba */}
             <div style={{ position: "relative" }}>
               <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", color: C.grayMed, display: "block", marginBottom: 4, fontFamily: "'DM Sans', sans-serif" }}>
                 Jugador
@@ -773,10 +747,8 @@ export default function PruebasPage() {
               <ChevronDown size={11} color={C.grayMed} style={{ position: "absolute", right: 7, bottom: 7, pointerEvents: "none" }} />
             </div>
 
-            {/* Divider */}
             <div style={{ height: 1, background: C.grayLight }} />
 
-            {/* Jugador seleccionado abajo */}
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <div style={{
                 width: 34, height: 34, borderRadius: "50%",
@@ -808,7 +780,6 @@ export default function PruebasPage() {
             </div>
           </div>
 
-          {/* ── Config Panel ── */}
           <div style={{
             background: C.white,
             border: `1.5px solid ${C.grayLight}`,
@@ -820,9 +791,7 @@ export default function PruebasPage() {
             gap: 0,
           }} className="config-panel">
 
-            {/* Left: tipo + cápsulas */}
             <div style={{ flex: 1 }} className="config-left">
-              {/* Tipo prueba */}
               <div style={{ marginBottom: 18 }}>
                 <span style={styles.label}>Tipo de prueba</span>
                 <div className="tipo-tabs" style={{ display: "inline-flex", border: `1.5px solid ${C.grayLight}`, borderRadius: 6, overflow: "hidden" }}>
@@ -842,7 +811,6 @@ export default function PruebasPage() {
                 </div>
               </div>
 
-              {/* Cápsulas */}
               <div>
                 <span style={styles.label}>Cápsulas activas</span>
                 <div className="capsulas-selector" style={{ display: "flex", gap: 10, alignItems: "center" }}>
@@ -874,12 +842,9 @@ export default function PruebasPage() {
               </div>
             </div>
 
-            {/* Vertical divider */}
             <div className="v-divider" />
 
-            {/* Right: inputs + button */}
             <div className="config-right-col" style={{ display: "flex", flexDirection: "column", gap: 12, minWidth: 220, width: 220 }}>
-              {/* N° Rondas / Tiempo */}
               <div>
                 <span style={styles.label}>
                   {modoActual === "secuencial" ? "Número de rondas" : "Duración (seg)"}
@@ -899,7 +864,6 @@ export default function PruebasPage() {
                 />
               </div>
 
-              {/* Tiempo encendido */}
               <div>
                 <span style={styles.label}>Tiempo encendido (seg)</span>
                 <input
@@ -918,7 +882,6 @@ export default function PruebasPage() {
                 />
               </div>
 
-              {/* Button */}
               {!testActive ? (
                 <button
                   onClick={onIniciar}
@@ -972,11 +935,7 @@ export default function PruebasPage() {
           </div>
         </div>
 
-        {/* ══════════════════════════════════════════════════════════
-            CÁPSULAS GRID
-        ══════════════════════════════════════════════════════════ */}
         <div style={{ marginBottom: 24 }}>
-          {/* Section header */}
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
             <div style={{ width: 3, height: 16, background: C.slate, borderRadius: 2 }} />
             <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.2em", textTransform: "uppercase", color: C.grayMed, fontFamily: "'DM Sans', sans-serif" }}>
@@ -1005,7 +964,6 @@ export default function PruebasPage() {
               if (isClickable) cardClass += " clickable"
               if (!isSelected && testActive) cardClass += " dimmed"
 
-              // Status dot color
               const dotColor = isActive ? C.slate : wasHit ? C.emerald : wasMissed ? C.red : mc.connected ? "#AAAAAA" : C.grayLight
 
               return (
@@ -1014,7 +972,6 @@ export default function PruebasPage() {
                   className={cardClass}
                   onClick={() => { if (isClickable) activateManualMicrocontroller(mc.id) }}
                 >
-                  {/* Header */}
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 12px 6px" }}>
                     <span style={{ fontSize: 11, fontWeight: 700, color: C.grayDark, fontFamily: "'DM Mono', monospace", letterSpacing: "0.04em" }}>
                       CAP-{mc.id}
@@ -1032,7 +989,6 @@ export default function PruebasPage() {
                     </div>
                   </div>
 
-                  {/* Image area */}
                   <div style={{
                     margin: "0 8px 8px",
                     background: isActive ? "#EFF3F7" : wasHit ? "#eaf5f1" : wasMissed ? "#faeaea" : C.grayUltra,
@@ -1055,9 +1011,6 @@ export default function PruebasPage() {
           </div>
         </div>
 
-        {/* ══════════════════════════════════════════════════════════
-            PROGRESS + TIMER
-        ══════════════════════════════════════════════════════════ */}
         <div style={{
           background: C.white,
           border: `1.5px solid ${C.grayLight}`,
@@ -1095,7 +1048,6 @@ export default function PruebasPage() {
             )}
           </div>
 
-          {/* Bar */}
           <div style={{ height: 6, background: C.grayLight, borderRadius: 4, overflow: "hidden" }}>
             <div
               className={testActive ? "progress-fill" : ""}
@@ -1104,9 +1056,6 @@ export default function PruebasPage() {
           </div>
         </div>
 
-        {/* ══════════════════════════════════════════════════════════
-            RESULTS
-        ══════════════════════════════════════════════════════════ */}
         <div style={{ display: "flex", justifyContent: "center", marginBottom: 8 }}>
         <div style={{
           background: C.white,
@@ -1116,7 +1065,6 @@ export default function PruebasPage() {
           width: "100%",
           maxWidth: 620,
         }}>
-          {/* Header strip */}
           <div style={{ background: C.slate, padding: "10px 24px", display: "flex", alignItems: "center", gap: 8 }}>
             <Target size={14} color="rgba(255,255,255,0.8)" />
             <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.2em", textTransform: "uppercase", color: C.white, fontFamily: "'DM Sans', sans-serif" }}>
@@ -1127,7 +1075,6 @@ export default function PruebasPage() {
           <div style={{ padding: "24px 32px" }}>
             <div className="results-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 0 }}>
 
-              {/* Aciertos */}
               <div style={{ textAlign: "center", padding: "0 24px", borderRight: `1px solid ${C.grayLight}` }}>
                 <div style={{ display: "inline-flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
                   <div style={{ width: 6, height: 6, borderRadius: "50%", background: C.emerald }} />
@@ -1137,7 +1084,6 @@ export default function PruebasPage() {
                 {totalAttempts > 0 && <p style={{ margin: "6px 0 0", fontSize: 13, fontWeight: 600, color: C.emerald, fontFamily: "'DM Mono', monospace" }}>{accuracy}%</p>}
               </div>
 
-              {/* Fallos */}
               <div style={{ textAlign: "center", padding: "0 24px", borderRight: `1px solid ${C.grayLight}` }}>
                 <div style={{ display: "inline-flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
                   <div style={{ width: 6, height: 6, borderRadius: "50%", background: C.red }} />
@@ -1147,7 +1093,6 @@ export default function PruebasPage() {
                 {totalAttempts > 0 && <p style={{ margin: "6px 0 0", fontSize: 13, fontWeight: 600, color: C.red, fontFamily: "'DM Mono', monospace" }}>{100 - accuracy}%</p>}
               </div>
 
-              {/* Intentos */}
               <div style={{ textAlign: "center", padding: "0 24px" }}>
                 <div style={{ display: "inline-flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
                   <div style={{ width: 6, height: 6, borderRadius: "50%", background: C.blue }} />
@@ -1158,7 +1103,6 @@ export default function PruebasPage() {
               </div>
             </div>
 
-            {/* Manual controls */}
             {testActiveManual && (
               <div style={{ display: "flex", gap: 12, marginTop: 24, paddingTop: 20, borderTop: `1px solid ${C.grayLight}`, justifyContent: "center" }}>
                 <button
@@ -1195,11 +1139,8 @@ export default function PruebasPage() {
             )}
           </div>
         </div>
-        </div>{/* results centering wrapper */}
+        </div>
 
-        {/* ══════════════════════════════════════════════════════════
-            SUMMARY MODAL
-        ══════════════════════════════════════════════════════════ */}
         {showSummary && summaryData && (
           <div className="modal-backdrop" onClick={() => setShowSummary(false)}>
             <div
@@ -1213,7 +1154,6 @@ export default function PruebasPage() {
                 fontFamily: "'DM Sans', sans-serif",
               }}
             >
-              {/* Modal header */}
               <div style={{ background: C.guindo, padding: "20px 28px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                   <div style={{ width: 36, height: 36, borderRadius: 8, background: "rgba(255,255,255,0.15)", display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -1235,7 +1175,6 @@ export default function PruebasPage() {
               </div>
 
               <div style={{ padding: "24px 28px", display: "flex", flexDirection: "column", gap: 20 }}>
-                {/* Stats row */}
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
                   {[
                     { label: "Aciertos", value: summaryData.resultados?.aciertos || 0, color: C.emerald, bg: C.emeraldBg, pct: summaryData.resultados?.intentos > 0 ? Math.round((summaryData.resultados.aciertos / summaryData.resultados.intentos) * 100) + "%" : null },
@@ -1250,7 +1189,6 @@ export default function PruebasPage() {
                   ))}
                 </div>
 
-                {/* Info grid */}
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
                   {[
                     { label: "Jugador", value: summaryData.jugador ? `${summaryData.jugador.nombres} ${summaryData.jugador.apellidos}` : "—", sub: summaryData.jugador?.posicion || null },
@@ -1266,7 +1204,6 @@ export default function PruebasPage() {
                   ))}
                 </div>
 
-                {/* Actions */}
                 <div style={{ display: "flex", gap: 10, paddingTop: 4, borderTop: `1px solid ${C.grayLight}` }}>
                   <button
                     onClick={copySummary}
@@ -1299,8 +1236,8 @@ export default function PruebasPage() {
           </div>
         )}
 
-      </div>{/* pruebas-inner */}
-      </div>{/* pruebas-root */}
+      </div>
+      </div>
     </>
   )
 }

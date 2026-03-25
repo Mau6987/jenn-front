@@ -364,7 +364,7 @@ export default function PruebasPage() {
     }
 
     try {
-      const response = await fetch(`${BACKEND_URL}/api/pruebas/iniciar`, {
+      const response = await fetch(`${BACKEND_URL}/api/reacciones/iniciar`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ tipo: "secuencial", cuentaId: selectedPlayer.cuentaId }),
@@ -510,7 +510,7 @@ export default function PruebasPage() {
 
     if (pruebaId) {
       try {
-        await fetch(`${BACKEND_URL}/api/pruebas/finalizar/${pruebaId}`, {
+        await fetch(`${BACKEND_URL}/api/reacciones/finalizar/${pruebaId}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -584,7 +584,7 @@ export default function PruebasPage() {
     }
 
     try {
-      const response = await fetch(`${BACKEND_URL}/api/pruebas/iniciar`, {
+      const response = await fetch(`${BACKEND_URL}/api/reacciones/iniciar`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -711,7 +711,7 @@ export default function PruebasPage() {
 
     if (pruebaId) {
       try {
-        await fetch(`${BACKEND_URL}/api/pruebas/finalizar/${pruebaId}`, {
+        await fetch(`${BACKEND_URL}/api/reacciones/finalizar/${pruebaId}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -770,7 +770,7 @@ export default function PruebasPage() {
     }
 
     try {
-      const response = await fetch(`${BACKEND_URL}/api/pruebas/iniciar`, {
+      const response = await fetch(`${BACKEND_URL}/api/reacciones/iniciar`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ cuentaId: selectedPlayer.cuentaId, tipo: "manual" }),
@@ -864,7 +864,7 @@ export default function PruebasPage() {
 
     if (pruebaId) {
       try {
-        await fetch(`${BACKEND_URL}/api/pruebas/finalizar/${pruebaId}`, {
+        await fetch(`${BACKEND_URL}/api/reacciones/finalizar/${pruebaId}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({

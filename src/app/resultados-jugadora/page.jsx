@@ -33,7 +33,6 @@ const precisionBg    = (p) =>
 
 const formatFecha      = (f) => !f ? "—" : new Date(f).toLocaleDateString("es-BO", { day: "2-digit", month: "short", year: "numeric" })
 const formatFechaCorta = (f) => !f ? "—" : new Date(f).toLocaleDateString("es-BO", { day: "2-digit", month: "short" })
-const toInputDate      = (d) => d ? new Date(d).toISOString().split("T")[0] : ""
 
 // ─── Sparkline ────────────────────────────────────────────────────────────────
 const Sparkline = ({ values = [], color = "#6366f1" }) => {
@@ -53,9 +52,9 @@ const Sparkline = ({ values = [], color = "#6366f1" }) => {
   )
 }
 
-// ─── Line chart SVG ───────────────────────────────────────────────────────────
+// ─── Line chart SVG — más grande y con más padding ────────────────────────────
 const LineChart = ({ data, labels }) => {
-  const W = 800, H = 360, PAD = { t: 36, r: 28, b: 56, l: 52 }
+  const W = 900, H = 400, PAD = { t: 40, r: 40, b: 64, l: 64 }
   const IW = W - PAD.l - PAD.r, IH = H - PAD.t - PAD.b
   const n = labels.length
   const xOf = (i) => PAD.l + (i / Math.max(n - 1, 1)) * IW
@@ -73,17 +72,17 @@ const LineChart = ({ data, labels }) => {
           <line x1={PAD.l} y1={yOf(v)} x2={W - PAD.r} y2={yOf(v)}
             stroke={v === 0 ? "#cbd5e1" : "#e2e8f0"} strokeWidth="1"
             strokeDasharray={v === 0 ? "none" : "4,4"} />
-          <text x={PAD.l - 8} y={yOf(v) + 4} textAnchor="end" fontSize="11" fill="#94a3b8" fontFamily="inherit">{v}%</text>
+          <text x={PAD.l - 10} y={yOf(v) + 4} textAnchor="end" fontSize="12" fill="#94a3b8" fontFamily="inherit">{v}%</text>
         </g>
       ))}
       {/* X labels */}
       {labels.map((lbl, i) => (
-        <text key={i} x={xOf(i)} y={H - PAD.b + 20} textAnchor="middle" fontSize="11" fill="#94a3b8" fontFamily="inherit">
+        <text key={i} x={xOf(i)} y={H - PAD.b + 22} textAnchor="middle" fontSize="12" fill="#94a3b8" fontFamily="inherit">
           {lbl}
         </text>
       ))}
       {!hayDatos && (
-        <text x={W / 2} y={H / 2} textAnchor="middle" fontSize="13" fill="#94a3b8" fontFamily="inherit">
+        <text x={W / 2} y={H / 2} textAnchor="middle" fontSize="14" fill="#94a3b8" fontFamily="inherit">
           Sin datos para este período
         </text>
       )}
@@ -100,14 +99,14 @@ const LineChart = ({ data, labels }) => {
           <g key={modo}>
             {pathD && (
               <path d={pathD} fill="none" stroke={c} strokeWidth="2.5"
-                strokeLinecap="round" strokeLinejoin="round" opacity="0.85" />
+                strokeLinecap="round" strokeLinejoin="round" opacity="0.9" />
             )}
             {conDatos.map(p => (
               <g key={p.idx}>
                 <circle cx={xOf(p.idx)} cy={yOf(p.precision)} r={conDatos.length === 1 ? 7 : 5}
                   fill="white" stroke={c} strokeWidth="2.5" />
-                <text x={xOf(p.idx)} y={yOf(p.precision) - 11}
-                  textAnchor="middle" fontSize="10" fill={c} fontWeight="700" fontFamily="inherit">
+                <text x={xOf(p.idx)} y={yOf(p.precision) - 12}
+                  textAnchor="middle" fontSize="11" fill={c} fontWeight="700" fontFamily="inherit">
                   {p.precision}%
                 </text>
               </g>
@@ -283,7 +282,6 @@ export default function ResultadosReaccion() {
       const allSes = data.data.sesiones || []
       if (!allSes.length) { setChartData({}); setChartLabels([]); return }
 
-      // Agrupar por mes
       const meses = {}
       allSes.forEach(s => {
         const d   = new Date(s.fecha)
@@ -613,7 +611,7 @@ export default function ResultadosReaccion() {
                 </div>
               )}
 
-              {/* ── C: Gráfico de evolución ── */}
+              {/* ── C: Gráfico de evolución — más grande ── */}
               <div className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-6 shadow-sm">
                 <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-0 justify-between mb-5">
                   <div>
@@ -633,7 +631,7 @@ export default function ResultadosReaccion() {
                   </div>
                 </div>
                 {chartLabels.length > 0 ? (
-                  <div className="h-72 sm:h-96">
+                  <div className="h-80 sm:h-[26rem]">
                     <LineChart
                       data={
                         modoFiltro !== "todos"
