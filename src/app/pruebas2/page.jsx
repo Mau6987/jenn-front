@@ -320,6 +320,8 @@ export default function PruebasPage() {
   }
 
   const activateNextMicrocontrollerSequential = (espId) => {
+    // 🚫 No enviar comando si la cápsula no está seleccionada
+    if (!selectedESPsRef.current.includes(espId)) return
     if (responseTimeoutSequentialRef.current) { clearTimeout(responseTimeoutSequentialRef.current); responseTimeoutSequentialRef.current = null }
     setCurrentActiveESPSequential(espId); setWaitingForResponseSequential(true)
     setMicroControllers((prev) => prev.map((mc) => ({ ...mc, active: mc.id === espId, status: mc.id === espId ? "Esperando respuesta" : mc.status })))
@@ -339,6 +341,10 @@ export default function PruebasPage() {
     })
     setWaitingForResponseSequential(false)
     setMicroControllers((prev) => prev.map((mc) => ({ ...mc, active: false, lastResponse: mc.id === espId ? responseType : mc.lastResponse, status: mc.id === espId ? (responseType === "acierto" ? "Acierto" : "Error") : mc.status })))
+    // 💨 Limpiar el color (verde/rojo) después de 1 segundo
+    setTimeout(() => {
+      setMicroControllers((prev) => prev.map((mc) => mc.id === espId ? { ...mc, lastResponse: null } : mc))
+    }, 1000)
     setTimeout(() => {
       const idx = selectedESPsRef.current.indexOf(espId)
       const next = idx + 1
@@ -437,6 +443,10 @@ export default function PruebasPage() {
     })
     setWaitingForResponseRandom(false)
     setMicroControllers((prev) => prev.map((mc) => ({ ...mc, active: false, lastResponse: mc.id === espId ? responseType : mc.lastResponse, status: mc.id === espId ? (responseType === "acierto" ? "Acierto" : "Error") : mc.status })))
+    // 💨 Limpiar el color (verde/rojo) después de 1 segundo
+    setTimeout(() => {
+      setMicroControllers((prev) => prev.map((mc) => mc.id === espId ? { ...mc, lastResponse: null } : mc))
+    }, 1000)
     setTimeout(() => { if (testActiveRandomRef.current) activateRandomMicrocontroller(); processingResponseRandomRef.current = false }, 1000)
   }
 
@@ -509,6 +519,10 @@ export default function PruebasPage() {
     })
     setWaitingForResponseManual(false); setCurrentActiveESPManual(null)
     setMicroControllers((prev) => prev.map((mc) => ({ ...mc, active: false, lastResponse: mc.id === espId ? responseType : mc.lastResponse, status: mc.id === espId ? (responseType === "acierto" ? "Acierto" : "Error") : mc.status })))
+    // 💨 Limpiar el color (verde/rojo) después de 1 segundo
+    setTimeout(() => {
+      setMicroControllers((prev) => prev.map((mc) => mc.id === espId ? { ...mc, lastResponse: null } : mc))
+    }, 1000)
     processingResponseManualRef.current = false
   }
 

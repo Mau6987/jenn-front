@@ -3,35 +3,30 @@
 import { useState, useEffect, useCallback } from "react"
 import {
   TrendingUp, TrendingDown, Minus, Download,
-  Activity, Zap, User, Calendar, BarChart2, List,
+  Activity, Target, Zap, User, Calendar, BarChart2, List,
   AlertCircle, Loader2, ChevronRight, ChevronLeft, X,
-  Layers, Wind, Flame,
 } from "lucide-react"
 
 const BASE_URL = "https://jenn-back-reac.onrender.com"
+const MODOS = ["todos", "aleatorio", "secuencial", "manual"]
+const POR_PAGINA = 15
 
+// ── Semanas agrupadas por mes — espaciado visual uniforme ────────────────────
+// Los datos reales están en: oct/2025 (sem 1-4), feb/2025, mar/2026
 const SEMANAS = [
-  { id: "oct1",  label: "Sem 1 oct", labelFull: "Semana 1 (oct)", desde: "2025-10-01", hasta: "2025-10-07" },
-  { id: "oct2",  label: "Sem 2 oct", labelFull: "Semana 2 (oct)", desde: "2025-10-08", hasta: "2025-10-14" },
-  { id: "oct3",  label: "Sem 3 oct", labelFull: "Semana 3 (oct)", desde: "2025-10-15", hasta: "2025-10-21" },
-  { id: "feb1",  label: "Sem 1 feb", labelFull: "Semana 1 (feb)", desde: "2026-02-01", hasta: "2026-02-07" },
-  { id: "feb2",  label: "Sem 2 feb", labelFull: "Semana 2 (feb)", desde: "2026-02-08", hasta: "2026-02-14" },
-  { id: "todas", label: "Todas",     labelFull: "Todas las semanas", desde: null, hasta: null },
+  { id: "oct_s1", label: "S1",      labelFull: "Sem 1 oct",  mes: "Oct '25", desde: "2025-10-07", hasta: "2025-10-09",  mesBreak: true  },
+  { id: "oct_s2", label: "S2",      labelFull: "Sem 2 oct",  mes: "Oct '25", desde: "2025-10-10", hasta: "2025-10-14",  mesBreak: false },
+  { id: "oct_s3", label: "S3",      labelFull: "Sem 3 oct",  mes: "Oct '25", desde: "2025-10-15", hasta: "2025-10-19",  mesBreak: false },
+  { id: "oct_s4", label: "S4",      labelFull: "Sem 4 oct",  mes: "Oct '25", desde: "2025-10-20", hasta: "2025-10-26",  mesBreak: false },
+  { id: "feb_s1", label: "S1",      labelFull: "Sem 1 feb",  mes: "Feb '25", desde: "2025-02-01", hasta: "2025-02-28",  mesBreak: true  },
+  { id: "mar_s4", label: "S4",      labelFull: "Sem 4 mar",  mes: "Mar '26", desde: "2026-03-20", hasta: "2026-03-31",  mesBreak: true  },
 ]
 
-const MODOS_SALTO = ["todos", "salto simple", "salto conos"]
-const POR_PAGINA  = 15
-
-const TIPO_COLORS = {
-  "salto simple": { line: "#3b82f6", bg: "bg-blue-100",   text: "text-blue-700",   dot: "bg-blue-500",   border: "border-blue-200"   },
-  "salto conos":  { line: "#f97316", bg: "bg-orange-100", text: "text-orange-700", dot: "bg-orange-500", border: "border-orange-200" },
+const MODO_COLORS = {
+  aleatorio:  { line: "#6366f1", bg: "bg-indigo-100",   text: "text-indigo-700",  dot: "bg-indigo-500",  border: "border-indigo-200" },
+  secuencial: { line: "#f59e0b", bg: "bg-amber-100",    text: "text-amber-700",   dot: "bg-amber-500",   border: "border-amber-200"  },
+  manual:     { line: "#10b981", bg: "bg-emerald-100",  text: "text-emerald-700", dot: "bg-emerald-500", border: "border-emerald-200"},
 }
-
-const METRICAS = [
-  { id: "altura_promedio", label: "Altura",       unit: "cm", color: "#3b82f6" },
-  { id: "fuerza_max",      label: "Fuerza máx.",  unit: "kg", color: "#f97316" },
-  { id: "indice_fatiga",   label: "Índice fatiga",unit: "%",  color: "#10b981" },
-]
 
 const POS_COLORS = {
   armador: "bg-violet-100 text-violet-700 border-violet-200",
@@ -39,24 +34,19 @@ const POS_COLORS = {
   central: "bg-sky-100    text-sky-700    border-sky-200",
   punta:   "bg-emerald-100 text-emerald-700 border-emerald-200",
   libero:  "bg-rose-100   text-rose-700   border-rose-200",
-  receptor:"bg-cyan-100   text-cyan-700   border-cyan-200",
 }
 
-const fatigaColor = (v) => v < 12 ? "text-emerald-600" : v <= 15 ? "text-amber-600" : "text-red-500"
-const fatigaBg    = (v) =>
-  v < 12  ? "bg-emerald-50 border-emerald-200 text-emerald-700"
-  : v <= 15 ? "bg-amber-50 border-amber-200 text-amber-700"
+const precisionColor = (p) => p >= 85 ? "text-emerald-600" : p >= 75 ? "text-amber-600" : "text-red-500"
+const precisionBg    = (p) =>
+  p >= 85 ? "bg-emerald-50 border-emerald-200 text-emerald-700"
+  : p >= 75 ? "bg-amber-50 border-amber-200 text-amber-700"
   : "bg-red-50 border-red-200 text-red-600"
-
-const alturaColor = (v) => v >= 35 ? "text-emerald-600" : v >= 28 ? "text-amber-600" : "text-slate-500"
-const fuerzaColor = (v) => v >= 180 ? "text-emerald-600" : v >= 150 ? "text-amber-600" : "text-slate-500"
 
 const formatFecha      = (f) => !f ? "—" : new Date(f).toLocaleDateString("es-BO", { day: "2-digit", month: "short", year: "numeric" })
 const formatFechaCorta = (f) => !f ? "—" : new Date(f).toLocaleDateString("es-BO", { day: "2-digit", month: "short" })
-const toInputDate      = (d) => d ? new Date(d).toISOString().split("T")[0] : ""
 
 // ─── Sparkline ────────────────────────────────────────────────────────────────
-const Sparkline = ({ values = [], color = "#3b82f6" }) => {
+const Sparkline = ({ values = [], color = "#6366f1" }) => {
   const nonZero = values.filter(v => v > 0)
   if (nonZero.length < 2) return null
   const w = 72, h = 24
@@ -73,78 +63,189 @@ const Sparkline = ({ values = [], color = "#3b82f6" }) => {
   )
 }
 
-// ─── Line Chart ───────────────────────────────────────────────────────────────
-const LineChart = ({ data, semanas, metrica }) => {
-  const W = 900, H = 380, PAD = { t: 40, r: 40, b: 64, l: 64 }
-  const IW = W - PAD.l - PAD.r, IH = H - PAD.t - PAD.b
-  const xOf = (i) => PAD.l + (i / Math.max(semanas.length - 1, 1)) * IW
+// ─── Line chart mejorado — separadores de mes + espaciado limpio ─────────────
+const LineChart = ({ data, modoFiltro }) => {
+  const W = 1000, H = 420
+  const PAD = { t: 48, r: 48, b: 88, l: 68 }
+  const IW = W - PAD.l - PAD.r
+  const IH = H - PAD.t - PAD.b
+  const n = SEMANAS.length
 
-  const allVals = ["salto simple", "salto conos"].flatMap(tipo =>
-    (data[tipo] || []).filter(p => p.total > 0).map(p => p[metrica] ?? 0)
-  ).filter(v => v > 0)
+  // Espaciado uniforme — índice visual, no temporal
+  const xOf = (i) => PAD.l + (i / Math.max(n - 1, 1)) * IW
+  const yOf = (v) => PAD.t + IH - (v / 100) * IH
 
-  const minV = allVals.length ? Math.floor(Math.min(...allVals) * 0.90) : 0
-  const maxV = allVals.length ? Math.ceil(Math.max(...allVals)  * 1.08) : 100
-  const range = maxV - minV || 1
-  const yOf = (v) => PAD.t + IH - ((v - minV) / range) * IH
+  const modosActivos = modoFiltro !== "todos"
+    ? [modoFiltro]
+    : ["aleatorio", "secuencial", "manual"]
 
-  const ticks = Array.from({ length: 6 }, (_, i) => Math.round(minV + (range / 5) * i))
-  const hayDatos = allVals.length > 0
+  const hayDatos = modosActivos.some(m =>
+    (data[m] || []).some(p => p.total > 0)
+  )
+
+  // Agrupar semanas por mes para dibujar separadores y etiquetas de mes
+  const grupos = []
+  let grupoActual = null
+  SEMANAS.forEach((sem, i) => {
+    if (!grupoActual || sem.mes !== grupoActual.mes) {
+      grupoActual = { mes: sem.mes, inicio: i, fin: i }
+      grupos.push(grupoActual)
+    } else {
+      grupoActual.fin = i
+    }
+  })
+
+  // Ticks del eje Y
+  const yTicks = [0, 25, 50, 75, 100]
 
   return (
     <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-full" preserveAspectRatio="xMidYMid meet">
-      {/* Grid lines */}
-      {ticks.map(v => (
+      {/* ─── Fondos de mes alternados ─────────────────────────────── */}
+      {grupos.map((g, gi) => {
+        const x1 = gi === 0
+          ? PAD.l
+          : (xOf(g.inicio) + xOf(grupos[gi - 1].fin)) / 2
+        const x2 = gi === grupos.length - 1
+          ? PAD.l + IW
+          : (xOf(g.fin) + xOf(grupos[gi + 1]?.inicio ?? g.fin)) / 2
+        return (
+          <rect
+            key={g.mes}
+            x={x1} y={PAD.t}
+            width={x2 - x1} height={IH}
+            fill={gi % 2 === 0 ? "rgba(241,245,249,0.5)" : "transparent"}
+          />
+        )
+      })}
+
+      {/* ─── Separadores verticales de mes ───────────────────────── */}
+      {grupos.slice(1).map((g) => {
+        const x = xOf(g.inicio) - (xOf(g.inicio) - xOf(g.inicio - 1)) / 2
+        return (
+          <line
+            key={`sep-${g.mes}`}
+            x1={x} y1={PAD.t - 8}
+            x2={x} y2={PAD.t + IH}
+            stroke="#e2e8f0" strokeWidth="1.5" strokeDasharray="4,3"
+          />
+        )
+      })}
+
+      {/* ─── Grid horizontal ─────────────────────────────────────── */}
+      {yTicks.map(v => (
         <g key={v}>
-          <line x1={PAD.l} y1={yOf(v)} x2={W - PAD.r} y2={yOf(v)}
-            stroke={v === ticks[0] ? "#cbd5e1" : "#e2e8f0"} strokeWidth="1"
-            strokeDasharray={v === ticks[0] ? "none" : "4,4"} />
-          <text x={PAD.l - 10} y={yOf(v) + 4} textAnchor="end" fontSize="11" fill="#94a3b8" fontFamily="inherit">{v}</text>
+          <line
+            x1={PAD.l} y1={yOf(v)} x2={PAD.l + IW} y2={yOf(v)}
+            stroke={v === 0 ? "#cbd5e1" : "#e2e8f0"}
+            strokeWidth={v === 0 ? 1.5 : 1}
+            strokeDasharray={v === 0 ? "none" : "4,4"}
+          />
+          <text x={PAD.l - 12} y={yOf(v) + 4} textAnchor="end" fontSize="12" fill="#94a3b8" fontFamily="inherit">
+            {v}%
+          </text>
         </g>
       ))}
-      {/* X labels */}
-      {semanas.map((s, i) => (
-        <text key={s.id} x={xOf(i)} y={H - PAD.b + 22} textAnchor="middle" fontSize="11" fill="#94a3b8" fontFamily="inherit">
-          {s.label}
+
+      {/* ─── Etiquetas de semana (eje X inferior) ─────────────────── */}
+      {SEMANAS.map((sem, i) => (
+        <text
+          key={sem.id}
+          x={xOf(i)} y={H - PAD.b + 22}
+          textAnchor="middle" fontSize="11" fill="#94a3b8" fontFamily="inherit"
+        >
+          {sem.label}
         </text>
       ))}
+
+      {/* ─── Etiquetas de mes (debajo de semanas) ─────────────────── */}
+      {grupos.map((g) => {
+        const xMid = (xOf(g.inicio) + xOf(g.fin)) / 2
+        return (
+          <g key={`mes-${g.mes}`}>
+            {/* línea decorativa bajo las semanas del mes */}
+            <line
+              x1={xOf(g.inicio) - 12} y1={H - PAD.b + 30}
+              x2={xOf(g.fin) + 12}    y2={H - PAD.b + 30}
+              stroke="#cbd5e1" strokeWidth="1.5" strokeLinecap="round"
+            />
+            <text
+              x={xMid} y={H - PAD.b + 46}
+              textAnchor="middle" fontSize="11.5" fontWeight="700"
+              fill="#64748b" fontFamily="inherit"
+            >
+              {g.mes}
+            </text>
+          </g>
+        )
+      })}
+
+      {/* ─── Sin datos ───────────────────────────────────────────── */}
       {!hayDatos && (
         <text x={W / 2} y={H / 2} textAnchor="middle" fontSize="14" fill="#94a3b8" fontFamily="inherit">
           Sin datos para este período
         </text>
       )}
-      {["salto simple", "salto conos"].map(tipo => {
-        const conDatos = (data[tipo] || [])
+
+      {/* ─── Líneas y puntos por modo ─────────────────────────────── */}
+      {modosActivos.map(modo => {
+        const conDatos = (data[modo] || [])
           .map((p, i) => ({ ...p, idx: i }))
           .filter(p => p.total > 0)
         if (!conDatos.length) return null
-        const c = TIPO_COLORS[tipo].line
+        const c = MODO_COLORS[modo].line
+
         const pathD = conDatos.length >= 2
-          ? conDatos.map((p, j) =>
-              `${j === 0 ? "M" : "L"}${xOf(p.idx).toFixed(1)},${yOf(p[metrica] ?? 0).toFixed(1)}`
-            ).join(" ")
+          ? conDatos
+              .map((p, j) => `${j === 0 ? "M" : "L"}${xOf(p.idx).toFixed(1)},${yOf(p.precision).toFixed(1)}`)
+              .join(" ")
           : null
+
         return (
-          <g key={tipo}>
+          <g key={modo}>
+            {/* Área bajo la curva — sutil */}
+            {pathD && conDatos.length >= 2 && (() => {
+              const first = conDatos[0], last = conDatos[conDatos.length - 1]
+              const areaD = `${pathD} L${xOf(last.idx).toFixed(1)},${yOf(0).toFixed(1)} L${xOf(first.idx).toFixed(1)},${yOf(0).toFixed(1)} Z`
+              return (
+                <path d={areaD} fill={c} opacity="0.06" />
+              )
+            })()}
+
+            {/* Línea */}
             {pathD && (
-              <path d={pathD} fill="none" stroke={c} strokeWidth="2.5"
-                strokeLinecap="round" strokeLinejoin="round" opacity="0.9" />
+              <path
+                d={pathD} fill="none" stroke={c}
+                strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" opacity="0.9"
+              />
             )}
+
+            {/* Puntos + etiquetas */}
             {conDatos.map(p => (
               <g key={p.idx}>
-                <circle cx={xOf(p.idx)} cy={yOf(p[metrica] ?? 0)}
-                  r={conDatos.length === 1 ? 7 : 5}
-                  fill="white" stroke={c} strokeWidth="2.5" />
-                <text x={xOf(p.idx)} y={yOf(p[metrica] ?? 0) - 12}
-                  textAnchor="middle" fontSize="10.5" fill={c} fontWeight="700" fontFamily="inherit">
-                  {(p[metrica] ?? 0).toFixed(1)}
+                <circle
+                  cx={xOf(p.idx)} cy={yOf(p.precision)}
+                  r={conDatos.length === 1 ? 8 : 5}
+                  fill="white" stroke={c} strokeWidth="2.5"
+                />
+                <text
+                  x={xOf(p.idx)} y={yOf(p.precision) - 13}
+                  textAnchor="middle" fontSize="11" fill={c}
+                  fontWeight="700" fontFamily="inherit"
+                >
+                  {p.precision}%
                 </text>
               </g>
             ))}
           </g>
         )
       })}
-      <line x1={PAD.l} y1={PAD.t + IH} x2={W - PAD.r} y2={PAD.t + IH} stroke="#cbd5e1" strokeWidth="1.5" />
+
+      {/* ─── Eje X base ──────────────────────────────────────────── */}
+      <line
+        x1={PAD.l} y1={PAD.t + IH}
+        x2={PAD.l + IW} y2={PAD.t + IH}
+        stroke="#cbd5e1" strokeWidth="1.5"
+      />
     </svg>
   )
 }
@@ -159,7 +260,7 @@ const Paginador = ({ pagina, totalPaginas, onChange, totalItems }) => {
     for (let i = 1; i <= totalPaginas; i++) paginas.push(i)
   } else {
     paginas.push(1)
-    if (pagina > 3)  paginas.push("...")
+    if (pagina > 3) paginas.push("...")
     for (let i = Math.max(2, pagina - 1); i <= Math.min(totalPaginas - 1, pagina + 1); i++) paginas.push(i)
     if (pagina < totalPaginas - 2) paginas.push("...")
     paginas.push(totalPaginas)
@@ -181,7 +282,7 @@ const Paginador = ({ pagina, totalPaginas, onChange, totalItems }) => {
           ) : (
             <button key={p} onClick={() => onChange(p)}
               className={`w-7 h-7 rounded-lg text-xs font-bold transition-all ${
-                p === pagina ? "bg-blue-600 text-white shadow shadow-blue-200" : "text-slate-500 hover:text-slate-700 hover:bg-slate-100"
+                p === pagina ? "bg-indigo-600 text-white shadow shadow-indigo-200" : "text-slate-500 hover:text-slate-700 hover:bg-slate-100"
               }`}>
               {p}
             </button>
@@ -196,13 +297,12 @@ const Paginador = ({ pagina, totalPaginas, onChange, totalItems }) => {
   )
 }
 
-// ─── PillGroup ────────────────────────────────────────────────────────────────
 const PillGroup = ({ options, value, onChange, getLabel }) => (
   <div className="flex items-center gap-1 bg-slate-100 rounded-xl p-1 border border-slate-200 overflow-x-auto scrollbar-none flex-shrink-0">
     {options.map(o => (
       <button key={o} onClick={() => onChange(o)}
         className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all flex-shrink-0 ${
-          value === o ? "bg-white text-blue-600 shadow-sm border border-slate-200" : "text-slate-500 hover:text-slate-700"
+          value === o ? "bg-white text-indigo-600 shadow-sm border border-slate-200" : "text-slate-500 hover:text-slate-700"
         }`}>
         {getLabel ? getLabel(o) : o}
       </button>
@@ -210,7 +310,6 @@ const PillGroup = ({ options, value, onChange, getLabel }) => (
   </div>
 )
 
-// ─── DateRangePicker ──────────────────────────────────────────────────────────
 const DateRangePicker = ({ desde, hasta, onDesde, onHasta, onLimpiar }) => (
   <div className="flex items-center gap-2 flex-wrap">
     <div className="flex items-center gap-1.5 bg-white border border-slate-200 rounded-xl px-3 py-2 shadow-sm">
@@ -235,46 +334,43 @@ const DateRangePicker = ({ desde, hasta, onDesde, onHasta, onLimpiar }) => (
 )
 
 // ═══════════════════════════════════════════════════════════════════════════════
-export default function ResultadosSalto() {
-  const [jugadores,        setJugadores]    = useState([])
-  const [selectedJugador,  setSelected]     = useState(null)
-  const [desde,            setDesde]        = useState("")
-  const [hasta,            setHasta]        = useState("")
-  const [modoFiltro,       setModoFiltro]   = useState("todos")
-  const [metricaChart,     setMetrica]      = useState("altura_promedio")
-  const [loadingJugadores, setLoadingJ]     = useState(true)
-  const [loadingDatos,     setLoadingD]     = useState(false)
-  const [resultados,       setResultados]   = useState(null)
-  const [sesiones,         setSesiones]     = useState([])
-  const [chartData,        setChartData]    = useState({})
-  const [chartSemanas,     setChartSemanas] = useState([])
-  const [error,            setError]        = useState("")
-  const [showSidebar,      setShowSidebar]  = useState(false)
-  const [pagina,           setPagina]       = useState(1)
+export default function ResultadosReaccion() {
+  const [jugadores, setJugadores]       = useState([])
+  const [selectedJugador, setSelected]  = useState(null)
+  const [desde, setDesde]               = useState("")
+  const [hasta, setHasta]               = useState("")
+  const [modoFiltro, setModoFiltro]     = useState("todos")
+  const [loadingJugadores, setLoadingJ] = useState(true)
+  const [loadingDatos, setLoadingD]     = useState(false)
+  const [resultados, setResultados]     = useState(null)
+  const [sesiones, setSesiones]         = useState([])
+  const [chartData, setChartData]       = useState({})
+  const [error, setError]               = useState("")
+  const [showSidebar, setShowSidebar]   = useState(false)
+  const [pagina, setPagina]             = useState(1)
 
   const token = () => typeof window !== "undefined" ? localStorage.getItem("token") : ""
 
   useEffect(() => { setPagina(1) }, [modoFiltro, desde, hasta, selectedJugador])
 
-  // ─── Cargar jugadoras ──────────────────────────────────────────────────────
+  // ─── Cargar jugadores ──────────────────────────────────────────────────────
   useEffect(() => {
     ;(async () => {
       try {
         setLoadingJ(true)
-        const res  = await fetch(`${BASE_URL}/api/saltos/resultados/general`, {
-          headers: { Authorization: `Bearer ${token()}` },
-        })
+        const res  = await fetch(`${BASE_URL}/api/cuentas`, { headers: { Authorization: `Bearer ${token()}` } })
         const data = await res.json()
         if (data.success) {
-          setJugadores(data.data)
-          if (data.data.length > 0) setSelected(data.data[0])
+          const jgs = data.data.filter(c => c.rol === "jugador" && c.jugador)
+            .map(c => ({ ...c.jugador, cuentaId: c.id, path: c.path || "" }))
+          setJugadores(jgs)
+          if (jgs.length > 0) setSelected(jgs[0])
         }
       } catch { setError("Error al cargar jugadoras") }
       finally  { setLoadingJ(false) }
     })()
   }, [])
 
-  // ─── Construir params ──────────────────────────────────────────────────────
   const buildParams = useCallback(() => {
     const params = new URLSearchParams()
     if (desde) { params.set("desde", desde); if (hasta) params.set("hasta", hasta) }
@@ -288,18 +384,14 @@ export default function ResultadosSalto() {
     setLoadingD(true); setError("")
     try {
       const params = buildParams()
-      const [resStats, resSes] = await Promise.all([
-        fetch(`${BASE_URL}/api/saltos/resultados/personal/${selectedJugador.cuentaId}?${params}`, {
-          headers: { Authorization: `Bearer ${token()}` },
-        }),
-        fetch(`${BASE_URL}/api/saltos/resultados/personal/${selectedJugador.cuentaId}/sesiones?${params}`, {
-          headers: { Authorization: `Bearer ${token()}` },
-        }),
+      const [resStats, resSesiones] = await Promise.all([
+        fetch(`${BASE_URL}/api/resultados/personal/${selectedJugador.cuentaId}?${params}`, { headers: { Authorization: `Bearer ${token()}` } }),
+        fetch(`${BASE_URL}/api/resultados/personal/${selectedJugador.cuentaId}/sesiones?${params}`, { headers: { Authorization: `Bearer ${token()}` } }),
       ])
-      const dStats = await resStats.json()
-      const dSes   = await resSes.json()
-      if (dStats.success) setResultados(dStats.data)
-      if (dSes.success)   setSesiones(dSes.data.sesiones || [])
+      const dataStats    = await resStats.json()
+      const dataSesiones = await resSesiones.json()
+      if (dataStats.success)    setResultados(dataStats.data)
+      if (dataSesiones.success) setSesiones(dataSesiones.data.sesiones || [])
       await construirChartData(selectedJugador.cuentaId)
     } catch { setError("Error al cargar datos") }
     finally  { setLoadingD(false) }
@@ -307,98 +399,114 @@ export default function ResultadosSalto() {
 
   useEffect(() => { cargarDatos() }, [cargarDatos])
 
-  // ─── Chart data ────────────────────────────────────────────────────────────
+  // ─── Chart: agrupar por semanas fijas ─────────────────────────────────────
   const construirChartData = async (cuentaId) => {
-    // Si hay rango de fechas manual, usar semanas fijas; si no, usar todas
-    const activas = SEMANAS.filter(s => s.id !== "todas")
-    if (!activas.length) { setChartData({}); setChartSemanas([]); return }
+    const modos = ["aleatorio", "secuencial", "manual"]
+    const result = { aleatorio: [], secuencial: [], manual: [] }
 
-    const tipos = ["salto simple", "salto conos"]
-    const result = { "salto simple": [], "salto conos": [] }
-
-    await Promise.all(activas.map(async sem => {
+    await Promise.all(SEMANAS.map(async (sem, idx) => {
       const p = new URLSearchParams({ desde: sem.desde, hasta: sem.hasta })
       try {
-        const res  = await fetch(`${BASE_URL}/api/saltos/resultados/personal/${cuentaId}/chart?${p}`, {
-          headers: { Authorization: `Bearer ${token()}` },
-        })
+        const res  = await fetch(
+          `${BASE_URL}/api/resultados/personal/${cuentaId}/sesiones?${p}`,
+          { headers: { Authorization: `Bearer ${token()}` } }
+        )
         const data = await res.json()
-        tipos.forEach(tipo => {
-          const info = data.success ? data.data[tipo] : null
-          result[tipo].push({
-            semana:          sem.label,
-            altura_promedio: info?.altura_promedio        ?? 0,
-            fuerza_max:      info?.fuerza_max_promedio    ?? 0,
-            indice_fatiga:   info?.indice_fatiga_promedio ?? 0,
-            total:           info?.total ?? 0,
-          })
+        const sessSem = data.success ? (data.data.sesiones || []) : []
+
+        modos.forEach(modo => {
+          const deModo = sessSem.filter(s => s.modo === modo)
+          if (!deModo.length) {
+            result[modo][idx] = { precision: 0, total: 0 }
+            return
+          }
+          const totalAciertos = deModo.reduce((s, r) => s + (r.aciertos || 0), 0)
+          const totalIntentos = deModo.reduce((s, r) => s + (r.intentos ?? (r.aciertos || 0) + (r.errores || 0)), 0)
+          result[modo][idx] = {
+            precision: totalIntentos > 0 ? +((totalAciertos / totalIntentos) * 100).toFixed(1) : 0,
+            total: deModo.length,
+          }
         })
       } catch {
-        tipos.forEach(tipo => result[tipo].push({
-          semana: sem.label, altura_promedio: 0, fuerza_max: 0, indice_fatiga: 0, total: 0,
-        }))
+        modos.forEach(modo => { result[modo][idx] = { precision: 0, total: 0 } })
       }
     }))
 
     setChartData(result)
-    setChartSemanas(activas)
   }
 
-  // ─── Sesiones filtradas ────────────────────────────────────────────────────
+  // ─── Sesiones filtradas ───────────────────────────────────────────────────
   const sesionesFiltradas = sesiones
-    .filter(s => modoFiltro === "todos" || s.tipo === modoFiltro)
+    .filter(s => modoFiltro === "todos" || s.modo === modoFiltro)
     .sort((a, b) => new Date(b.fecha) - new Date(a.fecha))
 
   const totalPaginas   = Math.max(1, Math.ceil(sesionesFiltradas.length / POR_PAGINA))
   const paginaSegura   = Math.min(pagina, totalPaginas)
-  const sesionesPag    = sesionesFiltradas.slice((paginaSegura - 1) * POR_PAGINA, paginaSegura * POR_PAGINA)
+  const sesionesPagina = sesionesFiltradas.slice((paginaSegura - 1) * POR_PAGINA, paginaSegura * POR_PAGINA)
 
-  const ultimaSesion = sesionesFiltradas[0]
-
-  // ─── KPIs ──────────────────────────────────────────────────────────────────
+  // ─── KPIs ─────────────────────────────────────────────────────────────────
   const kpis = (() => {
     if (!resultados) return null
-    const tot = resultados.totales || {}
-    const pt  = resultados.por_tipo || {}
-    const tipo = modoFiltro !== "todos" ? pt[modoFiltro] || {} : tot
-    const tiposActivos = modoFiltro !== "todos" ? [modoFiltro] : ["salto simple", "salto conos"]
-    const conDatos = tiposActivos.flatMap(t => (chartData[t] || []).filter(p => p.total > 0))
-    const tendencia = conDatos.length >= 2
-      ? (conDatos[conDatos.length - 1][metricaChart] ?? 0) - (conDatos[conDatos.length - 2][metricaChart] ?? 0)
-      : null
-    return {
-      altura:      tipo.altura_promedio        ?? 0,
-      fuerza:      tipo.fuerza_max_promedio     ?? 0,
-      fatiga:      tipo.indice_fatiga_promedio  ?? 0,
-      totalSaltos: tipo.total_saltos            ?? 0,
-      cantidad:    tipo.cantidad                ?? 0,
-      tendencia,
+    const tipos = resultados.por_tipo_reaccion || {}
+    if (modoFiltro !== "todos") {
+      const info = tipos[modoFiltro] || {}
+      const conDatos = (chartData[modoFiltro] || []).filter(p => p.total > 0)
+      const tendencia = conDatos.length >= 2
+        ? conDatos[conDatos.length - 1].precision - conDatos[conDatos.length - 2].precision : null
+      return { precision: info.precision ?? 0, mejorModo: modoFiltro, mejorPrec: info.precision ?? 0, tendencia, totalReacciones: info.total_realizadas ?? 0 }
     }
+    const tg = resultados.totales_generales || {}
+    let mejorModo = null, mejorPrec = -1
+    Object.entries(tipos).forEach(([modo, info]) => {
+      if ((info.total_realizadas || 0) > 0 && info.precision > mejorPrec) { mejorPrec = info.precision; mejorModo = modo }
+    })
+    const allConDatos = [
+      ...(chartData.aleatorio || []), ...(chartData.secuencial || []), ...(chartData.manual || [])
+    ].filter(p => p.total > 0)
+    const tendencia = allConDatos.length >= 2
+      ? allConDatos[allConDatos.length - 1].precision - allConDatos[allConDatos.length - 2].precision : null
+    return { precision: tg.precision ?? 0, mejorModo, mejorPrec, tendencia, totalReacciones: tg.total_reacciones ?? 0 }
   })()
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800" style={{ fontFamily: "'DM Sans', sans-serif" }}>
 
+      {/* ════ PRINT HEADER (solo visible al imprimir) ════ */}
+      {selectedJugador && (
+        <div className="print-only-header" style={{ display: "none" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "10pt", marginBottom: "12pt", borderBottom: "2pt solid #6366f1", paddingBottom: "8pt" }}>
+            <div style={{ width: "32pt", height: "32pt", background: "#6366f1", borderRadius: "6pt", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <span style={{ color: "white", fontSize: "14pt", fontWeight: "900" }}>R</span>
+            </div>
+            <div>
+              <div style={{ fontSize: "13pt", fontWeight: "900", color: "#1e293b" }}>Resultados · Sistema de Reacción</div>
+              <div style={{ fontSize: "8pt", color: "#64748b", textTransform: "uppercase", letterSpacing: "0.08em" }}>Tech Volley UNV</div>
+            </div>
+            <div style={{ marginLeft: "auto", fontSize: "8pt", color: "#94a3b8" }}>
+              Generado: {new Date().toLocaleDateString("es-BO", { day: "2-digit", month: "long", year: "numeric" })}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ════ HEADER ════ */}
-      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-sm">
-        <div className="max-w-[1700px] mx-auto px-4 sm:px-6">
+      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-sm print-hide-nav">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6">
           <div className="flex items-center gap-3 py-3">
             <div className="flex items-center gap-2.5 min-w-0">
-              <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center flex-shrink-0">
-                <Zap className="w-4 h-4 text-white" />
+              <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center flex-shrink-0">
+                <Activity className="w-4 h-4 text-white" />
               </div>
               <div>
                 <h1 className="text-sm font-bold text-slate-800 leading-none">Resultados</h1>
-                <p className="text-[9px] text-slate-400 font-medium uppercase tracking-widest mt-0.5">Sistema de Salto</p>
+                <p className="text-[9px] text-slate-400 font-medium uppercase tracking-widest mt-0.5">Sistema de Reacción</p>
               </div>
             </div>
             <div className="ml-auto flex items-center gap-2 flex-shrink-0">
               <button onClick={() => setShowSidebar(v => !v)}
                 className="lg:hidden flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 border border-slate-200 text-slate-600 text-xs font-semibold rounded-xl transition-all">
                 <User className="w-3.5 h-3.5" />
-                <span className="max-w-[80px] truncate">
-                  {selectedJugador ? selectedJugador.jugador.nombres.split(" ")[0] : "Jugadoras"}
-                </span>
+                <span className="max-w-[80px] truncate">{selectedJugador ? selectedJugador.nombres.split(" ")[0] : "Jugadoras"}</span>
                 <ChevronRight className={`w-3 h-3 transition-transform duration-200 ${showSidebar ? "rotate-90" : ""}`} />
               </button>
               {selectedJugador && (
@@ -419,25 +527,24 @@ export default function ResultadosSalto() {
               onLimpiar={() => { setDesde(""); setHasta("") }}
             />
             <PillGroup
-              options={MODOS_SALTO}
+              options={MODOS}
               value={modoFiltro}
               onChange={setModoFiltro}
-              getLabel={m => m === "todos" ? "Todos" : m === "salto simple" ? "Simple" : "Conos"}
+              getLabel={m => m.charAt(0).toUpperCase() + m.slice(1)}
             />
           </div>
 
-          {/* Indicador de filtros activos */}
           {(modoFiltro !== "todos" || desde || hasta) && (
             <div className="pb-2 flex items-center gap-2 flex-wrap">
               <span className="text-[10px] text-slate-400 uppercase tracking-widest">Filtros activos:</span>
               {(desde || hasta) && (
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-blue-50 text-blue-600 border border-blue-200">
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-600 border border-indigo-200">
                   {desde ? formatFecha(desde) : "Inicio"} → {hasta ? formatFecha(hasta) : "Hoy"}
                 </span>
               )}
               {modoFiltro !== "todos" && (
-                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${TIPO_COLORS[modoFiltro]?.bg} ${TIPO_COLORS[modoFiltro]?.text} ${TIPO_COLORS[modoFiltro]?.border}`}>
-                  {modoFiltro}
+                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${MODO_COLORS[modoFiltro]?.bg} ${MODO_COLORS[modoFiltro]?.text} ${MODO_COLORS[modoFiltro]?.border}`}>
+                  Modo: {modoFiltro}
                 </span>
               )}
               <button onClick={() => { setDesde(""); setHasta(""); setModoFiltro("todos") }}
@@ -449,31 +556,30 @@ export default function ResultadosSalto() {
         </div>
       </header>
 
-      {/* ════ PANEL MÓVIL ════ */}
-      <div className={`lg:hidden overflow-hidden transition-all duration-300 ${showSidebar ? "max-h-[600px]" : "max-h-0"}`}>
+      {/* ════ PANEL JUGADORAS MÓVIL ════ */}
+      <div className={`lg:hidden print-hide-nav overflow-hidden transition-all duration-300 ${showSidebar ? "max-h-[600px]" : "max-h-0"}`}>
         <div className="bg-white border-b border-slate-200 px-4 py-3 space-y-2">
           <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2">Jugadoras</p>
           {loadingJugadores
-            ? <div className="flex justify-center py-6"><Loader2 className="w-5 h-5 animate-spin text-blue-500" /></div>
+            ? <div className="flex justify-center py-6"><Loader2 className="w-5 h-5 animate-spin text-indigo-500" /></div>
             : jugadores.map(j => (
-              <button key={j.cuentaId} onClick={() => { setSelected(j); setShowSidebar(false) }}
+              <button key={j.id} onClick={() => { setSelected(j); setShowSidebar(false) }}
                 className={`w-full text-left rounded-2xl border p-3 flex items-center gap-3 transition-all ${
-                  selectedJugador?.cuentaId === j.cuentaId ? "bg-blue-50 border-blue-200" : "bg-slate-50 border-slate-200 hover:border-slate-300"
+                  selectedJugador?.id === j.id ? "bg-indigo-50 border-indigo-200" : "bg-slate-50 border-slate-200 hover:border-slate-300"
                 }`}>
                 <div className="w-9 h-9 rounded-xl bg-slate-200 flex-shrink-0 overflow-hidden">
-                  {j.path
-                    ? <img src={j.path} alt="" className="w-full h-full object-cover" onError={e => e.target.style.display="none"} />
+                  {j.path ? <img src={j.path} alt="" className="w-full h-full object-cover" onError={e => e.target.style.display="none"} />
                     : <div className="w-full h-full flex items-center justify-center"><User className="w-4 h-4 text-slate-400" /></div>}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs font-bold text-slate-700 truncate">{j.jugador.nombres} {j.jugador.apellidos}</p>
-                  <span className={`text-[10px] font-bold uppercase px-1.5 py-0.5 rounded-md border inline-block mt-0.5 ${POS_COLORS[j.jugador.posicion_principal] || "bg-slate-100 text-slate-500 border-slate-200"}`}>
-                    {j.jugador.posicion_principal}
+                  <p className="text-xs font-bold text-slate-700 truncate">{j.nombres} {j.apellidos}</p>
+                  <span className={`text-[10px] font-bold uppercase px-1.5 py-0.5 rounded-md border inline-block mt-0.5 ${POS_COLORS[j.posicion_principal] || "bg-slate-100 text-slate-500 border-slate-200"}`}>
+                    {j.posicion_principal}
                   </span>
                 </div>
-                {j.altura_promedio > 0 && (
-                  <span className={`text-sm font-black flex-shrink-0 ${alturaColor(j.altura_promedio)}`}>
-                    {j.altura_promedio}cm
+                {selectedJugador?.id === j.id && resultados && (
+                  <span className={`text-sm font-black flex-shrink-0 ${precisionColor(resultados.totales_generales?.precision ?? 0)}`}>
+                    {(resultados.totales_generales?.precision ?? 0).toFixed(0)}%
                   </span>
                 )}
               </button>
@@ -483,35 +589,34 @@ export default function ResultadosSalto() {
       </div>
 
       {/* ════ LAYOUT ════ */}
-      <div className="max-w-[1700px] mx-auto px-4 sm:px-6 py-5 flex gap-5">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-5 flex gap-5">
 
         {/* Sidebar desktop */}
         <aside className="hidden lg:block w-60 flex-shrink-0">
           <div className="sticky top-[130px] space-y-2">
             <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 px-1 mb-3">Jugadoras</p>
             {loadingJugadores
-              ? <div className="flex justify-center py-10"><Loader2 className="w-6 h-6 animate-spin text-blue-500" /></div>
+              ? <div className="flex justify-center py-10"><Loader2 className="w-6 h-6 animate-spin text-indigo-500" /></div>
               : jugadores.map(j => (
-                <button key={j.cuentaId} onClick={() => setSelected(j)}
+                <button key={j.id} onClick={() => setSelected(j)}
                   className={`w-full text-left rounded-2xl border transition-all p-3 flex items-center gap-3 ${
-                    selectedJugador?.cuentaId === j.cuentaId
-                      ? "bg-blue-50 border-blue-200 shadow-sm shadow-blue-100"
+                    selectedJugador?.id === j.id
+                      ? "bg-indigo-50 border-indigo-200 shadow-sm shadow-indigo-100"
                       : "bg-white border-slate-200 hover:border-slate-300 hover:bg-slate-50"
                   }`}>
                   <div className="w-10 h-10 rounded-xl bg-slate-100 flex-shrink-0 overflow-hidden border border-slate-200">
-                    {j.path
-                      ? <img src={j.path} alt="" className="w-full h-full object-cover" onError={e => e.target.style.display="none"} />
+                    {j.path ? <img src={j.path} alt="" className="w-full h-full object-cover" onError={e => e.target.style.display="none"} />
                       : <div className="w-full h-full flex items-center justify-center"><User className="w-5 h-5 text-slate-400" /></div>}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-xs font-bold text-slate-700 truncate leading-tight">{j.jugador.nombres} {j.jugador.apellidos}</p>
-                    <span className={`text-[10px] font-bold uppercase px-1.5 py-0.5 rounded-md border inline-block mt-0.5 ${POS_COLORS[j.jugador.posicion_principal] || "bg-slate-100 text-slate-500 border-slate-200"}`}>
-                      {j.jugador.posicion_principal}
+                    <p className="text-xs font-bold text-slate-700 truncate leading-tight">{j.nombres} {j.apellidos}</p>
+                    <span className={`text-[10px] font-bold uppercase px-1.5 py-0.5 rounded-md border inline-block mt-0.5 ${POS_COLORS[j.posicion_principal] || "bg-slate-100 text-slate-500 border-slate-200"}`}>
+                      {j.posicion_principal}
                     </span>
                   </div>
-                  {j.altura_promedio > 0 && (
-                    <span className={`text-sm font-black flex-shrink-0 ${alturaColor(j.altura_promedio)}`}>
-                      {j.altura_promedio}cm
+                  {selectedJugador?.id === j.id && resultados && (
+                    <span className={`text-sm font-black flex-shrink-0 ${precisionColor(resultados.totales_generales?.precision ?? 0)}`}>
+                      {(resultados.totales_generales?.precision ?? 0).toFixed(0)}%
                     </span>
                   )}
                 </button>
@@ -531,7 +636,7 @@ export default function ResultadosSalto() {
             </div>
           ) : loadingDatos ? (
             <div className="h-64 flex items-center justify-center">
-              <Loader2 className="w-7 h-7 animate-spin text-blue-500" />
+              <Loader2 className="w-7 h-7 animate-spin text-indigo-500" />
             </div>
           ) : (
             <>
@@ -545,13 +650,13 @@ export default function ResultadosSalto() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <h2 className="text-base sm:text-xl font-black text-slate-800 tracking-tight truncate">
-                      {selectedJugador.jugador.nombres} {selectedJugador.jugador.apellidos}
+                      {selectedJugador.nombres} {selectedJugador.apellidos}
                     </h2>
-                    <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-lg border flex-shrink-0 ${POS_COLORS[selectedJugador.jugador.posicion_principal] || "bg-slate-100 text-slate-500 border-slate-200"}`}>
-                      {selectedJugador.jugador.posicion_principal}
+                    <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-lg border flex-shrink-0 ${POS_COLORS[selectedJugador.posicion_principal] || "bg-slate-100 text-slate-500 border-slate-200"}`}>
+                      {selectedJugador.posicion_principal}
                     </span>
                     {modoFiltro !== "todos" && (
-                      <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-lg border flex-shrink-0 ${TIPO_COLORS[modoFiltro]?.bg} ${TIPO_COLORS[modoFiltro]?.text} ${TIPO_COLORS[modoFiltro]?.border}`}>
+                      <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-lg border flex-shrink-0 ${MODO_COLORS[modoFiltro]?.bg} ${MODO_COLORS[modoFiltro]?.text} ${MODO_COLORS[modoFiltro]?.border}`}>
                         {modoFiltro}
                       </span>
                     )}
@@ -559,12 +664,12 @@ export default function ResultadosSalto() {
                   <div className="flex items-center gap-3 mt-1.5 flex-wrap">
                     <span className="flex items-center gap-1 text-xs text-slate-400">
                       <BarChart2 className="w-3 h-3" />
-                      {sesionesFiltradas.length} prueba{sesionesFiltradas.length !== 1 ? "s" : ""}
+                      {sesionesFiltradas.length} sesión{sesionesFiltradas.length !== 1 ? "es" : ""}
                     </span>
-                    {ultimaSesion && (
+                    {sesionesFiltradas.length > 0 && (
                       <span className="flex items-center gap-1 text-xs text-slate-400">
                         <Calendar className="w-3 h-3" />
-                        Última: {formatFechaCorta(ultimaSesion.fecha)}
+                        Última: {formatFechaCorta(sesionesFiltradas[0]?.fecha)}
                       </span>
                     )}
                   </div>
@@ -573,124 +678,112 @@ export default function ResultadosSalto() {
 
               {/* ── B: KPIs ── */}
               {kpis && (
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
-                  {/* Altura */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
                   <div className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 shadow-sm relative overflow-hidden">
-                    <div className="absolute inset-0 bg-gradient-to-br from-blue-50 to-transparent pointer-events-none" />
-                    <div className="relative">
-                      <div className="flex items-center justify-between mb-2">
-                        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Altura prom.</p>
-                        <div className="w-7 h-7 rounded-lg bg-blue-100 flex items-center justify-center">
-                          <TrendingUp className="w-3.5 h-3.5 text-blue-600" />
+                    <div className="absolute inset-0 bg-gradient-to-br from-indigo-50 to-transparent pointer-events-none" />
+                    <div className="relative flex sm:block items-center gap-4">
+                      <div className="flex items-center justify-between mb-0 sm:mb-3 flex-1">
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
+                          % Aciertos {modoFiltro !== "todos" ? `(${modoFiltro})` : "general"}
+                        </p>
+                        <div className="w-8 h-8 rounded-lg bg-indigo-100 flex items-center justify-center flex-shrink-0">
+                          <Target className="w-4 h-4 text-indigo-600" />
                         </div>
                       </div>
-                      <p className={`text-2xl sm:text-3xl font-black tracking-tight ${alturaColor(kpis.altura)}`}>
-                        {kpis.altura.toFixed(1)}<span className="text-base font-bold text-slate-400 ml-0.5">cm</span>
-                      </p>
-                    </div>
-                  </div>
-                  {/* Fuerza */}
-                  <div className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 shadow-sm relative overflow-hidden">
-                    <div className="absolute inset-0 bg-gradient-to-br from-orange-50 to-transparent pointer-events-none" />
-                    <div className="relative">
-                      <div className="flex items-center justify-between mb-2">
-                        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Fuerza máx.</p>
-                        <div className="w-7 h-7 rounded-lg bg-orange-100 flex items-center justify-center">
-                          <Flame className="w-3.5 h-3.5 text-orange-500" />
-                        </div>
+                      <div>
+                        <p className={`text-3xl sm:text-4xl font-black tracking-tight ${precisionColor(kpis.precision)}`}>
+                          {kpis.precision.toFixed(1)}<span className="text-xl text-slate-400">%</span>
+                        </p>
+                        <p className="text-xs text-slate-400 mt-0.5">{kpis.totalReacciones} sesiones</p>
                       </div>
-                      <p className={`text-2xl sm:text-3xl font-black tracking-tight ${fuerzaColor(kpis.fuerza)}`}>
-                        {kpis.fuerza.toFixed(1)}<span className="text-base font-bold text-slate-400 ml-0.5">kg</span>
-                      </p>
                     </div>
                   </div>
-                  {/* Índice fatiga */}
+
                   <div className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 shadow-sm relative overflow-hidden">
                     <div className="absolute inset-0 bg-gradient-to-br from-emerald-50 to-transparent pointer-events-none" />
-                    <div className="relative">
-                      <div className="flex items-center justify-between mb-2">
-                        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Índice fatiga</p>
-                        <div className="w-7 h-7 rounded-lg bg-emerald-100 flex items-center justify-center">
-                          <Wind className="w-3.5 h-3.5 text-emerald-600" />
+                    <div className="relative flex sm:block items-center gap-4">
+                      <div className="flex items-center justify-between mb-0 sm:mb-3 flex-1">
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
+                          {modoFiltro !== "todos" ? "Modo seleccionado" : "Mejor modo"}
+                        </p>
+                        <div className="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center flex-shrink-0">
+                          <Zap className="w-4 h-4 text-emerald-600" />
                         </div>
                       </div>
-                      <p className={`text-2xl sm:text-3xl font-black tracking-tight ${fatigaColor(kpis.fatiga)}`}>
-                        {kpis.fatiga.toFixed(1)}<span className="text-base font-bold text-slate-400 ml-0.5">%</span>
-                      </p>
+                      {kpis.mejorModo ? (
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className={`w-2 h-2 rounded-full flex-shrink-0 ${MODO_COLORS[kpis.mejorModo]?.dot}`} />
+                            <p className="text-xl sm:text-2xl font-black capitalize text-slate-800">{kpis.mejorModo}</p>
+                          </div>
+                          <p className="text-emerald-600 font-bold text-base sm:text-lg mt-0.5">{kpis.mejorPrec.toFixed(1)}%</p>
+                        </div>
+                      ) : <p className="text-slate-400 text-sm">Sin datos</p>}
                     </div>
                   </div>
-                  {/* Total saltos */}
+
                   <div className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 shadow-sm relative overflow-hidden">
-                    <div className="absolute inset-0 bg-gradient-to-br from-slate-50 to-transparent pointer-events-none" />
-                    <div className="relative">
-                      <div className="flex items-center justify-between mb-2">
-                        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Total saltos</p>
-                        <div className="w-7 h-7 rounded-lg bg-slate-100 flex items-center justify-center">
-                          <Layers className="w-3.5 h-3.5 text-slate-500" />
+                    <div className="absolute inset-0 bg-gradient-to-br from-sky-50 to-transparent pointer-events-none" />
+                    <div className="relative flex sm:block items-center gap-4">
+                      <div className="flex items-center justify-between mb-0 sm:mb-3 flex-1">
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Tendencia</p>
+                        <div className="w-8 h-8 rounded-lg bg-sky-100 flex items-center justify-center flex-shrink-0">
+                          <TrendingUp className="w-4 h-4 text-sky-600" />
                         </div>
                       </div>
-                      <p className="text-2xl sm:text-3xl font-black tracking-tight text-slate-800">
-                        {kpis.totalSaltos}
-                      </p>
-                      <p className="text-[10px] text-slate-400 mt-0.5">{kpis.cantidad} sesión{kpis.cantidad !== 1 ? "es" : ""}</p>
+                      {kpis.tendencia !== null ? (
+                        <div>
+                          <div className="flex items-center gap-1.5">
+                            {kpis.tendencia > 0
+                              ? <TrendingUp className="w-5 h-5 text-emerald-500 flex-shrink-0" />
+                              : kpis.tendencia < 0
+                                ? <TrendingDown className="w-5 h-5 text-red-500 flex-shrink-0" />
+                                : <Minus className="w-5 h-5 text-slate-400 flex-shrink-0" />}
+                            <p className={`text-2xl sm:text-3xl font-black ${kpis.tendencia > 0 ? "text-emerald-600" : kpis.tendencia < 0 ? "text-red-500" : "text-slate-400"}`}>
+                              {kpis.tendencia > 0 ? "+" : ""}{kpis.tendencia.toFixed(1)}%
+                            </p>
+                          </div>
+                          <p className="text-xs text-slate-400 mt-0.5">vs período anterior</p>
+                        </div>
+                      ) : <p className="text-slate-400 text-sm">Sin datos suficientes</p>}
                     </div>
                   </div>
                 </div>
               )}
 
-              {/* ── C: Gráfico ── */}
+              {/* ── C: Gráfico mejorado ── */}
               <div className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-6 shadow-sm">
-                <div className="flex flex-col sm:flex-row sm:items-center gap-3 justify-between mb-5">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-0 justify-between mb-5">
                   <div>
                     <h3 className="text-sm font-bold text-slate-800">
-                      Evolución — {METRICAS.find(m => m.id === metricaChart)?.label} por modo
-                      {modoFiltro !== "todos" ? ` · ${modoFiltro}` : ""}
+                      Evolución — % aciertos
+                      {modoFiltro !== "todos" ? ` · ${modoFiltro}` : " por modo"}
                     </h3>
-                    <p className="text-xs text-slate-400 mt-0.5">Agrupado por semana · solo períodos con pruebas reales</p>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      Agrupado por semana · separado por mes de entrenamiento
+                    </p>
                   </div>
-                  <div className="flex items-center gap-2 flex-wrap">
-                    {/* Toggle métrica */}
-                    <div className="flex items-center gap-1 bg-slate-100 rounded-xl p-1 border border-slate-200">
-                      {METRICAS.map(m => (
-                        <button key={m.id} onClick={() => setMetrica(m.id)}
-                          className={`px-2.5 py-1 rounded-lg text-[10px] font-semibold whitespace-nowrap transition-all ${
-                            metricaChart === m.id ? "bg-white text-slate-700 shadow-sm border border-slate-200" : "text-slate-500 hover:text-slate-700"
-                          }`}>
-                          {m.label}
-                        </button>
-                      ))}
-                    </div>
-                    {/* Leyenda */}
-                    <div className="flex items-center gap-3">
-                      {(modoFiltro === "todos" ? ["salto simple", "salto conos"] : [modoFiltro]).map(t => (
-                        <div key={t} className="flex items-center gap-1.5">
-                          <span className="w-4 h-0.5 rounded-full inline-block" style={{ background: TIPO_COLORS[t].line }} />
-                          <span className="text-[10px] sm:text-xs text-slate-500 capitalize">{t === "salto simple" ? "Simple" : "Conos"}</span>
-                        </div>
-                      ))}
-                    </div>
+                  <div className="flex items-center gap-4">
+                    {(modoFiltro === "todos" ? ["aleatorio", "secuencial", "manual"] : [modoFiltro]).map(m => (
+                      <div key={m} className="flex items-center gap-1.5">
+                        <span className="w-4 h-0.5 rounded-full inline-block" style={{ background: MODO_COLORS[m].line }} />
+                        <span className="text-[10px] sm:text-xs text-slate-500 capitalize">{m}</span>
+                      </div>
+                    ))}
                   </div>
                 </div>
-                {chartSemanas.length > 0 ? (
-                  <div className="h-80 sm:h-[26rem]">
-                    <LineChart
-                      data={
-                        modoFiltro !== "todos"
-                          ? { "salto simple": [], "salto conos": [], [modoFiltro]: chartData[modoFiltro] || [] }
-                          : chartData
-                      }
-                      semanas={chartSemanas}
-                      metrica={metricaChart}
-                    />
-                  </div>
-                ) : (
-                  <div className="h-48 flex items-center justify-center text-slate-400">
-                    <div className="text-center">
-                      <BarChart2 className="w-8 h-8 mx-auto mb-2 opacity-30" />
-                      <p className="text-sm">Sin datos</p>
-                    </div>
-                  </div>
-                )}
+
+                {/* Altura aumentada para acomodar las etiquetas de mes */}
+                <div className="h-[22rem] sm:h-[30rem]">
+                  <LineChart
+                    data={
+                      modoFiltro !== "todos"
+                        ? { aleatorio: [], secuencial: [], manual: [], [modoFiltro]: chartData[modoFiltro] || [] }
+                        : chartData
+                    }
+                    modoFiltro={modoFiltro}
+                  />
+                </div>
               </div>
 
               {/* ── D: Historial ── */}
@@ -705,22 +798,25 @@ export default function ResultadosSalto() {
                   </span>
                 </div>
 
-                {sesionesPag.length > 0 ? (
+                {sesionesPagina.length > 0 ? (
                   <>
-                    {/* Tabla desktop */}
                     <div className="hidden md:block overflow-x-auto">
                       <table className="w-full text-sm">
                         <thead>
                           <tr className="border-b border-slate-100 bg-slate-50">
-                            {["Semana","Día","Fecha","Modo","Altura prom (cm)","Fuerza máx (kg)","Índice fatiga (%)","Saltos"].map(h => (
+                            {["Semana", "Día", "Fecha", "Modo", "Intentos", "Aciertos", "Fallos", "% Aciertos"].map(h => (
                               <th key={h} className="px-5 py-3 text-left text-[10px] font-bold uppercase tracking-widest text-slate-400 whitespace-nowrap">{h}</th>
                             ))}
                           </tr>
                         </thead>
                         <tbody>
-                          {sesionesPag.map((s, i) => {
+                          {sesionesPagina.map((s, i) => {
+                            const prec = s.precision ?? (
+                              (s.aciertos || 0) + (s.errores || 0) > 0
+                                ? ((s.aciertos || 0) / ((s.aciertos || 0) + (s.errores || 0))) * 100 : 0
+                            )
                             const d = new Date(s.fecha)
-                            const c = TIPO_COLORS[s.tipo]
+                            const c = MODO_COLORS[s.modo]
                             return (
                               <tr key={s.id ?? i} className="border-b border-slate-50 hover:bg-slate-50/70 transition-colors">
                                 <td className="px-5 py-3.5 text-slate-400 text-xs whitespace-nowrap">
@@ -729,48 +825,50 @@ export default function ResultadosSalto() {
                                 <td className="px-5 py-3.5 text-slate-400 text-xs">{d.getDate()}</td>
                                 <td className="px-5 py-3.5 text-slate-600 text-xs font-medium whitespace-nowrap">{formatFecha(s.fecha)}</td>
                                 <td className="px-5 py-3.5">
-                                  <span className={`inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-lg border ${c?.bg} ${c?.text} ${c?.border}`}>
-                                    <span className={`w-1.5 h-1.5 rounded-full ${c?.dot}`} />
-                                    {s.tipo === "salto simple" ? "Simple" : "Conos"}
+                                  <span className={`inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-lg border ${c?.bg || "bg-slate-100"} ${c?.text || "text-slate-600"} ${c?.border || "border-slate-200"}`}>
+                                    <span className={`w-1.5 h-1.5 rounded-full ${c?.dot || "bg-slate-400"}`} />{s.modo}
                                   </span>
                                 </td>
+                                <td className="px-5 py-3.5 text-slate-600 text-xs font-mono">{s.intentos ?? (s.aciertos || 0) + (s.errores || 0)}</td>
+                                <td className="px-5 py-3.5 text-emerald-600 text-xs font-mono font-bold">{s.aciertos || 0}</td>
+                                <td className="px-5 py-3.5 text-red-500 text-xs font-mono">{s.errores || 0}</td>
                                 <td className="px-5 py-3.5">
-                                  <span className={`text-xs font-black ${alturaColor(s.altura_promedio)}`}>{(s.altura_promedio || 0).toFixed(2)}</span>
-                                </td>
-                                <td className="px-5 py-3.5">
-                                  <span className={`text-xs font-black ${fuerzaColor(s.fuerza_max)}`}>{(s.fuerza_max || 0).toFixed(1)}</span>
-                                </td>
-                                <td className="px-5 py-3.5">
-                                  <span className={`text-xs font-black px-2 py-0.5 rounded-lg border ${fatigaBg(s.indice_fatiga || 0)}`}>
-                                    {(s.indice_fatiga || 0).toFixed(1)}%
+                                  <span className={`text-xs font-black px-2.5 py-1 rounded-lg border ${precisionBg(prec)}`}>
+                                    {prec.toFixed(1)}%
                                   </span>
                                 </td>
-                                <td className="px-5 py-3.5 text-slate-600 text-xs font-mono">{s.cantidad_saltos || 0}</td>
                               </tr>
                             )
                           })}
                         </tbody>
                       </table>
                     </div>
-                    {/* Cards móvil */}
                     <div className="md:hidden divide-y divide-slate-100">
-                      {sesionesPag.map((s, i) => {
-                        const c = TIPO_COLORS[s.tipo]
+                      {sesionesPagina.map((s, i) => {
+                        const prec = s.precision ?? (
+                          (s.aciertos || 0) + (s.errores || 0) > 0
+                            ? ((s.aciertos || 0) / ((s.aciertos || 0) + (s.errores || 0))) * 100 : 0
+                        )
+                        const c = MODO_COLORS[s.modo]
                         return (
                           <div key={s.id ?? i} className="px-4 py-3.5 flex items-center gap-3">
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2 mb-1">
-                                <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${c?.dot}`} />
-                                <span className={`text-[10px] font-bold uppercase ${c?.text}`}>{s.tipo}</span>
+                                <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${c?.dot || "bg-slate-400"}`} />
+                                <span className={`text-[10px] font-bold uppercase ${c?.text || "text-slate-500"}`}>{s.modo}</span>
                                 <span className="text-[10px] text-slate-400 ml-auto">{formatFechaCorta(s.fecha)}</span>
                               </div>
-                              <div className="flex items-center gap-3 text-xs">
-                                <span className={`font-bold ${alturaColor(s.altura_promedio)}`}>{(s.altura_promedio || 0).toFixed(1)}cm</span>
-                                <span className={`font-bold ${fuerzaColor(s.fuerza_max)}`}>{(s.fuerza_max || 0).toFixed(1)}kg</span>
-                                <span className={`font-black px-1.5 py-0.5 rounded border text-[10px] ${fatigaBg(s.indice_fatiga || 0)}`}>{(s.indice_fatiga || 0).toFixed(1)}%</span>
+                              <div className="flex items-center gap-2 text-xs text-slate-400">
+                                <span className="text-emerald-600 font-bold">{s.aciertos || 0}</span>
+                                <span>aciertos</span>
+                                <span className="text-slate-300">·</span>
+                                <span className="text-red-500">{s.errores || 0}</span>
+                                <span>fallos</span>
                               </div>
                             </div>
-                            <span className="text-xs text-slate-500 flex-shrink-0">{s.cantidad_saltos || 0} saltos</span>
+                            <span className={`text-sm font-black px-2.5 py-1 rounded-xl border flex-shrink-0 ${precisionBg(prec)}`}>
+                              {prec.toFixed(1)}%
+                            </span>
                           </div>
                         )
                       })}
@@ -779,7 +877,7 @@ export default function ResultadosSalto() {
                 ) : (
                   <div className="py-12 flex flex-col items-center gap-2 text-slate-400">
                     <List className="w-7 h-7 opacity-30" />
-                    <p className="text-sm">No hay pruebas para este período{modoFiltro !== "todos" ? ` en ${modoFiltro}` : ""}</p>
+                    <p className="text-sm">No hay sesiones para este período{modoFiltro !== "todos" ? ` en modo ${modoFiltro}` : ""}</p>
                   </div>
                 )}
 
@@ -787,46 +885,40 @@ export default function ResultadosSalto() {
               </div>
 
               {/* ── E: Detalle por tipo ── */}
-              {resultados?.por_tipo && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-                  {(modoFiltro !== "todos" ? [modoFiltro] : ["salto simple", "salto conos"]).map(tipo => {
-                    const info = resultados.por_tipo[tipo] || {}
-                    const c    = TIPO_COLORS[tipo]
-                    const sparkAltura = (chartData[tipo] || []).map(p => p.altura_promedio)
+              {resultados?.por_tipo_reaccion && (
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+                  {(modoFiltro !== "todos" ? [modoFiltro] : ["aleatorio", "secuencial", "manual"]).map(modo => {
+                    const info      = resultados.por_tipo_reaccion[modo] || {}
+                    const c         = MODO_COLORS[modo]
+                    const sparkVals = (chartData[modo] || []).map(p => p.precision)
                     return (
-                      <div key={tipo} className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 shadow-sm">
+                      <div key={modo} className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 shadow-sm">
                         <div className="flex items-center justify-between mb-3">
                           <div className="flex items-center gap-2">
                             <span className={`w-2 h-2 rounded-full ${c.dot}`} />
-                            <span className="text-sm font-bold capitalize text-slate-800">
-                              {tipo === "salto simple" ? "Salto Simple (Vertical)" : "Salto con Conos"}
-                            </span>
+                            <span className="text-sm font-bold capitalize text-slate-800">{modo}</span>
                           </div>
-                          <Sparkline values={sparkAltura} color={c.line} />
+                          <Sparkline values={sparkVals} color={c.line} />
                         </div>
-                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                        <div className="grid grid-cols-2 gap-2">
                           {[
-                            { label: "Sesiones",    val: info.cantidad ?? 0,                              cls: "text-slate-800" },
-                            { label: "Total saltos",val: info.total_saltos ?? 0,                          cls: "text-slate-800" },
-                            { label: "Altura prom", val: `${(info.altura_promedio ?? 0).toFixed(1)} cm`,  cls: alturaColor(info.altura_promedio ?? 0) },
-                            { label: "Fuerza máx",  val: `${(info.fuerza_max_promedio ?? 0).toFixed(1)} kg`, cls: fuerzaColor(info.fuerza_max_promedio ?? 0) },
-                            { label: "Fatiga prom", val: `${(info.indice_fatiga_promedio ?? 0).toFixed(1)} %`, cls: fatigaColor(info.indice_fatiga_promedio ?? 0) },
-                            { label: "Mejor sesión",
-                              val: info.mejor_salto ? `${(info.mejor_salto.altura_promedio || 0).toFixed(1)} cm` : "—",
-                              cls: "text-emerald-600" },
+                            { label: "Sesiones",  val: info.total_realizadas ?? 0, cls: "text-slate-800" },
+                            { label: "Precisión", val: `${(info.precision ?? 0).toFixed(1)}%`, cls: precisionColor(info.precision ?? 0) },
+                            { label: "Aciertos",  val: info.total_aciertos ?? 0, cls: "text-emerald-600" },
+                            { label: "Errores",   val: info.total_errores  ?? 0, cls: "text-red-500" },
                           ].map(({ label, val, cls }) => (
                             <div key={label} className="bg-slate-50 rounded-xl p-3 border border-slate-100">
                               <p className="text-[10px] text-slate-400 mb-1">{label}</p>
-                              <p className={`font-black text-sm sm:text-base ${cls}`}>{val}</p>
+                              <p className={`font-black text-base ${cls}`}>{val}</p>
                             </div>
                           ))}
                         </div>
-                        {info.mejor_salto && (
+                        {info.mejor_reaccion && (
                           <div className="mt-3 pt-3 border-t border-slate-100">
-                            <p className="text-[10px] text-slate-400 uppercase tracking-widest mb-1">Mejor prueba</p>
+                            <p className="text-[10px] text-slate-400 uppercase tracking-widest mb-1">Mejor sesión</p>
                             <div className="flex items-center justify-between">
-                              <span className="text-xs text-slate-500">{formatFechaCorta(info.mejor_salto?.fecha)}</span>
-                              <span className="text-xs font-black text-emerald-600">{(info.mejor_salto?.altura_promedio ?? 0).toFixed(2)} cm</span>
+                              <span className="text-xs text-slate-500">{formatFechaCorta(info.mejor_reaccion?.fecha)}</span>
+                              <span className="text-xs font-black text-emerald-600">{(info.mejor_reaccion?.precision ?? 0).toFixed(1)}%</span>
                             </div>
                           </div>
                         )}
@@ -851,9 +943,79 @@ export default function ResultadosSalto() {
         .scrollbar-none { scrollbar-width: none; -ms-overflow-style: none; }
         .scrollbar-none::-webkit-scrollbar { display: none; }
         input[type="date"]::-webkit-calendar-picker-indicator { opacity: 0.4; cursor: pointer; }
+
         @media print {
-          header { position: static !important; }
-          aside, .lg\\:hidden { display: none !important; }
+          /* ── Página ── */
+          @page { size: A4 portrait; margin: 14mm 12mm 14mm 12mm; }
+          * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+
+          /* ── Print header: mostrar solo al imprimir ── */
+          .print-only-header { display: block !important; }
+
+          /* ── Ocultar navegación y controles ── */
+          .print-hide-nav,
+          .lg\\:hidden { display: none !important; }
+
+          /* ── Fondo ── */
+          body, html { background: white !important; }
+          .min-h-screen { min-height: unset !important; background: white !important; }
+          .bg-slate-50 { background: white !important; }
+
+          /* ── Layout: quitar sidebar, hacer full width ── */
+          .max-w-6xl { max-width: 100% !important; padding: 0 !important; margin: 0 !important; }
+          .flex.gap-5 { display: block !important; }
+          aside { display: none !important; }
+          main { width: 100% !important; min-width: 0 !important; }
+          .py-5 { padding-top: 0 !important; padding-bottom: 0 !important; }
+
+          /* ── Espaciado entre secciones ── */
+          .space-y-4 > * + * { margin-top: 8pt !important; }
+
+          /* ── Cards no se parten entre páginas ── */
+          .rounded-2xl {
+            break-inside: avoid !important;
+            page-break-inside: avoid !important;
+            border: 1px solid #e2e8f0 !important;
+            box-shadow: none !important;
+            margin-bottom: 8pt !important;
+            background: white !important;
+          }
+
+          /* ── Gradientes: eliminar ── */
+          .absolute.inset-0 { display: none !important; }
+          .shadow-sm { box-shadow: none !important; }
+
+          /* ── KPI grid 3 columnas ── */
+          .grid { display: grid !important; }
+          .sm\\:grid-cols-3 { grid-template-columns: repeat(3, 1fr) !important; gap: 6pt !important; }
+          .sm\\:grid-cols-2 { grid-template-columns: repeat(2, 1fr) !important; gap: 6pt !important; }
+
+          /* ── Gráfico SVG: altura fija y visible ── */
+          .h-\\[22rem\\], .h-\\[30rem\\], .sm\\:h-\\[30rem\\] {
+            height: 200pt !important;
+            width: 100% !important;
+            overflow: visible !important;
+          }
+          svg { overflow: visible !important; }
+
+          /* ── Tabla historial: mostrar versión desktop ── */
+          .hidden.md\\:block { display: block !important; }
+          .md\\:hidden { display: none !important; }
+          table { width: 100% !important; border-collapse: collapse !important; font-size: 7.5pt !important; }
+          th { font-size: 6.5pt !important; padding: 4pt 5pt !important; background: #f8fafc !important; }
+          td { padding: 4pt 5pt !important; }
+          thead { display: table-header-group !important; }
+          tr { break-inside: avoid !important; }
+
+          /* ── Paginador: ocultar ── */
+          .bg-slate-50\\/50 { display: none !important; }
+
+          /* ── Backdrop y blur: eliminar ── */
+          .backdrop-blur-md { backdrop-filter: none !important; }
+          .bg-white\\/95 { background: white !important; }
+
+          /* ── Tipografía ── */
+          body { font-size: 9pt !important; color: #1e293b !important; }
         }
       `}</style>
     </div>

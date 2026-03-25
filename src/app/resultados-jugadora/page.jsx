@@ -11,6 +11,17 @@ const BASE_URL = "https://jenn-back-reac.onrender.com"
 const MODOS = ["todos", "aleatorio", "secuencial", "manual"]
 const POR_PAGINA = 15
 
+// ── Semanas agrupadas por mes — espaciado visual uniforme ────────────────────
+// Los datos reales están en: oct/2025 (sem 1-4), feb/2025, mar/2026
+const SEMANAS = [
+  { id: "oct_s1", label: "S1",      labelFull: "Sem 1 oct",  mes: "Oct '25", desde: "2025-10-07", hasta: "2025-10-09",  mesBreak: true  },
+  { id: "oct_s2", label: "S2",      labelFull: "Sem 2 oct",  mes: "Oct '25", desde: "2025-10-10", hasta: "2025-10-14",  mesBreak: false },
+  { id: "oct_s3", label: "S3",      labelFull: "Sem 3 oct",  mes: "Oct '25", desde: "2025-10-15", hasta: "2025-10-19",  mesBreak: false },
+  { id: "oct_s4", label: "S4",      labelFull: "Sem 4 oct",  mes: "Oct '25", desde: "2025-10-20", hasta: "2025-10-26",  mesBreak: false },
+  { id: "feb_s1", label: "S1",      labelFull: "Sem 1 feb",  mes: "Feb '25", desde: "2025-02-01", hasta: "2025-02-28",  mesBreak: true  },
+  { id: "mar_s4", label: "S4",      labelFull: "Sem 4 mar",  mes: "Mar '26", desde: "2026-03-20", hasta: "2026-03-31",  mesBreak: true  },
+]
+
 const MODO_COLORS = {
   aleatorio:  { line: "#6366f1", bg: "bg-indigo-100",   text: "text-indigo-700",  dot: "bg-indigo-500",  border: "border-indigo-200" },
   secuencial: { line: "#f59e0b", bg: "bg-amber-100",    text: "text-amber-700",   dot: "bg-amber-500",   border: "border-amber-200"  },
@@ -52,61 +63,175 @@ const Sparkline = ({ values = [], color = "#6366f1" }) => {
   )
 }
 
-// ─── Line chart SVG — más grande y con más padding ────────────────────────────
-const LineChart = ({ data, labels }) => {
-  const W = 900, H = 400, PAD = { t: 40, r: 40, b: 64, l: 64 }
-  const IW = W - PAD.l - PAD.r, IH = H - PAD.t - PAD.b
-  const n = labels.length
+// ─── Line chart mejorado — separadores de mes + espaciado limpio ─────────────
+const LineChart = ({ data, modoFiltro }) => {
+  const W = 1000, H = 420
+  const PAD = { t: 48, r: 48, b: 88, l: 68 }
+  const IW = W - PAD.l - PAD.r
+  const IH = H - PAD.t - PAD.b
+  const n = SEMANAS.length
+
+  // Espaciado uniforme — índice visual, no temporal
   const xOf = (i) => PAD.l + (i / Math.max(n - 1, 1)) * IW
   const yOf = (v) => PAD.t + IH - (v / 100) * IH
 
-  const hayDatos = ["aleatorio", "secuencial", "manual"].some(m =>
+  const modosActivos = modoFiltro !== "todos"
+    ? [modoFiltro]
+    : ["aleatorio", "secuencial", "manual"]
+
+  const hayDatos = modosActivos.some(m =>
     (data[m] || []).some(p => p.total > 0)
   )
 
+  // Agrupar semanas por mes para dibujar separadores y etiquetas de mes
+  const grupos = []
+  let grupoActual = null
+  SEMANAS.forEach((sem, i) => {
+    if (!grupoActual || sem.mes !== grupoActual.mes) {
+      grupoActual = { mes: sem.mes, inicio: i, fin: i }
+      grupos.push(grupoActual)
+    } else {
+      grupoActual.fin = i
+    }
+  })
+
+  // Ticks del eje Y
+  const yTicks = [0, 25, 50, 75, 100]
+
   return (
     <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-full" preserveAspectRatio="xMidYMid meet">
-      {/* Grid */}
-      {[0, 25, 50, 75, 100].map(v => (
+      {/* ─── Fondos de mes alternados ─────────────────────────────── */}
+      {grupos.map((g, gi) => {
+        const x1 = gi === 0
+          ? PAD.l
+          : (xOf(g.inicio) + xOf(grupos[gi - 1].fin)) / 2
+        const x2 = gi === grupos.length - 1
+          ? PAD.l + IW
+          : (xOf(g.fin) + xOf(grupos[gi + 1]?.inicio ?? g.fin)) / 2
+        return (
+          <rect
+            key={g.mes}
+            x={x1} y={PAD.t}
+            width={x2 - x1} height={IH}
+            fill={gi % 2 === 0 ? "rgba(241,245,249,0.5)" : "transparent"}
+          />
+        )
+      })}
+
+      {/* ─── Separadores verticales de mes ───────────────────────── */}
+      {grupos.slice(1).map((g) => {
+        const x = xOf(g.inicio) - (xOf(g.inicio) - xOf(g.inicio - 1)) / 2
+        return (
+          <line
+            key={`sep-${g.mes}`}
+            x1={x} y1={PAD.t - 8}
+            x2={x} y2={PAD.t + IH}
+            stroke="#e2e8f0" strokeWidth="1.5" strokeDasharray="4,3"
+          />
+        )
+      })}
+
+      {/* ─── Grid horizontal ─────────────────────────────────────── */}
+      {yTicks.map(v => (
         <g key={v}>
-          <line x1={PAD.l} y1={yOf(v)} x2={W - PAD.r} y2={yOf(v)}
-            stroke={v === 0 ? "#cbd5e1" : "#e2e8f0"} strokeWidth="1"
-            strokeDasharray={v === 0 ? "none" : "4,4"} />
-          <text x={PAD.l - 10} y={yOf(v) + 4} textAnchor="end" fontSize="12" fill="#94a3b8" fontFamily="inherit">{v}%</text>
+          <line
+            x1={PAD.l} y1={yOf(v)} x2={PAD.l + IW} y2={yOf(v)}
+            stroke={v === 0 ? "#cbd5e1" : "#e2e8f0"}
+            strokeWidth={v === 0 ? 1.5 : 1}
+            strokeDasharray={v === 0 ? "none" : "4,4"}
+          />
+          <text x={PAD.l - 12} y={yOf(v) + 4} textAnchor="end" fontSize="12" fill="#94a3b8" fontFamily="inherit">
+            {v}%
+          </text>
         </g>
       ))}
-      {/* X labels */}
-      {labels.map((lbl, i) => (
-        <text key={i} x={xOf(i)} y={H - PAD.b + 22} textAnchor="middle" fontSize="12" fill="#94a3b8" fontFamily="inherit">
-          {lbl}
+
+      {/* ─── Etiquetas de semana (eje X inferior) ─────────────────── */}
+      {SEMANAS.map((sem, i) => (
+        <text
+          key={sem.id}
+          x={xOf(i)} y={H - PAD.b + 22}
+          textAnchor="middle" fontSize="11" fill="#94a3b8" fontFamily="inherit"
+        >
+          {sem.label}
         </text>
       ))}
+
+      {/* ─── Etiquetas de mes (debajo de semanas) ─────────────────── */}
+      {grupos.map((g) => {
+        const xMid = (xOf(g.inicio) + xOf(g.fin)) / 2
+        return (
+          <g key={`mes-${g.mes}`}>
+            {/* línea decorativa bajo las semanas del mes */}
+            <line
+              x1={xOf(g.inicio) - 12} y1={H - PAD.b + 30}
+              x2={xOf(g.fin) + 12}    y2={H - PAD.b + 30}
+              stroke="#cbd5e1" strokeWidth="1.5" strokeLinecap="round"
+            />
+            <text
+              x={xMid} y={H - PAD.b + 46}
+              textAnchor="middle" fontSize="11.5" fontWeight="700"
+              fill="#64748b" fontFamily="inherit"
+            >
+              {g.mes}
+            </text>
+          </g>
+        )
+      })}
+
+      {/* ─── Sin datos ───────────────────────────────────────────── */}
       {!hayDatos && (
         <text x={W / 2} y={H / 2} textAnchor="middle" fontSize="14" fill="#94a3b8" fontFamily="inherit">
           Sin datos para este período
         </text>
       )}
-      {["aleatorio", "secuencial", "manual"].map(modo => {
+
+      {/* ─── Líneas y puntos por modo ─────────────────────────────── */}
+      {modosActivos.map(modo => {
         const conDatos = (data[modo] || [])
           .map((p, i) => ({ ...p, idx: i }))
           .filter(p => p.total > 0)
         if (!conDatos.length) return null
         const c = MODO_COLORS[modo].line
+
         const pathD = conDatos.length >= 2
-          ? conDatos.map((p, j) => `${j === 0 ? "M" : "L"}${xOf(p.idx).toFixed(1)},${yOf(p.precision).toFixed(1)}`).join(" ")
+          ? conDatos
+              .map((p, j) => `${j === 0 ? "M" : "L"}${xOf(p.idx).toFixed(1)},${yOf(p.precision).toFixed(1)}`)
+              .join(" ")
           : null
+
         return (
           <g key={modo}>
+            {/* Área bajo la curva — sutil */}
+            {pathD && conDatos.length >= 2 && (() => {
+              const first = conDatos[0], last = conDatos[conDatos.length - 1]
+              const areaD = `${pathD} L${xOf(last.idx).toFixed(1)},${yOf(0).toFixed(1)} L${xOf(first.idx).toFixed(1)},${yOf(0).toFixed(1)} Z`
+              return (
+                <path d={areaD} fill={c} opacity="0.06" />
+              )
+            })()}
+
+            {/* Línea */}
             {pathD && (
-              <path d={pathD} fill="none" stroke={c} strokeWidth="2.5"
-                strokeLinecap="round" strokeLinejoin="round" opacity="0.9" />
+              <path
+                d={pathD} fill="none" stroke={c}
+                strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" opacity="0.9"
+              />
             )}
+
+            {/* Puntos + etiquetas */}
             {conDatos.map(p => (
               <g key={p.idx}>
-                <circle cx={xOf(p.idx)} cy={yOf(p.precision)} r={conDatos.length === 1 ? 7 : 5}
-                  fill="white" stroke={c} strokeWidth="2.5" />
-                <text x={xOf(p.idx)} y={yOf(p.precision) - 12}
-                  textAnchor="middle" fontSize="11" fill={c} fontWeight="700" fontFamily="inherit">
+                <circle
+                  cx={xOf(p.idx)} cy={yOf(p.precision)}
+                  r={conDatos.length === 1 ? 8 : 5}
+                  fill="white" stroke={c} strokeWidth="2.5"
+                />
+                <text
+                  x={xOf(p.idx)} y={yOf(p.precision) - 13}
+                  textAnchor="middle" fontSize="11" fill={c}
+                  fontWeight="700" fontFamily="inherit"
+                >
                   {p.precision}%
                 </text>
               </g>
@@ -114,7 +239,13 @@ const LineChart = ({ data, labels }) => {
           </g>
         )
       })}
-      <line x1={PAD.l} y1={PAD.t + IH} x2={W - PAD.r} y2={PAD.t + IH} stroke="#cbd5e1" strokeWidth="1.5" />
+
+      {/* ─── Eje X base ──────────────────────────────────────────── */}
+      <line
+        x1={PAD.l} y1={PAD.t + IH}
+        x2={PAD.l + IW} y2={PAD.t + IH}
+        stroke="#cbd5e1" strokeWidth="1.5"
+      />
     </svg>
   )
 }
@@ -166,7 +297,6 @@ const Paginador = ({ pagina, totalPaginas, onChange, totalItems }) => {
   )
 }
 
-// ─── PillGroup ────────────────────────────────────────────────────────────────
 const PillGroup = ({ options, value, onChange, getLabel }) => (
   <div className="flex items-center gap-1 bg-slate-100 rounded-xl p-1 border border-slate-200 overflow-x-auto scrollbar-none flex-shrink-0">
     {options.map(o => (
@@ -180,7 +310,6 @@ const PillGroup = ({ options, value, onChange, getLabel }) => (
   </div>
 )
 
-// ─── DateRangePicker ──────────────────────────────────────────────────────────
 const DateRangePicker = ({ desde, hasta, onDesde, onHasta, onLimpiar }) => (
   <div className="flex items-center gap-2 flex-wrap">
     <div className="flex items-center gap-1.5 bg-white border border-slate-200 rounded-xl px-3 py-2 shadow-sm">
@@ -216,7 +345,6 @@ export default function ResultadosReaccion() {
   const [resultados, setResultados]     = useState(null)
   const [sesiones, setSesiones]         = useState([])
   const [chartData, setChartData]       = useState({})
-  const [chartLabels, setChartLabels]   = useState([])
   const [error, setError]               = useState("")
   const [showSidebar, setShowSidebar]   = useState(false)
   const [pagina, setPagina]             = useState(1)
@@ -243,7 +371,6 @@ export default function ResultadosReaccion() {
     })()
   }, [])
 
-  // ─── Construir params ──────────────────────────────────────────────────────
   const buildParams = useCallback(() => {
     const params = new URLSearchParams()
     if (desde) { params.set("desde", desde); if (hasta) params.set("hasta", hasta) }
@@ -272,44 +399,40 @@ export default function ResultadosReaccion() {
 
   useEffect(() => { cargarDatos() }, [cargarDatos])
 
-  // ─── Chart: agrupar sesiones por mes ──────────────────────────────────────
+  // ─── Chart: agrupar por semanas fijas ─────────────────────────────────────
   const construirChartData = async (cuentaId) => {
-    try {
-      const params = buildParams()
-      const res    = await fetch(`${BASE_URL}/api/resultados/personal/${cuentaId}/sesiones?${params}`, { headers: { Authorization: `Bearer ${token()}` } })
-      const data   = await res.json()
-      if (!data.success) return
-      const allSes = data.data.sesiones || []
-      if (!allSes.length) { setChartData({}); setChartLabels([]); return }
+    const modos = ["aleatorio", "secuencial", "manual"]
+    const result = { aleatorio: [], secuencial: [], manual: [] }
 
-      const meses = {}
-      allSes.forEach(s => {
-        const d   = new Date(s.fecha)
-        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`
-        if (!meses[key]) meses[key] = { aleatorio: [], secuencial: [], manual: [] }
-        if (meses[key][s.modo]) meses[key][s.modo].push(s.precision)
-      })
+    await Promise.all(SEMANAS.map(async (sem, idx) => {
+      const p = new URLSearchParams({ desde: sem.desde, hasta: sem.hasta })
+      try {
+        const res  = await fetch(
+          `${BASE_URL}/api/resultados/personal/${cuentaId}/sesiones?${p}`,
+          { headers: { Authorization: `Bearer ${token()}` } }
+        )
+        const data = await res.json()
+        const sessSem = data.success ? (data.data.sesiones || []) : []
 
-      const sortedKeys = Object.keys(meses).sort()
-      const labels = sortedKeys.map(k => {
-        const [y, m] = k.split("-")
-        return new Date(+y, +m - 1).toLocaleDateString("es-BO", { month: "short", year: "2-digit" })
-      })
-
-      const result = { aleatorio: [], secuencial: [], manual: [] }
-      sortedKeys.forEach(k => {
-        ;["aleatorio", "secuencial", "manual"].forEach(modo => {
-          const arr = meses[k][modo]
-          result[modo].push({
-            precision: arr.length ? +(arr.reduce((a, b) => a + b, 0) / arr.length).toFixed(2) : 0,
-            total:     arr.length,
-          })
+        modos.forEach(modo => {
+          const deModo = sessSem.filter(s => s.modo === modo)
+          if (!deModo.length) {
+            result[modo][idx] = { precision: 0, total: 0 }
+            return
+          }
+          const totalAciertos = deModo.reduce((s, r) => s + (r.aciertos || 0), 0)
+          const totalIntentos = deModo.reduce((s, r) => s + (r.intentos ?? (r.aciertos || 0) + (r.errores || 0)), 0)
+          result[modo][idx] = {
+            precision: totalIntentos > 0 ? +((totalAciertos / totalIntentos) * 100).toFixed(1) : 0,
+            total: deModo.length,
+          }
         })
-      })
+      } catch {
+        modos.forEach(modo => { result[modo][idx] = { precision: 0, total: 0 } })
+      }
+    }))
 
-      setChartData(result)
-      setChartLabels(labels)
-    } catch {}
+    setChartData(result)
   }
 
   // ─── Sesiones filtradas ───────────────────────────────────────────────────
@@ -348,9 +471,27 @@ export default function ResultadosReaccion() {
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800" style={{ fontFamily: "'DM Sans', sans-serif" }}>
 
+      {/* ════ PRINT HEADER (solo visible al imprimir) ════ */}
+      {selectedJugador && (
+        <div className="print-only-header" style={{ display: "none" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "10pt", marginBottom: "12pt", borderBottom: "2pt solid #6366f1", paddingBottom: "8pt" }}>
+            <div style={{ width: "32pt", height: "32pt", background: "#6366f1", borderRadius: "6pt", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <span style={{ color: "white", fontSize: "14pt", fontWeight: "900" }}>R</span>
+            </div>
+            <div>
+              <div style={{ fontSize: "13pt", fontWeight: "900", color: "#1e293b" }}>Resultados · Sistema de Reacción</div>
+              <div style={{ fontSize: "8pt", color: "#64748b", textTransform: "uppercase", letterSpacing: "0.08em" }}>Tech Volley UNV</div>
+            </div>
+            <div style={{ marginLeft: "auto", fontSize: "8pt", color: "#94a3b8" }}>
+              Generado: {new Date().toLocaleDateString("es-BO", { day: "2-digit", month: "long", year: "numeric" })}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ════ HEADER ════ */}
-      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-sm">
-        <div className="max-w-[1700px] mx-auto px-4 sm:px-6">
+      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-sm print-hide-nav">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6">
           <div className="flex items-center gap-3 py-3">
             <div className="flex items-center gap-2.5 min-w-0">
               <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center flex-shrink-0">
@@ -393,7 +534,6 @@ export default function ResultadosReaccion() {
             />
           </div>
 
-          {/* Indicador de filtros */}
           {(modoFiltro !== "todos" || desde || hasta) && (
             <div className="pb-2 flex items-center gap-2 flex-wrap">
               <span className="text-[10px] text-slate-400 uppercase tracking-widest">Filtros activos:</span>
@@ -417,7 +557,7 @@ export default function ResultadosReaccion() {
       </header>
 
       {/* ════ PANEL JUGADORAS MÓVIL ════ */}
-      <div className={`lg:hidden overflow-hidden transition-all duration-300 ${showSidebar ? "max-h-[600px]" : "max-h-0"}`}>
+      <div className={`lg:hidden print-hide-nav overflow-hidden transition-all duration-300 ${showSidebar ? "max-h-[600px]" : "max-h-0"}`}>
         <div className="bg-white border-b border-slate-200 px-4 py-3 space-y-2">
           <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2">Jugadoras</p>
           {loadingJugadores
@@ -449,7 +589,7 @@ export default function ResultadosReaccion() {
       </div>
 
       {/* ════ LAYOUT ════ */}
-      <div className="max-w-[1700px] mx-auto px-4 sm:px-6 py-5 flex gap-5">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-5 flex gap-5">
 
         {/* Sidebar desktop */}
         <aside className="hidden lg:block w-60 flex-shrink-0">
@@ -611,15 +751,17 @@ export default function ResultadosReaccion() {
                 </div>
               )}
 
-              {/* ── C: Gráfico de evolución — más grande ── */}
+              {/* ── C: Gráfico mejorado ── */}
               <div className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-6 shadow-sm">
                 <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-0 justify-between mb-5">
                   <div>
                     <h3 className="text-sm font-bold text-slate-800">
-                      Evolución – % aciertos
+                      Evolución — % aciertos
                       {modoFiltro !== "todos" ? ` · ${modoFiltro}` : " por modo"}
                     </h3>
-                    <p className="text-xs text-slate-400 mt-0.5">Agrupado por mes · solo períodos con sesiones reales</p>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      Agrupado por semana · separado por mes de entrenamiento
+                    </p>
                   </div>
                   <div className="flex items-center gap-4">
                     {(modoFiltro === "todos" ? ["aleatorio", "secuencial", "manual"] : [modoFiltro]).map(m => (
@@ -630,25 +772,18 @@ export default function ResultadosReaccion() {
                     ))}
                   </div>
                 </div>
-                {chartLabels.length > 0 ? (
-                  <div className="h-80 sm:h-[26rem]">
-                    <LineChart
-                      data={
-                        modoFiltro !== "todos"
-                          ? { aleatorio: [], secuencial: [], manual: [], [modoFiltro]: chartData[modoFiltro] || [] }
-                          : chartData
-                      }
-                      labels={chartLabels}
-                    />
-                  </div>
-                ) : (
-                  <div className="h-48 flex items-center justify-center text-slate-400">
-                    <div className="text-center">
-                      <BarChart2 className="w-8 h-8 mx-auto mb-2 opacity-30" />
-                      <p className="text-sm">Sin datos</p>
-                    </div>
-                  </div>
-                )}
+
+                {/* Altura aumentada para acomodar las etiquetas de mes */}
+                <div className="h-[22rem] sm:h-[30rem]">
+                  <LineChart
+                    data={
+                      modoFiltro !== "todos"
+                        ? { aleatorio: [], secuencial: [], manual: [], [modoFiltro]: chartData[modoFiltro] || [] }
+                        : chartData
+                    }
+                    modoFiltro={modoFiltro}
+                  />
+                </div>
               </div>
 
               {/* ── D: Historial ── */}
@@ -808,9 +943,79 @@ export default function ResultadosReaccion() {
         .scrollbar-none { scrollbar-width: none; -ms-overflow-style: none; }
         .scrollbar-none::-webkit-scrollbar { display: none; }
         input[type="date"]::-webkit-calendar-picker-indicator { opacity: 0.4; cursor: pointer; }
+
         @media print {
-          header { position: static !important; }
-          aside, .lg\\:hidden { display: none !important; }
+          /* ── Página ── */
+          @page { size: A4 portrait; margin: 14mm 12mm 14mm 12mm; }
+          * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+
+          /* ── Print header: mostrar solo al imprimir ── */
+          .print-only-header { display: block !important; }
+
+          /* ── Ocultar navegación y controles ── */
+          .print-hide-nav,
+          .lg\\:hidden { display: none !important; }
+
+          /* ── Fondo ── */
+          body, html { background: white !important; }
+          .min-h-screen { min-height: unset !important; background: white !important; }
+          .bg-slate-50 { background: white !important; }
+
+          /* ── Layout: quitar sidebar, hacer full width ── */
+          .max-w-6xl { max-width: 100% !important; padding: 0 !important; margin: 0 !important; }
+          .flex.gap-5 { display: block !important; }
+          aside { display: none !important; }
+          main { width: 100% !important; min-width: 0 !important; }
+          .py-5 { padding-top: 0 !important; padding-bottom: 0 !important; }
+
+          /* ── Espaciado entre secciones ── */
+          .space-y-4 > * + * { margin-top: 8pt !important; }
+
+          /* ── Cards no se parten entre páginas ── */
+          .rounded-2xl {
+            break-inside: avoid !important;
+            page-break-inside: avoid !important;
+            border: 1px solid #e2e8f0 !important;
+            box-shadow: none !important;
+            margin-bottom: 8pt !important;
+            background: white !important;
+          }
+
+          /* ── Gradientes: eliminar ── */
+          .absolute.inset-0 { display: none !important; }
+          .shadow-sm { box-shadow: none !important; }
+
+          /* ── KPI grid 3 columnas ── */
+          .grid { display: grid !important; }
+          .sm\\:grid-cols-3 { grid-template-columns: repeat(3, 1fr) !important; gap: 6pt !important; }
+          .sm\\:grid-cols-2 { grid-template-columns: repeat(2, 1fr) !important; gap: 6pt !important; }
+
+          /* ── Gráfico SVG: altura fija y visible ── */
+          .h-\\[22rem\\], .h-\\[30rem\\], .sm\\:h-\\[30rem\\] {
+            height: 200pt !important;
+            width: 100% !important;
+            overflow: visible !important;
+          }
+          svg { overflow: visible !important; }
+
+          /* ── Tabla historial: mostrar versión desktop ── */
+          .hidden.md\\:block { display: block !important; }
+          .md\\:hidden { display: none !important; }
+          table { width: 100% !important; border-collapse: collapse !important; font-size: 7.5pt !important; }
+          th { font-size: 6.5pt !important; padding: 4pt 5pt !important; background: #f8fafc !important; }
+          td { padding: 4pt 5pt !important; }
+          thead { display: table-header-group !important; }
+          tr { break-inside: avoid !important; }
+
+          /* ── Paginador: ocultar ── */
+          .bg-slate-50\\/50 { display: none !important; }
+
+          /* ── Backdrop y blur: eliminar ── */
+          .backdrop-blur-md { backdrop-filter: none !important; }
+          .bg-white\\/95 { background: white !important; }
+
+          /* ── Tipografía ── */
+          body { font-size: 9pt !important; color: #1e293b !important; }
         }
       `}</style>
     </div>
