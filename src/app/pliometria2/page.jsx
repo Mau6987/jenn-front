@@ -361,7 +361,7 @@ export default function SistemaUnificadoPage() {
     if (!masaJugador || Number.parseFloat(masaJugador) <= 0) { notify("error", "Ingresa una masa válida"); return }
 
     try {
-      const res = await fetch(`${BACKEND_URL}/api/pliometrias/iniciar`, {
+      const res = await fetch(`${BACKEND_URL}/api/saltos/iniciar`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ cuentaId: Number(cuentaSeleccionada), tipo: tipoSalto, tiempo: Number.parseFloat(tiempoPliometria) }),
@@ -398,7 +398,7 @@ export default function SistemaUnificadoPage() {
   const finalizarPliometria = async () => {
     if (!pliometriaId) { notify("error", "No hay pliometría iniciada"); return }
     try {
-      const res = await fetch(`${BACKEND_URL}/api/pliometrias/finalizar/${pliometriaId}`, {
+      const res = await fetch(`${BACKEND_URL}/api/salto/finalizar/${pliometriaId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

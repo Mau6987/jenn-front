@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { useRouter, usePathname } from "next/navigation"
 import {
@@ -31,10 +31,43 @@ export default function Navbar() {
   const router = useRouter()
   const pathname = usePathname()
 
-  const { rol, posicion, nombre, isAuthenticated, logout } = useAuth()
+  const { rol, posicion, nombre, isAuthenticated, logout, idUser, token } = useAuth()
 
   const [showLogoutDialog, setShowLogoutDialog] = useState(false)
   const [isLoggingOut, setIsLoggingOut] = useState(false)
+  const [userPhoto, setUserPhoto] = useState(null)
+  const [loadingPhoto, setLoadingPhoto] = useState(false)
+
+  // Obtener la foto del usuario del API
+  useEffect(() => {
+    const fetchUserPhoto = async () => {
+      if (!isAuthenticated || !idUser || !token) return
+
+      try {
+        setLoadingPhoto(true)
+        const response = await fetch(`https://jenn-back-reac.onrender.com/api/cuentas/perfil/${idUser}`, {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        })
+
+        if (response.ok) {
+          const data = await response.json()
+          if (data.success && data.data.path) {
+            setUserPhoto(data.data.path)
+          }
+        }
+      } catch (error) {
+        console.error("[v0] Error fetching user photo:", error)
+      } finally {
+        setLoadingPhoto(false)
+      }
+    }
+
+    fetchUserPhoto()
+  }, [isAuthenticated, idUser, token])
 
   const homeRoutes = ["/homeJ", "/homeE", "/homeT"]
   const isRoleHome = homeRoutes.includes(pathname)
@@ -271,11 +304,19 @@ export default function Navbar() {
             className="flex items-center gap-2"
           >
 
-            <div className="w-10 h-10 bg-[#800020] rounded-full flex items-center justify-center">
-              {getRoleIconComponent()}
+            <div className="w-10 h-10 bg-[#800020] rounded-full flex items-center justify-center overflow-hidden">
+              {userPhoto && !loadingPhoto ? (
+                <img
+                  src={userPhoto}
+                  alt={nombre}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                getRoleIconComponent()
+              )}
             </div>
 
-            <span className="text-[#800020]">
+            <span className="text-[#800020] font-medium">
               {nombre}
             </span>
 

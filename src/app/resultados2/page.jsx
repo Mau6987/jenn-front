@@ -260,9 +260,10 @@ function TiposPanel({ tiposData }) {
           initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
           transition={{ duration: 0.15 }}
           className="flex gap-4 flex-col sm:flex-row">
-          <SessionCard title="Última Sesión" data={stats.ultima_sesion} delay={0}    />
-          <SessionCard title="Mejor Prueba"  data={stats.mejor_prueba}  delay={0.07} />
-          <SessionCard title="Peor Prueba"   data={stats.peor_prueba}   delay={0.14} />
+          {/* ✅ FIX: ultima_sesion, mejor_reaccion, peor_reaccion */}
+          <SessionCard title="Última Sesión" data={stats.ultima_sesion}  delay={0}    />
+          <SessionCard title="Mejor Prueba"  data={stats.mejor_reaccion} delay={0.07} />
+          <SessionCard title="Peor Prueba"   data={stats.peor_reaccion}  delay={0.14} />
         </motion.div>
       </AnimatePresence>
     </>
@@ -395,7 +396,8 @@ export default function ResultadosPersonalPage() {
             <div className="mx-6" style={{ height: 1, background: T.border }} />
 
             <div className="px-6 pt-5 pb-6">
-              <TiposPanel tiposData={rankingData.por_tipo_prueba} />
+              {/* ✅ FIX: por_tipo_reaccion */}
+              <TiposPanel tiposData={rankingData.por_tipo_reaccion} />
             </div>
 
           </div>

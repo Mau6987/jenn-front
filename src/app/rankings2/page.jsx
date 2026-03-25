@@ -24,36 +24,37 @@ const T = {
   barDownBg: "#fee2e2",
 }
 
-// ─── Color por métrica ────────────────────────────────────────────────────────
 const METRIC_COLORS = {
-  alcance:         { bar: "#1d4ed8", bg: "#dbeafe" }, // azul
-  cantidad_saltos: { bar: "#7c3aed", bg: "#ede9fe" }, // violeta
-  indice_fatiga:   { bar: "#db2777", bg: "#fce7f3" }, // rosa
-  fuerza:          { bar: "#d97706", bg: "#fef3c7" }, // ámbar
-  altura_promedio: { bar: "#059669", bg: "#d1fae5" }, // verde
-  potencia:        { bar: "#0891b2", bg: "#cffafe" }, // cyan
-  aceleracion:     { bar: "#9333ea", bg: "#f3e8ff" }, // púrpura
+  alcance:         { bar: "#1d4ed8", bg: "#dbeafe" },
+  cantidad_saltos: { bar: "#7c3aed", bg: "#ede9fe" },
+  indice_fatiga:   { bar: "#db2777", bg: "#fce7f3" },
+  fuerza:          { bar: "#d97706", bg: "#fef3c7" },
+  altura_promedio: { bar: "#059669", bg: "#d1fae5" },
+  potencia:        { bar: "#0891b2", bg: "#cffafe" },
+  aceleracion:     { bar: "#9333ea", bg: "#f3e8ff" },
 }
 
 const DEFAULT_COLOR = { bar: "#1d4ed8", bg: "#dbeafe" }
 
-// ─── Unidad y decimales centralizados ─────────────────────────────────────────
+// METRIC_META - SOLO alcance tiene conversión de metros a cm
+// altura_promedio ya viene en cm del backend, no se convierte
 const METRIC_META = {
-  alcance:         { unit: "cm",   decimals: 0 },
-  cantidad_saltos: { unit: "",     decimals: 0 },
-  indice_fatiga:   { unit: "%",    decimals: 2 },
-  fuerza:          { unit: "kg",   decimals: 1 },
-  altura_promedio: { unit: "cm",   decimals: 1 },
-  potencia:        { unit: "W",    decimals: 1 },
-  aceleracion:     { unit: "m/s²", decimals: 2 },
+  alcance:         { unit: "cm",   decimals: 0, multiplier: 100 },  // metros → cm
+  cantidad_saltos: { unit: "",     decimals: 0, multiplier: 1 },
+  indice_fatiga:   { unit: "%",    decimals: 2, multiplier: 1 },
+  fuerza:          { unit: "kg",   decimals: 1, multiplier: 1 },
+  altura_promedio: { unit: "cm",   decimals: 1, multiplier: 1 },    // ya viene en cm
+  potencia:        { unit: "W",    decimals: 1, multiplier: 1 },
+  aceleracion:     { unit: "m/s²", decimals: 2, multiplier: 1 },
 }
 
+// Tipos de salto
 const TIPOS_SALTO = [
   { key: "salto simple", label: "Simple" },
   { key: "salto conos",  label: "Conos"  },
 ]
 
-const getMetricasPliometria = (tipo) => {
+const getMetricasSalto = (tipo) => {
   const base = [
     { label: "Cantidad de saltos",        dataKey: "cantidad_saltos" },
     { label: "Índice de fatiga",           dataKey: "indice_fatiga"   },
@@ -63,21 +64,30 @@ const getMetricasPliometria = (tipo) => {
   if (tipo === "salto simple") {
     return [
       ...base,
-      { label: "Potencia estimada",       dataKey: "potencia"        },
-      { label: "Aceleración de despegue", dataKey: "aceleracion"     },
+      { label: "Potencia estimada",       dataKey: "potencia"    },
+      { label: "Aceleración de despegue", dataKey: "aceleracion" },
     ]
   }
   return base
 }
 
-// ─── Progress bar row ─────────────────────────────────────────────────────────
-function BarRow({ label, value = 0, max = 1, unit = "", decimals = 2, barColor, barBg }) {
-  const pct = max > 0 ? Math.min(100, (Math.abs(value) / Math.abs(max)) * 100) : 0
+// Función para convertir valor según métrica (solo alcance se convierte)
+function convertValue(value, dataKey) {
+  if (value === null || value === undefined) return 0
+  const multiplier = METRIC_META[dataKey]?.multiplier || 1
+  return value * multiplier
+}
+
+function BarRow({ label, value = 0, max = 1, unit = "", decimals = 2, barColor, barBg, dataKey }) {
+  const convertedValue = convertValue(value, dataKey)
+  const convertedMax = convertValue(max, dataKey)
+  
+  const pct = convertedMax > 0 ? Math.min(100, (Math.abs(convertedValue) / Math.abs(convertedMax)) * 100) : 0
   const ref = useRef(null)
 
   useEffect(() => {
     const el = ref.current; if (!el) return
-    const to = Number(value) || 0
+    const to = Number(convertedValue) || 0
     const t0 = performance.now()
     const tick = (now) => {
       const p = Math.min(1, (now - t0) / 600)
@@ -86,7 +96,7 @@ function BarRow({ label, value = 0, max = 1, unit = "", decimals = 2, barColor, 
       if (p < 1) requestAnimationFrame(tick)
     }
     requestAnimationFrame(tick)
-  }, [value, decimals])
+  }, [convertedValue, decimals])
 
   return (
     <div className="space-y-1">
@@ -104,7 +114,6 @@ function BarRow({ label, value = 0, max = 1, unit = "", decimals = 2, barColor, 
   )
 }
 
-// ─── Metric card ──────────────────────────────────────────────────────────────
 function MetricCard({ title, colKey, mode, stats, tipoSalto, delay = 0 }) {
   const empty = (
     <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
@@ -120,7 +129,7 @@ function MetricCard({ title, colKey, mode, stats, tipoSalto, delay = 0 }) {
 
   const metricas = mode === "alcance"
     ? [{ label: "Altura de alcance", dataKey: "alcance" }]
-    : getMetricasPliometria(tipoSalto)
+    : getMetricasSalto(tipoSalto)
 
   const validRows = metricas.filter((m) => stats[m.dataKey] && stats[m.dataKey].mejor > 0)
   if (validRows.length === 0) return empty
@@ -136,37 +145,38 @@ function MetricCard({ title, colKey, mode, stats, tipoSalto, delay = 0 }) {
           const data    = stats[dataKey]
           const val     = data?.[colKey] ?? 0
           const maxVal  = Math.max(data?.mejor ?? 0, 0.001)
-          const meta    = METRIC_META[dataKey]  ?? { unit: "", decimals: 2 }
+          const meta    = METRIC_META[dataKey]  ?? { unit: "", decimals: 2, multiplier: 1 }
           const colors  = METRIC_COLORS[dataKey] ?? DEFAULT_COLOR
 
-          // Incremento solo en modo alcance
           const incKey = `incremento_${colKey}`
           const inc    = mode === "alcance" ? (data?.[incKey] ?? null) : null
           const incPos = inc !== null && inc > 0
           const incNeg = inc !== null && inc < 0
-          const incBar = incPos ? T.barUp    : incNeg ? T.barDown    : colors.bar
-          const incBg  = incPos ? T.barUpBg  : incNeg ? T.barDownBg  : colors.bg
+          const incBar = incPos ? T.barUp   : incNeg ? T.barDown   : colors.bar
+          const incBg  = incPos ? T.barUpBg : incNeg ? T.barDownBg : colors.bg
 
           return (
             <div key={dataKey} className="space-y-2">
-              <BarRow
-                label={label}
-                value={val}
-                max={maxVal}
-                unit={meta.unit}
-                decimals={meta.decimals}
-                barColor={colors.bar}
+              <BarRow 
+                label={label} 
+                value={val} 
+                max={maxVal} 
+                unit={meta.unit} 
+                decimals={meta.decimals} 
+                barColor={colors.bar} 
                 barBg={colors.bg}
+                dataKey={dataKey}
               />
               {mode === "alcance" && inc !== null && (
-                <BarRow
-                  label="Incremento respecto anterior"
-                  value={inc}
-                  max={maxVal}
-                  unit={meta.unit}
-                  decimals={meta.decimals}
-                  barColor={incBar}
+                <BarRow 
+                  label="Incremento respecto anterior" 
+                  value={inc} 
+                  max={maxVal} 
+                  unit={meta.unit} 
+                  decimals={meta.decimals} 
+                  barColor={incBar} 
                   barBg={incBg}
+                  dataKey={dataKey}
                 />
               )}
             </div>
@@ -177,7 +187,6 @@ function MetricCard({ title, colKey, mode, stats, tipoSalto, delay = 0 }) {
   )
 }
 
-// ─── Skeleton ─────────────────────────────────────────────────────────────────
 function Skeleton() {
   return (
     <div className="min-h-screen py-10 px-4" style={{ background: T.pageBg }}>
@@ -190,14 +199,13 @@ function Skeleton() {
   )
 }
 
-// ─── Main ─────────────────────────────────────────────────────────────────────
 export default function PerfilJugador() {
-  const [alcanceData,    setAlcanceData]    = useState(null)
-  const [pliometriaData, setPliometriaData] = useState(null)
-  const [loading,        setLoading]        = useState(true)
-  const [periodo,        setPeriodo]        = useState("general")
-  const [activeTab,      setActiveTab]      = useState("alcance")
-  const [tipoSalto,      setTipoSalto]      = useState("salto simple")
+  const [alcanceData, setAlcanceData]       = useState(null)
+  const [saltoData,   setSaltoData]         = useState(null)
+  const [loading,     setLoading]           = useState(true)
+  const [periodo,     setPeriodo]           = useState("general")
+  const [activeTab,   setActiveTab]         = useState("alcance")
+  const [tipoSalto,   setTipoSalto]         = useState("salto simple")
 
   useEffect(() => { cargarResultados() }, [periodo, tipoSalto])
 
@@ -205,17 +213,18 @@ export default function PerfilJugador() {
     try {
       setLoading(true)
       const userId = typeof window !== "undefined" ? localStorage.getItem("idUser") || "19" : "19"
-      const [alcRes, plioRes] = await Promise.all([
-        fetch(`${BACKEND_URL}/api/ranking/alcance/personal/${userId}?periodo=${periodo}`),
-        fetch(`${BACKEND_URL}/api/ranking/pliometria/personal/${userId}?periodo=${periodo}&tipo=${tipoSalto}`),
+
+      const [alcRes, saltoRes] = await Promise.all([
+        fetch(`${BACKEND_URL}/api/ranking/alcance/resultados-personales/${userId}?periodo=${periodo}`),
+        fetch(`${BACKEND_URL}/api/ranking/salto/resultados-personales/${userId}?periodo=${periodo}&tipo=${tipoSalto}`),
       ])
-      const [alcJson, plioJson] = await Promise.all([alcRes.json(), plioRes.json()])
-      setAlcanceData(alcRes.ok   && alcJson.success  ? alcJson.data  : null)
-      setPliometriaData(plioRes.ok && plioJson.success ? plioJson.data : null)
+      const [alcJson, saltoJson] = await Promise.all([alcRes.json(), saltoRes.json()])
+      setAlcanceData(alcRes.ok   && alcJson.success   ? alcJson.data   : null)
+      setSaltoData(saltoRes.ok && saltoJson.success ? saltoJson.data : null)
     } catch (e) {
       console.error(e)
       setAlcanceData(null)
-      setPliometriaData(null)
+      setSaltoData(null)
     } finally {
       setLoading(false)
     }
@@ -223,8 +232,8 @@ export default function PerfilJugador() {
 
   if (loading) return <Skeleton />
 
-  const currentData = activeTab === "alcance" ? alcanceData : pliometriaData
-  const jugador     = alcanceData?.jugador ?? pliometriaData?.jugador
+  const currentData = activeTab === "alcance" ? alcanceData : saltoData
+  const jugador     = alcanceData?.jugador ?? saltoData?.jugador
   const posIcon     = getPositionIcon(jugador?.posicion_principal)
   const rankingPos  = currentData?.ranking?.posicion
 
@@ -238,7 +247,6 @@ export default function PerfilJugador() {
     <div className="min-h-screen py-10 px-4" style={{ background: T.pageBg }}>
       <div className="max-w-5xl mx-auto space-y-7">
 
-        {/* ── HEADER ───────────────────────────────────────────────── */}
         <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}>
           <div className="flex items-center justify-between gap-4 flex-wrap">
@@ -270,12 +278,11 @@ export default function PerfilJugador() {
               </div>
             </div>
 
-            {/* Tab toggle Alcance / Pruebas */}
             <div className="flex items-center shrink-0 rounded-xl overflow-hidden"
               style={{ border: `1.5px solid ${T.border}`, background: T.bg, boxShadow: T.shadowSm }}>
               {[
-                { key: "alcance",    label: "Alcance" },
-                { key: "pliometria", label: "Pruebas" },
+                { key: "alcance", label: "Alcance" },
+                { key: "salto",   label: "Saltos"  },
               ].map(({ key, label }, i, arr) => {
                 const active = activeTab === key
                 return (
@@ -295,24 +302,19 @@ export default function PerfilJugador() {
           </div>
         </motion.div>
 
-        {/* ── PANEL ────────────────────────────────────────────────── */}
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4, delay: 0.08, ease: [0.22, 1, 0.36, 1] }}>
           <div className="rounded-2xl"
             style={{ background: T.bg, border: `1.5px solid ${T.border}`, boxShadow: T.shadow }}>
 
-            {/* Header del panel */}
             <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b flex-wrap gap-3"
               style={{ borderColor: T.border }}>
-
               <div className="flex flex-col gap-1">
                 <span className="text-[9px] font-semibold uppercase tracking-widest" style={{ color: T.mutedSoft }}>
                   Filtrar por fecha
                 </span>
                 <div className="relative">
-                  <select
-                    value={periodo}
-                    onChange={(e) => setPeriodo(e.target.value)}
+                  <select value={periodo} onChange={(e) => setPeriodo(e.target.value)}
                     className="appearance-none border rounded-lg px-3 py-1.5 text-sm pr-8 focus:outline-none"
                     style={{ borderColor: T.border, color: T.muted, background: T.bg }}>
                     <option value="general">General</option>
@@ -332,8 +334,7 @@ export default function PerfilJugador() {
               <div className="w-28" />
             </div>
 
-            {/* Sub-tabs pliometría */}
-            {activeTab === "pliometria" && (
+            {activeTab === "salto" && (
               <div className="flex items-center gap-8 px-6 pt-4 pb-0">
                 {TIPOS_SALTO.map(({ key, label }) => {
                   const active = tipoSalto === key
@@ -355,7 +356,6 @@ export default function PerfilJugador() {
               </div>
             )}
 
-            {/* Sub-tabs alcance */}
             {activeTab === "alcance" && (
               <div className="flex items-center justify-center gap-8 px-6 pt-4 pb-0">
                 {[
@@ -382,7 +382,6 @@ export default function PerfilJugador() {
               </div>
             )}
 
-            {/* Cards */}
             <div className="p-6">
               <AnimatePresence mode="wait">
                 <motion.div key={`${activeTab}-${periodo}-${tipoSalto}`}

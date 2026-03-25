@@ -259,7 +259,8 @@ export default function RankingPage() {
   async function cargarRanking() {
     try {
       setLoading(true)
-      let url = `${BACKEND_URL}/api/ranking/pliometria?limit=10`
+      // CAMBIO: Endpoint actualizado de /pliometria a /salto
+      let url = `${BACKEND_URL}/api/ranking/salto?limit=10`
       if (periodo   !== "general") url += `&periodo=${periodo}`
       if (tipoSalto !== "todos")  url += `&tipo=${encodeURIComponent(tipoSalto)}`
       const res    = await fetch(url)

@@ -16,9 +16,9 @@ import {
   Save,
   Camera,
   Shield,
-  Trophy,
-  Target,
-  Award,
+  Lock,
+  Eye,
+  EyeOff,
 } from "lucide-react"
 import { getPositionIcon, getPositionName } from "../../lib/position-icons"
 
@@ -32,10 +32,19 @@ export default function Perfil() {
   const [formData, setFormData] = useState({})
   const [updating, setUpdating] = useState(false)
   const [uploadingImage, setUploadingImage] = useState(false)
-  const [rankingStats, setRankingStats] = useState(null)
-  const [loadingStats, setLoadingStats] = useState(false)
-  const [rankingPosition, setRankingPosition] = useState(null)
-  const [loadingPosition, setLoadingPosition] = useState(false)
+  
+  // Estado para cambio de contraseña
+  const [showPasswordModal, setShowPasswordModal] = useState(false)
+  const [passwordData, setPasswordData] = useState({
+    contraseñaActual: "",
+    contraseñaNueva: "",
+    confirmarContraseña: ""
+  })
+  const [updatingPassword, setUpdatingPassword] = useState(false)
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false)
+  const [showNewPassword, setShowNewPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+  const [passwordErrors, setPasswordErrors] = useState({})
 
   useEffect(() => {
     console.log("[v0] Perfil page - Auth state:", {
@@ -60,58 +69,6 @@ export default function Perfil() {
     }
   }, [idUser, isAuthenticated, authLoading])
 
-  const obtenerEstadisticasRanking = async () => {
-    try {
-      setLoadingStats(true)
-      const response = await fetch(
-        `https://jenn-back-reac.onrender.com/api/ranking/personal/${idUser}?periodo=general`,
-        {
-          method: "GET",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        },
-      )
-
-      const data = await response.json()
-
-      if (data.success) {
-        setRankingStats(data.data)
-      }
-    } catch (error) {
-      console.error("Error al obtener estadísticas de ranking:", error)
-    } finally {
-      setLoadingStats(false)
-    }
-  }
-
-  const obtenerPosicionRanking = async () => {
-    try {
-      setLoadingPosition(true)
-      const response = await fetch(
-        `https://jenn-back-reac.onrender.com/api/ranking/posicion/${idUser}?periodo=general`,
-        {
-          method: "GET",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        },
-      )
-
-      const data = await response.json()
-
-      if (data.success) {
-        setRankingPosition(data.data)
-      }
-    } catch (error) {
-      console.error("Error al obtener posición de ranking:", error)
-    } finally {
-      setLoadingPosition(false)
-    }
-  }
-
   const obtenerPerfil = async () => {
     try {
       setLoading(true)
@@ -130,10 +87,6 @@ export default function Perfil() {
       if (data.success) {
         setPerfil(data.data)
         initializeFormData(data.data)
-        if (data.data.rol === "jugador") {
-          obtenerEstadisticasRanking()
-          obtenerPosicionRanking()
-        }
         setNotification({
           type: "success",
           message: "Perfil cargado correctamente",
@@ -169,19 +122,20 @@ export default function Perfil() {
         posicion_principal: datosEspecificos?.posicion_principal || "",
         altura: datosEspecificos?.altura || "",
         anos_experiencia_voley: datosEspecificos?.anos_experiencia_voley?.toString() || "",
-        imagen: datosEspecificos?.imagen || "",
+        path: perfilData.path || "",
       })
     } else if (tipoUsuario === "entrenador") {
       setFormData({
         ...baseData,
         correo_electronico: datosEspecificos?.correo_electronico || "",
         anos_experiencia_voley: datosEspecificos?.anos_experiencia_voley?.toString() || "",
-        imagen: datosEspecificos?.imagen || "",
+        path: perfilData.path || "",
       })
     } else if (tipoUsuario === "tecnico") {
       setFormData({
         ...baseData,
         correo_institucional: datosEspecificos?.correo_institucional || "",
+        path: perfilData.path || "",
       })
     }
   }
@@ -201,7 +155,7 @@ export default function Perfil() {
         setUpdating(true)
         setError("")
 
-        const response = await fetch(`https://voley-backend-nhyl.onrender.com/api/cuentas/perfil/${idUser}`, {
+        const response = await fetch(`https://jenn-back-reac.onrender.com/api/cuentas/perfil/${idUser}`, {
           method: "PUT",
           headers: {
             Authorization: `Bearer ${token}`,
@@ -271,7 +225,7 @@ export default function Perfil() {
     try {
       setUploadingImage(true)
       const base64 = await convertToBase64(file)
-      handleInputChange("imagen", base64)
+      handleInputChange("path", base64)
       setNotification({
         type: "success",
         message: "Imagen cargada correctamente",
@@ -296,6 +250,94 @@ export default function Perfil() {
       edad--
     }
     return edad
+  }
+
+  // Manejadores para cambio de contraseña
+  const handlePasswordInputChange = (field, value) => {
+    setPasswordData((prev) => ({
+      ...prev,
+      [field]: value,
+    }))
+    if (passwordErrors[field]) {
+      setPasswordErrors((prev) => ({
+        ...prev,
+        [field]: "",
+      }))
+    }
+  }
+
+  const validatePasswordForm = () => {
+    const errors = {}
+    if (!passwordData.contraseñaActual) {
+      errors.contraseñaActual = "La contraseña actual es obligatoria"
+    }
+    if (!passwordData.contraseñaNueva) {
+      errors.contraseñaNueva = "La nueva contraseña es obligatoria"
+    } else if (passwordData.contraseñaNueva.length < 6) {
+      errors.contraseñaNueva = "La contraseña debe tener al menos 6 caracteres"
+    }
+    if (!passwordData.confirmarContraseña) {
+      errors.confirmarContraseña = "Debes confirmar la nueva contraseña"
+    } else if (passwordData.contraseñaNueva !== passwordData.confirmarContraseña) {
+      errors.confirmarContraseña = "Las contraseñas no coinciden"
+    }
+    return errors
+  }
+
+  const handleActualizarContrasena = async () => {
+    const errors = validatePasswordForm()
+    if (Object.keys(errors).length > 0) {
+      setPasswordErrors(errors)
+      return
+    }
+
+    try {
+      setUpdatingPassword(true)
+      const response = await fetch(`https://jenn-back-reac.onrender.com/api/cuentas/perfil/${idUser}/contrasena`, {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          contraseñaActual: passwordData.contraseñaActual,
+          contraseñaNueva: passwordData.contraseñaNueva,
+        }),
+      })
+
+      const data = await response.json()
+
+      if (data.success) {
+        setNotification({
+          type: "success",
+          message: "Contraseña actualizada exitosamente",
+        })
+        setShowPasswordModal(false)
+        setPasswordData({
+          contraseñaActual: "",
+          contraseñaNueva: "",
+          confirmarContraseña: ""
+        })
+      } else {
+        setNotification({
+          type: "error",
+          message: data.message || "Error al actualizar la contraseña",
+        })
+        if (data.message === "Contraseña actual incorrecta") {
+          setPasswordErrors({
+            contraseñaActual: "Contraseña actual incorrecta"
+          })
+        }
+      }
+    } catch (error) {
+      setNotification({
+        type: "error",
+        message: "Error de conexión. Intenta nuevamente.",
+      })
+      console.error("Error al actualizar contraseña:", error)
+    } finally {
+      setUpdatingPassword(false)
+    }
   }
 
   useEffect(() => {
@@ -387,7 +429,7 @@ export default function Perfil() {
           {/* Header */}
           <div className="mb-8 animate-fade-in">
             <h1 className="text-5xl font-bold text-white mb-2">Perfil</h1>
-            <p className="text-gray-400 text-lg">Vizualiza tus datos personales</p>
+            <p className="text-gray-400 text-lg">Visualiza y edita tus datos personales</p>
           </div>
 
           {/* Main Profile Card */}
@@ -399,9 +441,9 @@ export default function Perfil() {
                   {/* Avatar */}
                   <div className="relative group mb-6">
                     <div className="w-48 h-48 mx-auto rounded-full overflow-hidden border-4 border-red-500 shadow-2xl transform transition-all duration-500 group-hover:scale-105 group-hover:rotate-3 group-hover:border-red-400">
-                      {(tipoUsuario === "jugador" || tipoUsuario === "entrenador") && datosEspecificos?.imagen ? (
+                      {perfil.path ? (
                         <img
-                          src={datosEspecificos.imagen || "/placeholder.svg"}
+                          src={perfil.path || "/placeholder.svg"}
                           alt="Profile"
                           className="w-full h-full object-cover"
                           onError={(e) => {
@@ -413,16 +455,13 @@ export default function Perfil() {
                       <div
                         className="w-full h-full bg-gradient-to-br from-red-900 to-red-700 flex items-center justify-center"
                         style={{
-                          display:
-                            (tipoUsuario === "jugador" || tipoUsuario === "entrenador") && datosEspecificos?.imagen
-                              ? "none"
-                              : "flex",
+                          display: perfil.path ? "none" : "flex",
                         }}
                       >
                         <User className="h-24 w-24 text-white" />
                       </div>
                     </div>
-                    {isEditing && (tipoUsuario === "jugador" || tipoUsuario === "entrenador") && (
+                    {isEditing && (
                       <label className="absolute bottom-2 right-1/2 transform translate-x-1/2 bg-red-600 hover:bg-red-700 text-white p-3 rounded-full cursor-pointer shadow-lg transition-all duration-300 hover:scale-110">
                         <Camera className="h-5 w-5" />
                         <input type="file" accept="image/*" onChange={handleImageChange} className="hidden" />
@@ -454,6 +493,18 @@ export default function Perfil() {
                         {datosEspecificos?.nombres} {datosEspecificos?.apellidos}
                       </h2>
                     )}
+                    <p className="text-red-400 font-medium capitalize">{tipoUsuario}</p>
+                  </div>
+
+                  {/* Botón cambiar contraseña */}
+                  <div className="mt-6">
+                    <button
+                      onClick={() => setShowPasswordModal(true)}
+                      className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-gray-700/50 hover:bg-gray-700 text-white rounded-xl transition-all duration-300 border border-gray-600"
+                    >
+                      <Lock className="h-4 w-4" />
+                      <span className="text-sm font-medium">Cambiar Contraseña</span>
+                    </button>
                   </div>
                 </div>
               </div>
@@ -482,61 +533,19 @@ export default function Perfil() {
                     </div>
                   )}
 
-                  {/* Position Icon & Stats for Players */}
-                  {tipoUsuario === "jugador" && (
-                    <div className="mb-6 space-y-6">
-                      {datosEspecificos?.posicion_principal && (
-                        <div
-                          className="flex flex-col items-center space-y-3 animate-fade-in-up"
-                          style={{ animationDelay: "0.35s" }}
-                        >
-                          <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-red-500/50 shadow-xl transform transition-all duration-500 hover:scale-110 hover:rotate-6">
-                            <img
-                              src={getPositionIcon(datosEspecificos.posicion_principal) || "/placeholder.svg"}
-                              alt={datosEspecificos.posicion_principal}
-                              className="w-full h-full object-cover"
-                            />
-                          </div>
-                          <p className="text-lg font-semibold text-white capitalize">
-                            {getPositionName(datosEspecificos.posicion_principal)}
-                          </p>
-                        </div>
-                      )}
-
-                      {/* Stats Grid */}
-                      <div className="grid grid-cols-3 gap-3 animate-fade-in-up" style={{ animationDelay: "0.4s" }}>
-                        <div className="bg-gradient-to-br from-blue-600/20 to-blue-500/20 border border-blue-500/30 rounded-xl p-4 text-center transform transition-all duration-300 hover:scale-105 hover:shadow-lg hover:shadow-blue-500/20">
-                          <Trophy className="h-6 w-6 text-blue-400 mx-auto mb-2" />
-                          {loadingPosition ? (
-                            <Loader2 className="h-6 w-6 animate-spin text-blue-400 mx-auto" />
-                          ) : (
-                            <p className="text-2xl font-bold text-white">{rankingPosition?.posicion_ranking || "-"}</p>
-                          )}
-                          <p className="text-xs text-gray-400 mt-1">Ranking</p>
-                        </div>
-                        <div className="bg-gradient-to-br from-green-600/20 to-green-500/20 border border-green-500/30 rounded-xl p-4 text-center transform transition-all duration-300 hover:scale-105 hover:shadow-lg hover:shadow-green-500/20">
-                          <Target className="h-6 w-6 text-green-400 mx-auto mb-2" />
-                          {loadingStats ? (
-                            <Loader2 className="h-6 w-6 animate-spin text-green-400 mx-auto" />
-                          ) : (
-                            <p className="text-2xl font-bold text-white">
-                              {rankingStats?.totales_generales?.total_aciertos || "0"}
-                            </p>
-                          )}
-                          <p className="text-xs text-gray-400 mt-1">Aciertos</p>
-                        </div>
-                        <div className="bg-gradient-to-br from-purple-600/20 to-purple-500/20 border border-purple-500/30 rounded-xl p-4 text-center transform transition-all duration-300 hover:scale-105 hover:shadow-lg hover:shadow-purple-500/20">
-                          <Award className="h-6 w-6 text-purple-400 mx-auto mb-2" />
-                          {loadingStats ? (
-                            <Loader2 className="h-6 w-6 animate-spin text-purple-400 mx-auto" />
-                          ) : (
-                            <p className="text-2xl font-bold text-white">
-                              {rankingStats?.totales_generales?.total_pruebas || "0"}
-                            </p>
-                          )}
-                          <p className="text-xs text-gray-400 mt-1">Pruebas</p>
-                        </div>
+                  {/* Position Icon for Players */}
+                  {tipoUsuario === "jugador" && datosEspecificos?.posicion_principal && (
+                    <div className="mb-6 flex flex-col items-center space-y-3 animate-fade-in-up" style={{ animationDelay: "0.35s" }}>
+                      <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-red-500/50 shadow-xl transform transition-all duration-500 hover:scale-110 hover:rotate-6">
+                        <img
+                          src={getPositionIcon(datosEspecificos.posicion_principal) || "/placeholder.svg"}
+                          alt={datosEspecificos.posicion_principal}
+                          className="w-full h-full object-cover"
+                        />
                       </div>
+                      <p className="text-lg font-semibold text-white capitalize">
+                        {getPositionName(datosEspecificos.posicion_principal)}
+                      </p>
                     </div>
                   )}
 
@@ -702,7 +711,7 @@ export default function Perfil() {
                   <div className="mt-8 flex justify-center animate-fade-in-up" style={{ animationDelay: "1.1s" }}>
                     <button
                       onClick={handleActualizarPerfil}
-                      disabled={updating}
+                      disabled={updating || uploadingImage}
                       className="px-8 py-3 bg-gradient-to-r from-red-600 to-red-500 text-white rounded-xl hover:from-red-700 hover:to-red-600 transition-all duration-300 font-semibold shadow-lg hover:shadow-2xl hover:shadow-red-500/50 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-3 group"
                     >
                       {updating ? (
@@ -729,6 +738,144 @@ export default function Perfil() {
           </div>
         </div>
       </div>
+
+      {/* Modal de Cambio de Contraseña */}
+      {showPasswordModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+          <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl shadow-2xl w-full max-w-md border border-gray-700/50 animate-scale-in">
+            <div className="px-6 py-5 border-b border-gray-700 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-red-500/20 flex items-center justify-center">
+                  <Lock className="h-5 w-5 text-red-400" />
+                </div>
+                <h3 className="text-xl font-bold text-white">Cambiar Contraseña</h3>
+              </div>
+              <button
+                onClick={() => {
+                  setShowPasswordModal(false)
+                  setPasswordData({
+                    contraseñaActual: "",
+                    contraseñaNueva: "",
+                    confirmarContraseña: ""
+                  })
+                  setPasswordErrors({})
+                }}
+                className="text-gray-400 hover:text-white transition-colors"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-5">
+              {/* Contraseña Actual */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-300">Contraseña Actual</label>
+                <div className="relative">
+                  <input
+                    type={showCurrentPassword ? "text" : "password"}
+                    value={passwordData.contraseñaActual}
+                    onChange={(e) => handlePasswordInputChange("contraseñaActual", e.target.value)}
+                    className={`w-full bg-gray-700/50 text-white border ${passwordErrors.contraseñaActual ? "border-red-500" : "border-gray-600"} rounded-xl px-4 py-3 pr-12 focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all`}
+                    placeholder="Ingresa tu contraseña actual"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
+                  >
+                    {showCurrentPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                  </button>
+                </div>
+                {passwordErrors.contraseñaActual && (
+                  <p className="text-red-400 text-xs flex items-center gap-1">
+                    <AlertCircle className="h-3 w-3" />
+                    {passwordErrors.contraseñaActual}
+                  </p>
+                )}
+              </div>
+
+              {/* Nueva Contraseña */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-300">Nueva Contraseña</label>
+                <div className="relative">
+                  <input
+                    type={showNewPassword ? "text" : "password"}
+                    value={passwordData.contraseñaNueva}
+                    onChange={(e) => handlePasswordInputChange("contraseñaNueva", e.target.value)}
+                    className={`w-full bg-gray-700/50 text-white border ${passwordErrors.contraseñaNueva ? "border-red-500" : "border-gray-600"} rounded-xl px-4 py-3 pr-12 focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all`}
+                    placeholder="Mínimo 6 caracteres"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowNewPassword(!showNewPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
+                  >
+                    {showNewPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                  </button>
+                </div>
+                {passwordErrors.contraseñaNueva && (
+                  <p className="text-red-400 text-xs flex items-center gap-1">
+                    <AlertCircle className="h-3 w-3" />
+                    {passwordErrors.contraseñaNueva}
+                  </p>
+                )}
+              </div>
+
+              {/* Confirmar Contraseña */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-300">Confirmar Contraseña</label>
+                <div className="relative">
+                  <input
+                    type={showConfirmPassword ? "text" : "password"}
+                    value={passwordData.confirmarContraseña}
+                    onChange={(e) => handlePasswordInputChange("confirmarContraseña", e.target.value)}
+                    className={`w-full bg-gray-700/50 text-white border ${passwordErrors.confirmarContraseña ? "border-red-500" : "border-gray-600"} rounded-xl px-4 py-3 pr-12 focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all`}
+                    placeholder="Confirma tu nueva contraseña"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
+                  >
+                    {showConfirmPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                  </button>
+                </div>
+                {passwordErrors.confirmarContraseña && (
+                  <p className="text-red-400 text-xs flex items-center gap-1">
+                    <AlertCircle className="h-3 w-3" />
+                    {passwordErrors.confirmarContraseña}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <div className="px-6 py-4 border-t border-gray-700 flex justify-end gap-3">
+              <button
+                onClick={() => {
+                  setShowPasswordModal(false)
+                  setPasswordData({
+                    contraseñaActual: "",
+                    contraseñaNueva: "",
+                    confirmarContraseña: ""
+                  })
+                  setPasswordErrors({})
+                }}
+                className="px-5 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-xl transition-all duration-300 font-medium"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleActualizarContrasena}
+                disabled={updatingPassword}
+                className="px-5 py-2 bg-gradient-to-r from-red-600 to-red-500 hover:from-red-700 hover:to-red-600 text-white rounded-xl transition-all duration-300 font-medium shadow-lg disabled:opacity-50 flex items-center gap-2"
+              >
+                {updatingPassword && <Loader2 className="h-4 w-4 animate-spin" />}
+                Actualizar Contraseña
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <style jsx global>{`
         @keyframes fade-in {

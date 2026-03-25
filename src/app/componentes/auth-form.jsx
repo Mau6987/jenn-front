@@ -36,9 +36,10 @@ export default function LoginPage() {
       if (data.success) {
         const userPosition = data.data.posicion || data.data.jugador?.posicion_principal
 
-        const userName = data.data.nombre || data.data.jugador?.nombre || data.data.usuario || "Usuario"
-
-        login(data.data.id, data.data.rol, data.data.token, userPosition, userName)
+        // Combinar nombres y apellidos correctamente
+        const nombreCompleto = `${data.data.nombres || ''} ${data.data.apellidos || ''}`.trim() || data.data.usuario || "Usuario"
+        const nombre_primer =   `${data.data.nombres || ''}`.trim() || data.data.usuario || "Usuario"
+        login(data.data.id, data.data.rol, data.data.token, userPosition, nombre_primer)
 
         // Normaliza el rol (quita acentos y case)
         const normalizedRole = (data.data.rol || "")

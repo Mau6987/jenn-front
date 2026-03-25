@@ -92,14 +92,14 @@ function Toast({ notification, onClose }) {
   if (!notification) return null
   const isOk = notification.type === "success"
   return (
-    <div className="fixed top-5 right-5 z-50 flex items-center gap-3 px-5 py-3.5 rounded-2xl shadow-2xl text-sm font-medium max-w-sm"
+    <div className="fixed top-5 right-5 z-50 flex items-center gap-3 px-5 py-3.5 rounded-xl shadow-lg text-sm font-medium max-w-sm"
       style={{
-        background: isOk ? "linear-gradient(135deg,#ecfdf5,#d1fae5)" : "linear-gradient(135deg,#fff1f2,#ffe4e6)",
-        border: `1px solid ${isOk ? "#6ee7b7" : "#fca5a5"}`,
-        color: isOk ? "#065f46" : "#991b1b",
-        boxShadow: isOk ? "0 8px 32px rgba(16,185,129,.18)" : "0 8px 32px rgba(239,68,68,.15)",
+        background: isOk ? "#f0fdf4" : "#faf5f5",
+        border: `1px solid ${isOk ? "#86efac" : "#d6c4c4"}`,
+        color: isOk ? "#166534" : "#6b3535",
+        boxShadow: isOk ? "0 4px 12px rgba(16,185,129,.12)" : "0 4px 12px rgba(107,53,53,.12)",
       }}>
-      {isOk ? <CheckCircle className="w-4 h-4 text-emerald-500 shrink-0" /> : <X className="w-4 h-4 text-red-400 shrink-0" />}
+      {isOk ? <CheckCircle className="w-4 h-4 text-green-600 shrink-0" /> : <X className="w-4 h-4 text-red-700 shrink-0" />}
       <span className="truncate">{notification.message}</span>
       <button onClick={onClose} className="ml-auto opacity-50 hover:opacity-100 shrink-0"><X className="w-3.5 h-3.5" /></button>
     </div>
@@ -111,28 +111,28 @@ function ResultModal({ isOpen, onClose, title, data }) {
   if (!isOpen) return null
   return (
     <div className="fixed inset-0 bg-black/40 backdrop-blur-md flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-3xl shadow-2xl max-w-md w-full p-7" style={{ boxShadow: "0 24px 64px rgba(0,0,0,.18)" }}>
+      <div className="bg-white rounded-2xl shadow-lg max-w-md w-full p-6" style={{ boxShadow: "0 12px 32px rgba(0,0,0,.08)" }}>
         <div className="flex items-center justify-between mb-5">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-full bg-emerald-50 flex items-center justify-center">
-              <CheckCircle className="h-5 w-5 text-emerald-500" />
+            <div className="w-8 h-8 rounded-full bg-green-50 flex items-center justify-center">
+              <CheckCircle className="h-5 w-5 text-green-600" />
             </div>
-            <h3 className="text-base font-bold text-slate-800">{title}</h3>
+            <h3 className="text-base font-semibold text-gray-900">{title}</h3>
           </div>
-          <button onClick={onClose} className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center transition-colors">
-            <X className="h-4 w-4 text-slate-500" />
+          <button onClick={onClose} className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors">
+            <X className="h-4 w-4 text-gray-500" />
           </button>
         </div>
         <div className="space-y-2">
           {Object.entries(data).map(([k, v]) => (
-            <div key={k} className="flex items-center justify-between py-2.5 px-4 rounded-xl bg-slate-50 border border-slate-100">
-              <p className="text-xs text-slate-400 capitalize">{k.replace(/([A-Z])/g, " $1").trim()}</p>
-              <p className="text-sm font-bold text-slate-800">{v}</p>
+            <div key={k} className="flex items-center justify-between py-2.5 px-4 rounded-lg bg-gray-50 border border-gray-200">
+              <p className="text-xs text-gray-500 capitalize">{k.replace(/([A-Z])/g, " $1").trim()}</p>
+              <p className="text-sm font-semibold text-gray-900">{v}</p>
             </div>
           ))}
         </div>
-        <button onClick={onClose} className="w-full mt-5 py-3 rounded-2xl text-sm font-semibold transition-all active:scale-95"
-          style={{ background: "linear-gradient(135deg,#1e293b,#334155)", color: "#fff" }}>
+        <button onClick={onClose} className="w-full mt-5 py-3 rounded-lg text-sm font-semibold transition-all active:scale-95"
+          style={{ background: "#8b4545", color: "#fff" }}>
           Cerrar y Limpiar
         </button>
       </div>
@@ -145,29 +145,29 @@ function CalibrationModal({ isOpen, isCalibrated, onClose, onCancel }) {
   if (!isOpen) return null
   return (
     <div className="fixed inset-0 bg-black/40 backdrop-blur-md flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-3xl shadow-2xl max-w-sm w-full p-10 text-center relative" style={{ boxShadow: "0 24px 64px rgba(0,0,0,.18)" }}>
-        <button onClick={onClose} className="absolute top-4 right-4 w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center transition-colors">
-          <X className="h-4 w-4 text-slate-500" />
+      <div className="bg-white rounded-2xl shadow-lg max-w-sm w-full p-8 text-center relative" style={{ boxShadow: "0 12px 32px rgba(0,0,0,.08)" }}>
+        <button onClick={onClose} className="absolute top-4 right-4 w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors">
+          <X className="h-4 w-4 text-gray-500" />
         </button>
         {!isCalibrated ? (
           <>
-            <div className="w-20 h-20 rounded-full bg-indigo-50 flex items-center justify-center mx-auto mb-5 animate-pulse">
+            <div className="w-20 h-20 rounded-full bg-red-50 flex items-center justify-center mx-auto mb-5 animate-pulse">
               <img src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/calibrar-removebg-preview-1y4aBupjFQ9WApv9Ru1gxKoxsOdMqW.png"
                 alt="Calibrando" className="w-12 h-12 object-contain animate-spin" style={{ animationDuration: "2s" }} />
             </div>
-            <h3 className="text-xl font-bold text-slate-900 mb-2">Calibrando...</h3>
-            <p className="text-sm text-slate-400 mb-6">Jugador <strong className="text-slate-600">quieto y de pie</strong> sobre las celdas (~5 segundos)</p>
-            <button onClick={onCancel} className="w-full py-3 rounded-2xl bg-red-50 text-red-500 border border-red-100 text-sm font-semibold hover:bg-red-100 transition-colors">
+            <h3 className="text-xl font-bold text-gray-900 mb-2">Calibrando...</h3>
+            <p className="text-sm text-gray-600 mb-6">Jugador <strong className="text-gray-800">quieto y de pie</strong> sobre las celdas (~5 segundos)</p>
+            <button onClick={onCancel} className="w-full py-3 rounded-lg bg-red-50 text-red-700 border border-red-200 text-sm font-semibold hover:bg-red-100 transition-colors">
               Cancelar calibración
             </button>
           </>
         ) : (
           <>
-            <div className="w-20 h-20 rounded-full bg-emerald-50 flex items-center justify-center mx-auto mb-5">
-              <CheckCircle className="h-10 w-10 text-emerald-500" />
+            <div className="w-20 h-20 rounded-full bg-green-50 flex items-center justify-center mx-auto mb-5">
+              <CheckCircle className="h-10 w-10 text-green-600" />
             </div>
-            <h3 className="text-xl font-bold text-emerald-700 mb-1">¡Calibrado!</h3>
-            <p className="text-sm text-slate-400">MPU6050 y celdas HX711 listas</p>
+            <h3 className="text-xl font-bold text-green-700 mb-1">¡Calibrado!</h3>
+            <p className="text-sm text-gray-600">MPU6050 y celdas HX711 listas</p>
           </>
         )}
       </div>
@@ -187,36 +187,36 @@ function FatigaCard({ primerSalto, ultimoSalto, totalSaltos }) {
 
   const nivel = IF === null ? "slate" : parseFloat(IF) < 0 ? "blue" : parseFloat(IF) < 10 ? "emerald" : parseFloat(IF) < 20 ? "amber" : "red"
   const palettes = {
-    slate:   { grad: "from-slate-50 to-white",   accent: "#64748b", bar: "#94a3b8", label: "Sin datos suficientes",                      badgeBg: "#f1f5f9", badgeText: "#475569" },
-    blue:    { grad: "from-blue-50 to-white",    accent: "#2563eb", bar: "#60a5fa", label: "↑ Fuerza en aumento — activación progresiva", badgeBg: "#eff6ff", badgeText: "#1d4ed8" },
-    emerald: { grad: "from-emerald-50 to-white", accent: "#059669", bar: "#34d399", label: "✓ Fatiga baja — rendimiento sostenido",       badgeBg: "#ecfdf5", badgeText: "#065f46" },
-    amber:   { grad: "from-amber-50 to-white",   accent: "#d97706", bar: "#fbbf24", label: "⚠ Fatiga moderada — monitorear",             badgeBg: "#fffbeb", badgeText: "#92400e" },
-    red:     { grad: "from-red-50 to-white",     accent: "#dc2626", bar: "#f87171", label: "✗ Fatiga alta — considerar descanso",         badgeBg: "#fff1f2", badgeText: "#991b1b" },
+    slate:   { grad: "from-gray-50 to-white",   accent: "#78716c", bar: "#a89968", label: "Sin datos suficientes",                      badgeBg: "#f5f5f5", badgeText: "#5a5a5a" },
+    blue:    { grad: "from-red-50 to-white",    accent: "#a83a3a", bar: "#c85a5a", label: "↑ Fuerza en aumento — activación progresiva", badgeBg: "#ffe8e8", badgeText: "#8b3535" },
+    emerald: { grad: "from-green-50 to-white", accent: "#16a34a", bar: "#4ade80", label: "✓ Fatiga baja — rendimiento sostenido",       badgeBg: "#f0fdf4", badgeText: "#166534" },
+    amber:   { grad: "from-yellow-50 to-white",   accent: "#d97706", bar: "#fbbf24", label: "⚠ Fatiga moderada — monitorear",             badgeBg: "#fffbeb", badgeText: "#92400e" },
+    red:     { grad: "from-orange-50 to-white",     accent: "#dc2626", bar: "#f87171", label: "✗ Fatiga alta — considerar descanso",         badgeBg: "#fff1f2", badgeText: "#991b1b" },
   }
   const p = palettes[nivel]
   const barPct = IF === null ? 0 : parseFloat(IF) < 0 ? Math.min(Math.abs(parseFloat(IF)) * 3, 30) : Math.min(parseFloat(IF) * 3, 100)
 
   return (
-    <div className={`rounded-3xl bg-gradient-to-br ${p.grad} p-6 space-y-5`}
-      style={{ border: `1.5px solid ${p.accent}22`, boxShadow: `0 4px 24px ${p.accent}12` }}>
+    <div className={`rounded-2xl bg-gradient-to-br ${p.grad} p-6 space-y-5`}
+      style={{ border: `1px solid ${p.accent}20`, boxShadow: `0 2px 12px ${p.accent}08` }}>
       <div className="flex items-center justify-between">
-        <p className="text-[10px] uppercase tracking-widest font-bold text-slate-500">Índice de Fatiga</p>
-        <span className="text-[9px] uppercase tracking-widest font-bold px-3 py-1 rounded-full"
+        <p className="text-[10px] uppercase tracking-wider font-semibold text-gray-600">Índice de Fatiga</p>
+        <span className="text-[9px] uppercase tracking-wider font-semibold px-3 py-1.5 rounded-lg"
           style={{ background: p.badgeBg, color: p.badgeText }}>{totalSaltos} saltos</span>
       </div>
-      <div className="bg-white/80 rounded-2xl border border-slate-100 p-4 flex flex-col items-center gap-1.5">
-        <p className="text-[9px] uppercase tracking-widest text-slate-400 font-semibold">Fórmula</p>
-        <div className="flex items-center gap-2 text-slate-500 text-[11px] font-mono">
-          <span className="font-bold text-slate-700 text-sm">IF</span>
-          <span className="text-slate-300 text-lg">=</span>
+      <div className="bg-white/70 rounded-lg border border-gray-200 p-4 flex flex-col items-center gap-1.5">
+        <p className="text-[9px] uppercase tracking-wider text-gray-500 font-semibold">Fórmula</p>
+        <div className="flex items-center gap-2 text-gray-600 text-[11px] font-mono">
+          <span className="font-semibold text-gray-800 text-sm">IF</span>
+          <span className="text-gray-400 text-lg">=</span>
           <div className="flex flex-col items-center">
-            <span className="font-semibold text-slate-600 whitespace-nowrap">F<sub>i</sub> − F<sub>f</sub></span>
-            <div className="w-full h-px bg-slate-200 my-0.5" />
-            <span className="text-slate-400 whitespace-nowrap">F<sub>i</sub></span>
+            <span className="font-semibold text-gray-700 whitespace-nowrap">F<sub>i</sub> − F<sub>f</sub></span>
+            <div className="w-full h-px bg-gray-300 my-0.5" />
+            <span className="text-gray-500 whitespace-nowrap">F<sub>i</sub></span>
           </div>
-          <span className="text-slate-300">×</span><span className="font-medium">100</span>
+          <span className="text-gray-400">×</span><span className="font-medium text-gray-700">100</span>
         </div>
-        <p className="text-[9px] text-slate-300 mt-0.5">F = pico izq. + pico der. (kg)</p>
+        <p className="text-[9px] text-gray-400 mt-0.5">F = pico izq. + pico der. (kg)</p>
       </div>
       <div className="grid grid-cols-3 gap-3">
         {[
@@ -226,19 +226,19 @@ function FatigaCard({ primerSalto, ultimoSalto, totalSaltos }) {
             sub: [IF === null ? "—" : parseFloat(IF) < 0 ? "↑ mejora" : parseFloat(IF) < 10 ? "baja" : parseFloat(IF) < 20 ? "moderada" : "alta"],
             hi: true },
         ].map(({ label, main, sub, hi }) => (
-          <div key={label} className="flex flex-col items-center bg-white rounded-2xl p-3 gap-1"
-            style={{ border: hi ? `1.5px solid ${p.accent}33` : "1px solid #f1f5f9", boxShadow: hi ? `0 2px 12px ${p.accent}10` : "none" }}>
-            <p className="text-[9px] uppercase tracking-wide text-slate-400 text-center font-medium">{label}</p>
-            <p className="text-base font-bold" style={{ color: hi ? p.accent : "#1e293b" }}>{main}</p>
-            {sub.map((s, i) => <p key={i} className="text-[9px] text-slate-400 text-center">{s}</p>)}
+          <div key={label} className="flex flex-col items-center bg-white rounded-lg p-3 gap-1"
+            style={{ border: hi ? `1.5px solid ${p.accent}30` : "1px solid #e5e5e5", boxShadow: hi ? `0 1px 8px ${p.accent}08` : "none" }}>
+            <p className="text-[9px] uppercase tracking-wide text-gray-500 text-center font-semibold">{label}</p>
+            <p className="text-base font-bold" style={{ color: hi ? p.accent : "#2d2d2d" }}>{main}</p>
+            {sub.map((s, i) => <p key={i} className="text-[9px] text-gray-500 text-center">{s}</p>)}
           </div>
         ))}
       </div>
       <div className="space-y-2">
-        <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+        <div className="w-full h-1.5 bg-gray-300 rounded-full overflow-hidden">
           <div className="h-full rounded-full transition-all duration-700" style={{ width: `${barPct}%`, background: p.bar }} />
         </div>
-        <p className="text-[10px] font-semibold text-center" style={{ color: p.accent }}>{p.label}</p>
+        <p className="text-[10px] font-medium text-center text-gray-700" style={{ color: p.accent }}>{p.label}</p>
       </div>
     </div>
   )
@@ -499,7 +499,7 @@ export default function SistemaUnificadoPage() {
     const duracion = Math.round(Number.parseFloat(tiempoPliometria))
     if (!tiempoPliometria || duracion <= 0) { notify("error", "Ingresa un tiempo válido"); return }
     try {
-      const res = await fetch(`${BACKEND_URL}/api/pliometrias/iniciar`, {
+      const res = await fetch(`${BACKEND_URL}/api/saltos/iniciar`, {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ cuentaId: Number(cuentaSeleccionada), tipo: tipoSalto, tiempo: duracion }),
       })
@@ -530,7 +530,7 @@ export default function SistemaUnificadoPage() {
     if (!pliometriaId || !resultadoFinal) { notify("error", "No hay datos para guardar"); return }
     const IF = calcularIndiceFatiga(primerSaltoSesion, ultimoSaltoSesion)
     try {
-      const res = await fetch(`${BACKEND_URL}/api/pliometrias/finalizar/${pliometriaId}`, {
+      const res = await fetch(`${BACKEND_URL}/api/saltos/finalizar/${pliometriaId}`, {
         method: "PUT", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           saltos_validos: resultadoFinal.saltos_validos, alt_max_cm: resultadoFinal.alt_max_cm,
