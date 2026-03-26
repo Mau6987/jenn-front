@@ -10,7 +10,7 @@ const DEVICE_ID = "ESP-6"
 const PUSHER_KEY = "4f85ef5c792df94cebc9"
 const PUSHER_CLUSTER = "us2"
 const ALCANCE_DURACION_SEG = 15
-const CALIBRATION_TIMEOUT_MS = 6000 // 6 segundos timeout
+const CALIBRATION_TIMEOUT_MS = 10000 // 6 segundos timeout
 
 const SALTO_SIMPLE_IMAGES = [
   "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/conos-removebg-preview__2_-removebg-preview-ZdpOb2qgOJERfCssbovE9QRaOX5m1U.png",
