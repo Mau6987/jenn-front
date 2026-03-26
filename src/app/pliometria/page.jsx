@@ -21,6 +21,7 @@ const CMD = {
   CALIBRAR:       "CALIBRAR",
   CANCELAR:       "CANCELAR",
   STOP:           "STOP",
+  ALCANCE_TIMED:  (s) => `ALCANCE:${s}`,
   VERTICAL_TIMED: (s) => `VERTICAL:${s}`,
   CONO_TIMED:     (s) => `CONO:${s}`,
 }
@@ -549,7 +550,7 @@ export default function SistemaUnificadoPage() {
     if (faseAlcance !== "calibrated") { notify("error", "Calibra primero el sensor"); return }
     setSaltoRTActual(null); setResultadoFinal(null); setIncrementoAnterior(""); setAlcanceSegundos(0)
     saltoConosContadorRef.current = 0; resetFatiga()
-    await sendCommand(CMD.VERTICAL_TIMED(ALCANCE_DURACION_SEG), setMessages)
+    await sendCommand(CMD.ALCANCE_TIMED(ALCANCE_DURACION_SEG), setMessages)
     if (alcanceTimerRef.current) clearInterval(alcanceTimerRef.current)
     alcanceTimerRef.current = setInterval(() => {
       setAlcanceSegundos((prev) => {
