@@ -10,7 +10,7 @@ const DEVICE_ID = "ESP-6"
 const PUSHER_KEY = "4f85ef5c792df94cebc9"
 const PUSHER_CLUSTER = "us2"
 const ALCANCE_DURACION_SEG = 15
-const CALIBRATION_TIMEOUT_MS = 6000 // 5s calibración + 1s margen
+const CALIBRATION_TIMEOUT_MS = 6000 // 6 segundos timeout
 
 const SALTO_SIMPLE_IMAGES = [
   "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/conos-removebg-preview__2_-removebg-preview-ZdpOb2qgOJERfCssbovE9QRaOX5m1U.png",
@@ -21,6 +21,7 @@ const CMD = {
   CALIBRAR:       "CALIBRAR",
   CANCELAR:       "CANCELAR",
   STOP:           "STOP",
+  ESTADO:         "ESTADO",
   ALCANCE_TIMED:  (s) => `ALCANCE:${s}`,
   VERTICAL_TIMED: (s) => `VERTICAL:${s}`,
   CONO_TIMED:     (s) => `CONO:${s}`,
@@ -350,6 +351,7 @@ export default function SistemaUnificadoPage() {
   const [calibrationModalOpen, setCalibrationModalOpen] = useState(false)
   const [isCalibrated, setIsCalibrated]                 = useState(false)
   const [calibrationStatus, setCalibrationStatus]       = useState("calibrating")
+  const [calibracionOrigen, setCalibracionOrigen]       = useState(null) // "alcance" o "pruebas"
   const calibrationTimerRef = useRef(null)
   const calibrandoRef       = useRef(false)
   const alcanceTimerRef     = useRef(null)
@@ -414,11 +416,42 @@ export default function SistemaUnificadoPage() {
     if (calibrationTimerRef.current) { clearTimeout(calibrationTimerRef.current); calibrationTimerRef.current = null }
     calibrandoRef.current = false
     setCalibrationStatus("failed")
-    setIsCalibrated(false)
-    setPliometriaCalibrada(false)
-    setFaseAlcance("idle")
+    
+    // Resetear según origen
+    if (calibracionOrigen === "alcance") {
+      setIsCalibrated(false)
+      setFaseAlcance("idle")
+    } else if (calibracionOrigen === "pruebas") {
+      setPliometriaCalibrada(false)
+    }
+    
     setCalibrationModalOpen(true)
     notify("error", "Error de calibración — intenta nuevamente")
+  }
+
+  // ── Función para resetear calibración exitosa ────────────────────────────
+  const onCalibrationSuccess = () => {
+    if (calibrationTimerRef.current) { clearTimeout(calibrationTimerRef.current); calibrationTimerRef.current = null }
+    calibrandoRef.current = false
+    setCalibrationStatus("success")
+    
+    // Actualizar según origen
+    if (calibracionOrigen === "alcance") {
+      setIsCalibrated(true)
+      setFaseAlcance("calibrated")
+    } else if (calibracionOrigen === "pruebas") {
+      setPliometriaCalibrada(true)
+    }
+    
+    setCalibrationModalOpen(true)
+    
+    // Cerrar modal automáticamente después de 2 segundos
+    setTimeout(() => {
+      setCalibrationModalOpen(false)
+      setCalibrationStatus("calibrating")
+    }, 2000)
+    
+    notify("success", "¡Calibrado! — listo para iniciar")
   }
 
   const subscribeToESP = (pusher) => {
@@ -432,37 +465,51 @@ export default function SistemaUnificadoPage() {
       const msg = String(rawMsg).trim()
       addMessage(DEVICE_ID, msg, "success", setMessages)
 
+      // Manejar respuesta de calibración exitosa
       if (msg.includes("CALIBRADO_OK")) {
-        // Cancelar timeout — llegó respuesta a tiempo
-        if (calibrationTimerRef.current) { clearTimeout(calibrationTimerRef.current); calibrationTimerRef.current = null }
-        calibrandoRef.current = false
-        setCalibrationStatus("success")
-        setIsCalibrated(true); setPliometriaCalibrada(true); setFaseAlcance("calibrated"); setCalibrationModalOpen(true)
-        setTimeout(() => { setCalibrationModalOpen(false); setIsCalibrated(false); setCalibrationStatus("calibrating") }, 2000)
-        notify("success", "¡Calibrado! — listo para iniciar"); return
+        onCalibrationSuccess()
+        return
       }
+      
+      // Manejar cancelación o error de calibración
       if (msg.includes("CALIBRACION_CANCELADA") || msg.includes("ERROR_CALIBRACION")) {
         if (calibrationTimerRef.current) { clearTimeout(calibrationTimerRef.current); calibrationTimerRef.current = null }
         calibrandoRef.current = false
+        
         if (msg.includes("ERROR_CALIBRACION")) {
           triggerCalibrationFailed()
         } else {
-          setFaseAlcance("idle"); setCalibrationModalOpen(false); setIsCalibrated(false); setPliometriaCalibrada(false)
+          // Cancelación manual
+          if (calibracionOrigen === "alcance") {
+            setFaseAlcance("idle")
+            setIsCalibrated(false)
+          } else if (calibracionOrigen === "pruebas") {
+            setPliometriaCalibrada(false)
+          }
+          setCalibrationModalOpen(false)
           setCalibrationStatus("calibrating")
           notify("error", "Calibración cancelada")
         }
         return
       }
+      
       if (msg.includes("SESION_INICIADA")) {
-        setFaseAlcance("jumping"); setEjercicioEnCurso(true); setSaltoRTActual(null); setResultadoFinal(null)
-        saltoConosContadorRef.current = 0; resetFatiga(); return
+        setFaseAlcance("jumping")
+        setEjercicioEnCurso(true)
+        setSaltoRTActual(null)
+        setResultadoFinal(null)
+        saltoConosContadorRef.current = 0
+        resetFatiga()
+        return
       }
+      
       if (msg.includes("SESION_FINALIZADA")) {
         setEjercicioEnCurso(false)
         if (progresoTimerRef.current) { clearInterval(progresoTimerRef.current); progresoTimerRef.current = null }
         if (alcanceTimerRef.current)  { clearInterval(alcanceTimerRef.current);  alcanceTimerRef.current  = null }
         return
       }
+      
       if (msg.startsWith("SALTO_JSON:")) {
         try {
           const json = JSON.parse(msg.slice("SALTO_JSON:".length))
@@ -483,6 +530,7 @@ export default function SistemaUnificadoPage() {
         } catch (e) { addMessage(DEVICE_ID, `Error SALTO_JSON: ${e.message}`, "error", setMessages) }
         return
       }
+      
       if (msg.startsWith("RESULTADO_JSON:")) {
         try {
           const json = JSON.parse(msg.slice("RESULTADO_JSON:".length))
@@ -507,7 +555,8 @@ export default function SistemaUnificadoPage() {
               ? `${(alcanceTotal - parseFloat(previo.alcance)) >= 0 ? "+" : ""}${(alcanceTotal - parseFloat(previo.alcance)).toFixed(1)} cm`
               : "Sin registro previo")
           }
-          setResultadoFinal(resultado); setEjercicioEnCurso(false)
+          setResultadoFinal(resultado)
+          setEjercicioEnCurso(false)
           if (progresoTimerRef.current) { clearInterval(progresoTimerRef.current); progresoTimerRef.current = null }
           if (alcanceTimerRef.current)  { clearInterval(alcanceTimerRef.current);  alcanceTimerRef.current  = null }
           setFaseAlcance("done")
@@ -519,16 +568,46 @@ export default function SistemaUnificadoPage() {
     channel.bind("client-status", (data) => { if (data?.status === "connected") setEspConnected(true) })
   }
 
-  const handleCalibrar = async () => {
-    if (!jugadorSeleccionado) { notify("error", "Selecciona un jugador primero"); return }
+  // ── FUNCIÓN DE CALIBRACIÓN MEJORADA ──────────────────────────────────────
+  const handleCalibrar = async (origen = "alcance") => {
+    if (!jugadorSeleccionado) { 
+      notify("error", "Selecciona un jugador primero"); 
+      return 
+    }
     if (calibrandoRef.current) return
-    // Limpiar cualquier timer previo
-    if (calibrationTimerRef.current) { clearTimeout(calibrationTimerRef.current); calibrationTimerRef.current = null }
+    
+    // Limpiar timers previos
+    if (calibrationTimerRef.current) { 
+      clearTimeout(calibrationTimerRef.current); 
+      calibrationTimerRef.current = null 
+    }
+    
     calibrandoRef.current = true
-    setFaseAlcance("calibrating"); setPliometriaCalibrada(false); setSaltoRTActual(null); setResultadoFinal(null)
-    setIncrementoAnterior(""); setIsCalibrated(false); setCalibrationStatus("calibrating"); setCalibrationModalOpen(true); resetFatiga()
+    setCalibracionOrigen(origen)
+    
+    // Resetear estados según origen
+    if (origen === "alcance") {
+      setFaseAlcance("calibrating")
+      setSaltoRTActual(null)
+      setResultadoFinal(null)
+      setIncrementoAnterior("")
+      setIsCalibrated(false)
+    } else if (origen === "pruebas") {
+      setPliometriaCalibrada(false)
+      setEjercicioEnCurso(false)
+      setResultadoFinal(null)
+      setSaltoRTActual(null)
+      resetFatiga()
+    }
+    
+    setCalibrationStatus("calibrating")
+    setCalibrationModalOpen(true)
+    resetFatiga()
+    
+    // Enviar comando CALIBRAR
     await sendCommand(CMD.CALIBRAR, setMessages)
-    // Timeout de 6 segundos (5s calibración + 1s margen)
+    
+    // Timeout de 6 segundos
     calibrationTimerRef.current = setTimeout(() => {
       calibrationTimerRef.current = null
       if (calibrandoRef.current) {
@@ -540,8 +619,17 @@ export default function SistemaUnificadoPage() {
   const handleCancelarCalibracion = async () => {
     if (calibrationTimerRef.current) { clearTimeout(calibrationTimerRef.current); calibrationTimerRef.current = null }
     calibrandoRef.current = false
-    setCalibrationModalOpen(false); setIsCalibrated(false); setFaseAlcance("idle")
-    setPliometriaCalibrada(false); setCalibrationStatus("calibrating")
+    setCalibrationModalOpen(false)
+    
+    // Resetear según origen
+    if (calibracionOrigen === "alcance") {
+      setIsCalibrated(false)
+      setFaseAlcance("idle")
+    } else if (calibracionOrigen === "pruebas") {
+      setPliometriaCalibrada(false)
+    }
+    
+    setCalibrationStatus("calibrating")
     await sendCommand(CMD.CANCELAR, setMessages)
     notify("error", "Cancelación enviada al ESP")
   }
@@ -771,7 +859,7 @@ export default function SistemaUnificadoPage() {
               <>
                 <span className="text-[9px] uppercase tracking-widest font-bold text-slate-400 block mb-3">Inicio de test</span>
                 <div className="flex gap-2.5 mb-3">
-                  <button onClick={handleCalibrar}
+                  <button onClick={() => handleCalibrar("alcance")}
                     disabled={!cuentaSeleccionada || faseAlcance === "jumping"}
                     className="pill-btn flex-1 py-2.5 px-5 text-sm font-semibold"
                     style={faseAlcance === "calibrating"
@@ -831,7 +919,7 @@ export default function SistemaUnificadoPage() {
                     className="w-20 text-sm text-center focus:outline-none focus:ring-2 focus:ring-slate-200"
                     style={{ background: "#f8fafc", border: "1.5px solid #e2e8f0", borderRadius: 12, padding: "7px 10px", opacity: ejercicioEnCurso ? .45 : 1 }} />
                   <div className="flex gap-2 ml-auto">
-                    <button onClick={handleCalibrar} disabled={!cuentaSeleccionada || ejercicioEnCurso}
+                    <button onClick={() => handleCalibrar("pruebas")} disabled={!cuentaSeleccionada || ejercicioEnCurso}
                       className="pill-btn py-2 px-4 text-sm font-semibold"
                       style={pliometriaCalibrada
                         ? { borderRadius: 50, background: "linear-gradient(135deg,#059669,#10b981)", color: "#fff", boxShadow: "0 4px 14px rgba(5,150,105,.25)" }
