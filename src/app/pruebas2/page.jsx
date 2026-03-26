@@ -3,22 +3,13 @@
 import { useState, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
 import {
-  AlertCircle,
-  CheckCircle,
-  X,
-  ChevronDown,
-  Copy,
-  User,
-  Award,
-  Activity,
-  Zap,
-  Target,
+  AlertCircle, CheckCircle, X, ChevronDown, Copy, User, Award, Activity, Target,
 } from "lucide-react"
 import { getPositionIcon, getPositionName } from "../../lib/position-icons"
 
 const BACKEND_URL = "https://jenn-back-reac.onrender.com"
 
-/* ─── Design tokens ────────────────────────────────────────────────────────── */
+/* ─── Design tokens ─────────────────────────────────────────────────────── */
 const C = {
   guindo:      "#7B1D2E",
   guindoDark:  "#5E1522",
@@ -42,18 +33,10 @@ const C = {
 
 const styles = {
   label: { fontSize: 10, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", color: C.grayMed, marginBottom: 6, display: "block", fontFamily: "'DM Sans', sans-serif" },
-  card: { background: C.white, borderRadius: 0, border: `1px solid ${C.grayLight}` },
   input: {
-    border: `1px solid ${C.grayLight}`,
-    borderRadius: 4,
-    padding: "7px 12px",
-    fontSize: 13,
-    color: C.grayDark,
-    background: C.white,
-    outline: "none",
-    fontFamily: "'DM Sans', sans-serif",
-    width: "100%",
-    boxSizing: "border-box",
+    border: `1px solid ${C.grayLight}`, borderRadius: 4, padding: "7px 12px",
+    fontSize: 13, color: C.grayDark, background: C.white, outline: "none",
+    fontFamily: "'DM Sans', sans-serif", width: "100%", boxSizing: "border-box",
     transition: "border-color 0.15s",
   },
 }
@@ -62,9 +45,7 @@ export default function PruebasPage() {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [notification, setNotification] = useState(null)
-
   const [selectedESPs, setSelectedESPs] = useState([1, 2, 3, 4, 5])
-
   const [showSummary, setShowSummary] = useState(false)
   const [summaryData, setSummaryData] = useState(null)
 
@@ -97,8 +78,14 @@ export default function PruebasPage() {
 
   const [modoActual, setModoActual] = useState("secuencial")
   const [tiempoReaccion, setTiempoReaccion] = useState(3.0)
-  const [tiempoTranscurrido, setTiempoTranscurrido] = useState(0)
+
+  // ── CORRECCIÓN: usar Date.now() para medir duración real ─────────────────
+  // En lugar de un setInterval con contador, guardamos el timestamp de inicio
+  // y calculamos la diferencia al finalizar.
+  const testStartTimeRef   = useRef(null)   // timestamp cuando inicia la prueba
+  const [tiempoTranscurrido, setTiempoTranscurrido] = useState(0) // segundos display
   const [timerGeneralInterval, setTimerGeneralInterval] = useState(null)
+  const finalDurationRef = useRef(0) // duración final en segundos (calculada al detener)
 
   const [microControllers, setMicroControllers] = useState([
     { id: 1, active: false, connected: false, lastSeen: null, lastResponse: null, status: "" },
@@ -150,11 +137,13 @@ export default function PruebasPage() {
   }, [
     testActiveSequential, currentActiveESPSequential, waitingForResponseSequential,
     testActiveRandom, currentActiveESPRandom, waitingForResponseRandom,
-    testActiveManual, currentActiveESPManual, waitingForResponseManual,
-    selectedESPs,
+    testActiveManual, currentActiveESPManual, waitingForResponseManual, selectedESPs,
   ])
 
-  useEffect(() => { fetchJugadores(); loadPusher() }, [])
+  useEffect(() => {
+    fetchJugadores()
+    loadPusher()
+  }, [])
 
   useEffect(() => {
     return () => {
@@ -174,9 +163,10 @@ export default function PruebasPage() {
     })
   }
 
+  // ── NOTIFICACIÓN MÁS GRANDE ────────────────────────────────────────────────
   const showNotification = (type, message) => {
     setNotification({ type, message })
-    setTimeout(() => setNotification(null), 3000)
+    setTimeout(() => setNotification(null), 4000)
   }
 
   const fetchJugadores = async () => {
@@ -221,13 +211,18 @@ export default function PruebasPage() {
     for (let i = 1; i <= 5; i++) {
       const channelName = `private-device-ESP-${i}`
       const channel = pusher.subscribe(channelName)
-      channel.bind("pusher:subscription_succeeded", () =>
-        setMicroControllers((prev) => prev.map((mc) => mc.id === i ? { ...mc, connected: true, lastSeen: new Date() } : mc))
-      )
       channel.bind("client-response", (data) => {
-        const espId = parseInt(channelName.split("-").pop())
-        const isAcierto = (data.message?.toLowerCase() || "").includes("acierto") || (data.message?.toLowerCase() || "").includes("success")
+        const espId = i
+        const message = data.message?.toLowerCase() || ""
+
+        if (message === "ok") {
+          setMicroControllers((prev) => prev.map((mc) => mc.id === espId ? { ...mc, connected: true, lastSeen: new Date() } : mc))
+          return
+        }
+
         setMicroControllers((prev) => prev.map((mc) => mc.id === espId ? { ...mc, connected: true, lastSeen: new Date() } : mc))
+
+        const isAcierto = message.includes("acierto") || message.includes("success")
         if (testActiveSequentialRef.current && waitingForResponseSequentialRef.current && currentActiveESPSequentialRef.current === espId) {
           if (processingResponseSequentialRef.current) return
           processingResponseSequentialRef.current = true
@@ -256,14 +251,25 @@ export default function PruebasPage() {
     } catch (e) { console.error(e) }
   }
 
+  // ── CRONÓMETRO CORREGIDO ─────────────────────────────────────────────────
+  // Guardamos el timestamp exacto de inicio y recalculamos cada segundo
   const iniciarCronometroGeneral = () => {
+    testStartTimeRef.current = Date.now()
     setTiempoTranscurrido(0)
-    const interval = setInterval(() => setTiempoTranscurrido((p) => p + 1), 1000)
+    const interval = setInterval(() => {
+      const elapsed = Math.floor((Date.now() - testStartTimeRef.current) / 1000)
+      setTiempoTranscurrido(elapsed)
+    }, 1000)
     setTimerGeneralInterval(interval)
   }
 
   const detenerCronometroGeneral = () => {
     if (timerGeneralInterval) { clearInterval(timerGeneralInterval); setTimerGeneralInterval(null) }
+    // Calcular duración final exacta en el momento de detener
+    if (testStartTimeRef.current) {
+      finalDurationRef.current = Math.floor((Date.now() - testStartTimeRef.current) / 1000)
+      testStartTimeRef.current = null
+    }
   }
 
   const formatTime = (s) => `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, "0")}`
@@ -277,13 +283,15 @@ export default function PruebasPage() {
     return "/gris.png"
   }
 
+  // ── RESUMEN SIN HORA ─────────────────────────────────────────────────────
   const abrirResumen = (tipo, stats) => {
     setSummaryData({
       tipo,
       jugador: selectedPlayer
         ? { id: selectedPlayer.id, nombres: selectedPlayer.nombres, apellidos: selectedPlayer.apellidos, posicion: selectedPlayer.posicion_principal, cuentaId: selectedPlayer.cuentaId }
         : null,
-      tiempo_transcurrido: tiempoTranscurrido,
+      // Usar finalDurationRef para duración exacta
+      tiempo_transcurrido: finalDurationRef.current,
       esp_seleccionadas: selectedESPs,
       parametros: { tiempo_reaccion: tiempoReaccion, rondas: tipo === "secuencial" ? totalRounds : undefined, duracion: tipo !== "secuencial" ? tiempoPrueba : undefined },
       resultados: stats,
@@ -320,13 +328,11 @@ export default function PruebasPage() {
   }
 
   const activateNextMicrocontrollerSequential = (espId) => {
-    // 🚫 No enviar comando si la cápsula no está seleccionada
     if (!selectedESPsRef.current.includes(espId)) return
     if (responseTimeoutSequentialRef.current) { clearTimeout(responseTimeoutSequentialRef.current); responseTimeoutSequentialRef.current = null }
     setCurrentActiveESPSequential(espId); setWaitingForResponseSequential(true)
     setMicroControllers((prev) => prev.map((mc) => ({ ...mc, active: mc.id === espId, status: mc.id === espId ? "Esperando respuesta" : mc.status })))
     sendCommandToESP(espId, { command: "ON" })
-    // ✅ +1 segundo de margen sobre el tiempo de encendido para absorber latencia de red/Pusher
     responseTimeoutSequentialRef.current = setTimeout(() => handleSequentialResponse(espId, "error"), (tiempoReaccion + 1) * 1000)
   }
 
@@ -341,7 +347,6 @@ export default function PruebasPage() {
     })
     setWaitingForResponseSequential(false)
     setMicroControllers((prev) => prev.map((mc) => ({ ...mc, active: false, lastResponse: mc.id === espId ? responseType : mc.lastResponse, status: mc.id === espId ? (responseType === "acierto" ? "Acierto" : "Error") : mc.status })))
-    // 💨 Limpiar el color (verde/rojo) después de 1 segundo
     setTimeout(() => {
       setMicroControllers((prev) => prev.map((mc) => mc.id === espId ? { ...mc, lastResponse: null } : mc))
     }, 1000)
@@ -428,7 +433,6 @@ export default function PruebasPage() {
     setCurrentActiveESPRandom(espId); setWaitingForResponseRandom(true)
     setMicroControllers((prev) => prev.map((mc) => ({ ...mc, active: mc.id === espId, status: mc.id === espId ? "Esperando respuesta" : mc.status })))
     sendCommandToESP(espId, { command: "ON" })
-    // ✅ +1 segundo de margen sobre el tiempo de encendido para absorber latencia de red/Pusher
     responseTimeoutRandomRef.current = setTimeout(() => handleRandomResponse(espId, "error"), (tiempoReaccion + 1) * 1000)
   }
 
@@ -443,7 +447,6 @@ export default function PruebasPage() {
     })
     setWaitingForResponseRandom(false)
     setMicroControllers((prev) => prev.map((mc) => ({ ...mc, active: false, lastResponse: mc.id === espId ? responseType : mc.lastResponse, status: mc.id === espId ? (responseType === "acierto" ? "Acierto" : "Error") : mc.status })))
-    // 💨 Limpiar el color (verde/rojo) después de 1 segundo
     setTimeout(() => {
       setMicroControllers((prev) => prev.map((mc) => mc.id === espId ? { ...mc, lastResponse: null } : mc))
     }, 1000)
@@ -504,7 +507,6 @@ export default function PruebasPage() {
     setCurrentActiveESPManual(espId); setWaitingForResponseManual(true)
     setMicroControllers((prev) => prev.map((mc) => ({ ...mc, active: mc.id === espId, status: mc.id === espId ? "Esperando respuesta" : mc.status })))
     sendCommandToESP(espId, { command: "ON" })
-    // ✅ +1 segundo de margen sobre el tiempo de encendido para absorber latencia de red/Pusher
     responseTimeoutManualRef.current = setTimeout(() => handleManualResponse(espId, "error"), (tiempoReaccion + 1) * 1000)
   }
 
@@ -519,7 +521,6 @@ export default function PruebasPage() {
     })
     setWaitingForResponseManual(false); setCurrentActiveESPManual(null)
     setMicroControllers((prev) => prev.map((mc) => ({ ...mc, active: false, lastResponse: mc.id === espId ? responseType : mc.lastResponse, status: mc.id === espId ? (responseType === "acierto" ? "Acierto" : "Error") : mc.status })))
-    // 💨 Limpiar el color (verde/rojo) después de 1 segundo
     setTimeout(() => {
       setMicroControllers((prev) => prev.map((mc) => mc.id === espId ? { ...mc, lastResponse: null } : mc))
     }, 1000)
@@ -553,7 +554,7 @@ export default function PruebasPage() {
     processingResponseManualRef.current = false
   }
 
-  // ── Computed ───────────────────────────────────────────────────────────────
+  // ── Computed ────────────────────────────────────────────────────────────────
   const testActive = testActiveSequential || testActiveRandom || testActiveManual
   const estadisticas = testActiveSequential ? estadisticasSequential : testActiveRandom ? estadisticasRandom : estadisticasManual
   const totalAttempts = estadisticas.intentos
@@ -582,20 +583,10 @@ export default function PruebasPage() {
     <>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
-
         * { box-sizing: border-box; }
 
-        .pruebas-root {
-          min-height: 100vh;
-          background: #F4F4F4;
-          padding: 32px 16px;
-          font-family: 'DM Sans', sans-serif;
-        }
-
-        .pruebas-inner {
-          max-width: 1100px;
-          margin: 0 auto;
-        }
+        .pruebas-root { min-height: 100vh; background: #F4F4F4; padding: 32px 16px; font-family: 'DM Sans', sans-serif; }
+        .pruebas-inner { max-width: 1100px; margin: 0 auto; }
 
         @media (max-width: 860px) {
           .pruebas-root { padding: 20px 12px; }
@@ -607,7 +598,6 @@ export default function PruebasPage() {
           .capsulas-grid { grid-template-columns: repeat(3, 1fr) !important; }
           .results-grid { grid-template-columns: 1fr 1fr 1fr !important; }
         }
-
         @media (max-width: 540px) {
           .pruebas-root { padding: 14px 10px; }
           .player-panel { flex-direction: column !important; align-items: flex-start !important; }
@@ -620,18 +610,8 @@ export default function PruebasPage() {
           .stat-num { font-size: 32px !important; }
         }
 
-        .micro-card {
-          background: #fff;
-          border: 1.5px solid #E8E8E8;
-          border-radius: 8px;
-          overflow: hidden;
-          transition: all 0.2s ease;
-          cursor: default;
-        }
-        .micro-card.active {
-          border-color: #334155;
-          box-shadow: 0 0 0 3px rgba(51,65,85,0.14);
-        }
+        .micro-card { background: #fff; border: 1.5px solid #E8E8E8; border-radius: 8px; overflow: hidden; transition: all 0.2s ease; cursor: default; }
+        .micro-card.active { border-color: #334155; box-shadow: 0 0 0 3px rgba(51,65,85,0.14); }
         .micro-card.hit { border-color: #1A7A5E; }
         .micro-card.missed { border-color: #B03030; }
         .micro-card.clickable { cursor: pointer; }
@@ -645,39 +625,22 @@ export default function PruebasPage() {
         .dot-active { animation: pulse-guindo 1.2s ease infinite; }
 
         .seg-tab {
-          padding: 6px 18px;
-          font-size: 11px;
-          font-weight: 600;
-          letter-spacing: 0.08em;
-          text-transform: uppercase;
-          border: none;
-          cursor: pointer;
-          transition: all 0.15s;
-          font-family: 'DM Sans', sans-serif;
-          background: #fff;
-          color: #6B6B6B;
+          padding: 6px 18px; font-size: 11px; font-weight: 600; letter-spacing: 0.08em;
+          text-transform: uppercase; border: none; cursor: pointer; transition: all 0.15s;
+          font-family: 'DM Sans', sans-serif; background: #fff; color: #6B6B6B;
         }
-        .seg-tab.active-tab {
-          background: #334155;
-          color: #fff;
-        }
+        .seg-tab.active-tab { background: #334155; color: #fff; }
         .seg-tab:disabled { cursor: not-allowed; opacity: 0.5; }
         .seg-tab:not(:last-child) { border-right: 1.5px solid #E8E8E8; }
 
-        .stat-num {
-          font-family: 'DM Mono', monospace;
-          font-size: 42px;
-          font-weight: 500;
-          line-height: 1;
-        }
+        .stat-num { font-family: 'DM Mono', monospace; font-size: 42px; font-weight: 500; line-height: 1; }
 
         @keyframes shimmer {
           0% { background-position: -200% center; }
           100% { background-position: 200% center; }
         }
         .progress-fill {
-          height: 100%;
-          border-radius: 4px;
+          height: 100%; border-radius: 4px;
           background: linear-gradient(90deg, #334155 0%, #475569 50%, #334155 100%);
           background-size: 200% auto;
           animation: shimmer 2s linear infinite;
@@ -694,44 +657,52 @@ export default function PruebasPage() {
           background: rgba(20,10,12,0.45);
           backdrop-filter: blur(4px);
         }
+
+        /* ── NOTIFICACIÓN MÁS GRANDE ── */
+        .notif-toast {
+          position: fixed; top: 28px; right: 28px; z-index: 200;
+          display: flex; align-items: center; gap: 14px;
+          background: #fff; border-radius: 14px;
+          padding: 16px 22px;
+          box-shadow: 0 12px 40px rgba(0,0,0,0.18), 0 2px 8px rgba(0,0,0,0.10);
+          min-width: 280px; max-width: 420px;
+          animation: slideInRight 0.25s ease;
+        }
+        @keyframes slideInRight {
+          from { transform: translateX(40px); opacity: 0; }
+          to   { transform: translateX(0);    opacity: 1; }
+        }
+        .notif-icon { flex-shrink: 0; }
+        .notif-text { font-size: 15px; font-weight: 600; color: #1f2937; flex: 1; line-height: 1.35; }
+        .notif-close { flex-shrink: 0; background: none; border: none; cursor: pointer; padding: 2px; display: flex; align-items: center; }
       `}</style>
 
       <div className="pruebas-root">
       <div className="pruebas-inner">
 
+        {/* ── NOTIFICACIÓN GRANDE ── */}
         {notification && (
-          <div style={{ position: "fixed", top: 20, right: 24, zIndex: 100 }}>
-            <div style={{
-              display: "flex", alignItems: "center", gap: 10,
-              background: C.white, borderRadius: 10,
-              padding: "10px 16px",
-              boxShadow: "0 8px 32px rgba(0,0,0,0.14)",
-              border: `1px solid ${notification.type === "success" ? "#c6e6da" : "#f2c5c5"}`,
-              fontFamily: "'DM Sans', sans-serif",
-            }}>
+          <div className="notif-toast" style={{
+            borderLeft: `5px solid ${notification.type === "success" ? C.emerald : C.red}`,
+          }}>
+            <span className="notif-icon">
               {notification.type === "success"
-                ? <CheckCircle size={16} color={C.emerald} />
-                : <AlertCircle size={16} color={C.red} />}
-              <span style={{ fontSize: 13, fontWeight: 500, color: C.grayDark }}>{notification.message}</span>
-              <button onClick={() => setNotification(null)} style={{ background: "none", border: "none", cursor: "pointer", padding: 2 }}>
-                <X size={14} color={C.grayMed} />
-              </button>
-            </div>
+                ? <CheckCircle size={22} color={C.emerald} />
+                : <AlertCircle size={22} color={C.red} />}
+            </span>
+            <span className="notif-text">{notification.message}</span>
+            <button className="notif-close" onClick={() => setNotification(null)}>
+              <X size={16} color={C.grayMed} />
+            </button>
           </div>
         )}
 
         <div className="top-row" style={{ display: "flex", gap: 16, marginBottom: 24, alignItems: "stretch" }}>
 
           <div className="player-panel" style={{
-            background: C.white,
-            border: `1.5px solid ${C.grayLight}`,
-            borderRadius: 10,
-            padding: "10px 14px",
-            display: "flex",
-            flexDirection: "column",
-            gap: 8,
-            flexShrink: 0,
-            minWidth: 340,
+            background: C.white, border: `1.5px solid ${C.grayLight}`, borderRadius: 10,
+            padding: "10px 14px", display: "flex", flexDirection: "column", gap: 8,
+            flexShrink: 0, minWidth: 340,
           }}>
             <div style={{ position: "relative" }}>
               <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", color: C.grayMed, display: "block", marginBottom: 4, fontFamily: "'DM Sans', sans-serif" }}>
@@ -749,8 +720,7 @@ export default function PruebasPage() {
                   border: `1.5px solid ${C.grayLight}`, borderRadius: 6,
                   padding: "5px 26px 5px 9px", fontSize: 11, color: C.grayDark,
                   background: C.white, cursor: testActive ? "not-allowed" : "pointer",
-                  fontFamily: "'DM Sans', sans-serif", opacity: testActive ? 0.5 : 1,
-                  width: "100%", maxWidth: "none",
+                  fontFamily: "'DM Sans', sans-serif", opacity: testActive ? 0.5 : 1, width: "100%",
                 }}
               >
                 <option value="">Seleccionar…</option>
@@ -769,14 +739,12 @@ export default function PruebasPage() {
                 border: `2px solid ${selectedPlayer ? C.guindo : C.grayLight}`,
                 background: C.grayUltra,
                 display: "flex", alignItems: "center", justifyContent: "center",
-                overflow: "hidden", flexShrink: 0,
-                transition: "border-color 0.2s",
+                overflow: "hidden", flexShrink: 0, transition: "border-color 0.2s",
               }}>
                 {selectedPlayer ? (
                   <img
                     src={getPositionIcon(selectedPlayer.posicion_principal) || "/oso.png"}
-                    alt=""
-                    style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                    alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }}
                     onError={(e) => { e.currentTarget.src = "/oso.png" }}
                   />
                 ) : (
@@ -795,14 +763,8 @@ export default function PruebasPage() {
           </div>
 
           <div style={{
-            background: C.white,
-            border: `1.5px solid ${C.grayLight}`,
-            borderRadius: 10,
-            padding: "20px 24px",
-            flex: 1,
-            display: "flex",
-            alignItems: "center",
-            gap: 0,
+            background: C.white, border: `1.5px solid ${C.grayLight}`, borderRadius: 10,
+            padding: "20px 24px", flex: 1, display: "flex", alignItems: "center", gap: 0,
           }} className="config-panel">
 
             <div style={{ flex: 1 }} className="config-left">
@@ -812,12 +774,8 @@ export default function PruebasPage() {
                   {["Secuencial", "Aleatorio", "Manual"].map((label) => {
                     const key = label.toLowerCase()
                     return (
-                      <button
-                        key={key}
-                        onClick={() => !testActive && setModoActual(key)}
-                        disabled={testActive}
-                        className={`seg-tab ${modoActual === key ? "active-tab" : ""}`}
-                      >
+                      <button key={key} onClick={() => !testActive && setModoActual(key)} disabled={testActive}
+                        className={`seg-tab ${modoActual === key ? "active-tab" : ""}`}>
                         {label}
                       </button>
                     )
@@ -831,23 +789,17 @@ export default function PruebasPage() {
                   {[1, 2, 3, 4, 5].map((num) => {
                     const selected = selectedESPs.includes(num)
                     return (
-                      <button
-                        key={num}
-                        onClick={() => !testActive && toggleESPSelection(num)}
-                        disabled={testActive}
-                        title={`Cápsula ${num}`}
-                        style={{
-                          width: 32, height: 32, borderRadius: "50%",
-                          border: `2px solid ${selected ? C.slate : C.grayLight}`,
-                          background: selected ? C.slate : C.white,
-                          cursor: testActive ? "not-allowed" : "pointer",
-                          display: "flex", alignItems: "center", justifyContent: "center",
-                          transition: "all 0.15s",
-                          fontSize: 11, fontWeight: 700,
-                          color: selected ? C.white : C.grayMed,
-                          fontFamily: "'DM Mono', monospace",
-                        }}
-                      >
+                      <button key={num} onClick={() => !testActive && toggleESPSelection(num)} disabled={testActive} style={{
+                        width: 32, height: 32, borderRadius: "50%",
+                        border: `2px solid ${selected ? C.slate : C.grayLight}`,
+                        background: selected ? C.slate : C.white,
+                        cursor: testActive ? "not-allowed" : "pointer",
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        transition: "all 0.15s",
+                        fontSize: 11, fontWeight: 700,
+                        color: selected ? C.white : C.grayMed,
+                        fontFamily: "'DM Mono', monospace",
+                      }}>
                         {num}
                       </button>
                     )
@@ -863,26 +815,21 @@ export default function PruebasPage() {
                 <span style={styles.label}>
                   {modoActual === "secuencial" ? "Número de rondas" : "Duración (seg)"}
                 </span>
-                <input
-                  type="number"
+                <input type="number"
                   value={modoActual === "secuencial" ? totalRounds : tiempoPrueba}
                   onChange={(e) => {
                     const v = parseInt(e.target.value) || 1
                     if (modoActual === "secuencial") setTotalRounds(v)
                     else setTiempoPrueba(v)
                   }}
-                  disabled={testActive}
-                  min="1"
-                  className="field-input"
+                  disabled={testActive} min="1" className="field-input"
                   style={{ ...styles.input, opacity: testActive ? 0.5 : 1 }}
                 />
               </div>
 
               <div>
                 <span style={styles.label}>Tiempo encendido (seg)</span>
-                <input
-                  type="number"
-                  step="0.1" min="0.1" max="5"
+                <input type="number" step="0.1" min="0.1" max="5"
                   value={tiempoReaccion}
                   onChange={(e) => {
                     let v = parseFloat(e.target.value)
@@ -890,58 +837,31 @@ export default function PruebasPage() {
                     v = Math.min(5, Math.max(0.1, v))
                     setTiempoReaccion(v)
                   }}
-                  disabled={testActive}
-                  className="field-input"
+                  disabled={testActive} className="field-input"
                   style={{ ...styles.input, opacity: testActive ? 0.5 : 1 }}
                 />
               </div>
 
               {!testActive ? (
-                <button
-                  onClick={onIniciar}
-                  style={{
-                    marginTop: 4,
-                    padding: "10px 0",
-                    background: C.guindo,
-                    color: C.white,
-                    border: "none",
-                    borderRadius: 6,
-                    fontSize: 12,
-                    fontWeight: 700,
-                    letterSpacing: "0.08em",
-                    textTransform: "uppercase",
-                    cursor: "pointer",
-                    fontFamily: "'DM Sans', sans-serif",
-                    transition: "background 0.15s",
-                    width: "100%",
-                  }}
+                <button onClick={onIniciar} style={{
+                  marginTop: 4, padding: "10px 0",
+                  background: C.guindo, color: C.white, border: "none", borderRadius: 6,
+                  fontSize: 12, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase",
+                  cursor: "pointer", fontFamily: "'DM Sans', sans-serif", transition: "background 0.15s", width: "100%",
+                }}
                   onMouseEnter={e => e.currentTarget.style.background = C.guindoDark}
-                  onMouseLeave={e => e.currentTarget.style.background = C.guindo}
-                >
+                  onMouseLeave={e => e.currentTarget.style.background = C.guindo}>
                   Iniciar prueba
                 </button>
               ) : (
-                <button
-                  onClick={onFinalizar}
-                  style={{
-                    marginTop: 4,
-                    padding: "10px 0",
-                    background: "transparent",
-                    color: C.red,
-                    border: `2px solid ${C.red}`,
-                    borderRadius: 6,
-                    fontSize: 12,
-                    fontWeight: 700,
-                    letterSpacing: "0.08em",
-                    textTransform: "uppercase",
-                    cursor: "pointer",
-                    fontFamily: "'DM Sans', sans-serif",
-                    transition: "all 0.15s",
-                    width: "100%",
-                  }}
+                <button onClick={onFinalizar} style={{
+                  marginTop: 4, padding: "10px 0",
+                  background: "transparent", color: C.red, border: `2px solid ${C.red}`, borderRadius: 6,
+                  fontSize: 12, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase",
+                  cursor: "pointer", fontFamily: "'DM Sans', sans-serif", transition: "all 0.15s", width: "100%",
+                }}
                   onMouseEnter={e => { e.currentTarget.style.background = C.red; e.currentTarget.style.color = C.white }}
-                  onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = C.red }}
-                >
+                  onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = C.red }}>
                   Finalizar prueba
                 </button>
               )}
@@ -949,6 +869,7 @@ export default function PruebasPage() {
           </div>
         </div>
 
+        {/* Cápsulas */}
         <div style={{ marginBottom: 24 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
             <div style={{ width: 3, height: 16, background: C.slate, borderRadius: 2 }} />
@@ -978,23 +899,23 @@ export default function PruebasPage() {
               if (isClickable) cardClass += " clickable"
               if (!isSelected && testActive) cardClass += " dimmed"
 
-              const dotColor = isActive ? C.slate : wasHit ? C.emerald : wasMissed ? C.red : mc.connected ? "#AAAAAA" : C.grayLight
+              let dotColor = C.grayLight
+              if (!testActive) {
+                dotColor = mc.connected ? C.emerald : C.grayLight
+              } else {
+                dotColor = isActive ? C.slate : wasHit ? C.emerald : wasMissed ? C.red : C.grayLight
+              }
 
               return (
-                <div
-                  key={mc.id}
-                  className={cardClass}
-                  onClick={() => { if (isClickable) activateManualMicrocontroller(mc.id) }}
-                >
+                <div key={mc.id} className={cardClass}
+                  onClick={() => { if (isClickable) activateManualMicrocontroller(mc.id) }}>
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 12px 6px" }}>
                     <span style={{ fontSize: 11, fontWeight: 700, color: C.grayDark, fontFamily: "'DM Mono', monospace", letterSpacing: "0.04em" }}>
                       CAP-{mc.id}
                     </span>
                     <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                      <div
-                        style={{ width: 8, height: 8, borderRadius: "50%", background: dotColor, transition: "background 0.3s" }}
-                        className={isActive ? "dot-active" : ""}
-                      />
+                      <div style={{ width: 8, height: 8, borderRadius: "50%", background: dotColor, transition: "background 0.3s" }}
+                        className={isActive ? "dot-active" : ""} />
                       {mc.status && (
                         <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.04em", color: isActive ? C.slate : wasHit ? C.emerald : wasMissed ? C.red : C.grayMed, fontFamily: "'DM Sans', sans-serif" }}>
                           {mc.status === "Esperando respuesta" ? "ACTIVO" : mc.status.toUpperCase()}
@@ -1006,18 +927,13 @@ export default function PruebasPage() {
                   <div style={{
                     margin: "0 8px 8px",
                     background: isActive ? "#EFF3F7" : wasHit ? "#eaf5f1" : wasMissed ? "#faeaea" : C.grayUltra,
-                    borderRadius: 6,
-                    aspectRatio: "1/1",
+                    borderRadius: 6, aspectRatio: "1/1",
                     display: "flex", alignItems: "center", justifyContent: "center",
-                    transition: "background 0.3s",
-                    overflow: "hidden",
+                    transition: "background 0.3s", overflow: "hidden",
                   }}>
-                    <img
-                      src={getMicroImage(mc)}
-                      alt={`Cápsula ${mc.id}`}
+                    <img src={getMicroImage(mc)} alt={`Cápsula ${mc.id}`}
                       style={{ width: "88%", height: "88%", objectFit: "contain" }}
-                      onError={(e) => { e.currentTarget.style.display = "none" }}
-                    />
+                      onError={(e) => { e.currentTarget.style.display = "none" }} />
                   </div>
                 </div>
               )
@@ -1025,13 +941,8 @@ export default function PruebasPage() {
           </div>
         </div>
 
-        <div style={{
-          background: C.white,
-          border: `1.5px solid ${C.grayLight}`,
-          borderRadius: 10,
-          padding: "16px 24px",
-          marginBottom: 20,
-        }}>
+        {/* Progreso */}
+        <div style={{ background: C.white, border: `1.5px solid ${C.grayLight}`, borderRadius: 10, padding: "16px 24px", marginBottom: 20 }}>
           <div className="progress-info" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10, flexWrap: "wrap", gap: 8 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <Activity size={14} color={C.slate} />
@@ -1063,22 +974,14 @@ export default function PruebasPage() {
           </div>
 
           <div style={{ height: 6, background: C.grayLight, borderRadius: 4, overflow: "hidden" }}>
-            <div
-              className={testActive ? "progress-fill" : ""}
-              style={{ width: testActive ? `${progressPct}%` : "0%", height: "100%", borderRadius: 4, background: testActive ? undefined : C.grayLight }}
-            />
+            <div className={testActive ? "progress-fill" : ""}
+              style={{ width: testActive ? `${progressPct}%` : "0%", height: "100%", borderRadius: 4, background: testActive ? undefined : C.grayLight }} />
           </div>
         </div>
 
+        {/* Resultados */}
         <div style={{ display: "flex", justifyContent: "center", marginBottom: 8 }}>
-        <div style={{
-          background: C.white,
-          border: `1.5px solid ${C.grayLight}`,
-          borderRadius: 10,
-          overflow: "hidden",
-          width: "100%",
-          maxWidth: 620,
-        }}>
+        <div style={{ background: C.white, border: `1.5px solid ${C.grayLight}`, borderRadius: 10, overflow: "hidden", width: "100%", maxWidth: 620 }}>
           <div style={{ background: C.slate, padding: "10px 24px", display: "flex", alignItems: "center", gap: 8 }}>
             <Target size={14} color="rgba(255,255,255,0.8)" />
             <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.2em", textTransform: "uppercase", color: C.white, fontFamily: "'DM Sans', sans-serif" }}>
@@ -1088,7 +991,6 @@ export default function PruebasPage() {
 
           <div style={{ padding: "24px 32px" }}>
             <div className="results-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 0 }}>
-
               <div style={{ textAlign: "center", padding: "0 24px", borderRight: `1px solid ${C.grayLight}` }}>
                 <div style={{ display: "inline-flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
                   <div style={{ width: 6, height: 6, borderRadius: "50%", background: C.emerald }} />
@@ -1128,10 +1030,8 @@ export default function PruebasPage() {
                     color: waitingForResponseManual ? C.white : C.grayMed,
                     fontSize: 12, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase",
                     cursor: waitingForResponseManual ? "pointer" : "not-allowed",
-                    fontFamily: "'DM Sans', sans-serif",
-                    transition: "all 0.15s",
-                  }}
-                >
+                    fontFamily: "'DM Sans', sans-serif", transition: "all 0.15s",
+                  }}>
                   ✓ Acierto
                 </button>
                 <button
@@ -1143,10 +1043,8 @@ export default function PruebasPage() {
                     color: waitingForResponseManual ? C.white : C.grayMed,
                     fontSize: 12, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase",
                     cursor: waitingForResponseManual ? "pointer" : "not-allowed",
-                    fontFamily: "'DM Sans', sans-serif",
-                    transition: "all 0.15s",
-                  }}
-                >
+                    fontFamily: "'DM Sans', sans-serif", transition: "all 0.15s",
+                  }}>
                   ✗ Fallo
                 </button>
               </div>
@@ -1155,19 +1053,15 @@ export default function PruebasPage() {
         </div>
         </div>
 
+        {/* ── MODAL RESUMEN — sin hora en subtítulo ── */}
         {showSummary && summaryData && (
           <div className="modal-backdrop" onClick={() => setShowSummary(false)}>
-            <div
-              onClick={e => e.stopPropagation()}
-              style={{
-                width: "100%", maxWidth: 560,
-                background: C.white,
-                borderRadius: 14,
-                boxShadow: "0 32px 80px rgba(0,0,0,0.2)",
-                overflow: "hidden",
-                fontFamily: "'DM Sans', sans-serif",
-              }}
-            >
+            <div onClick={e => e.stopPropagation()} style={{
+              width: "100%", maxWidth: 560,
+              background: C.white, borderRadius: 14,
+              boxShadow: "0 32px 80px rgba(0,0,0,0.2)", overflow: "hidden",
+              fontFamily: "'DM Sans', sans-serif",
+            }}>
               <div style={{ background: C.guindo, padding: "20px 28px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                   <div style={{ width: 36, height: 36, borderRadius: 8, background: "rgba(255,255,255,0.15)", display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -1175,15 +1069,16 @@ export default function PruebasPage() {
                   </div>
                   <div>
                     <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: C.white }}>Prueba Finalizada</h3>
+                    {/* ── SUBTÍTULO SIN HORA ── solo modalidad */}
                     <p style={{ margin: 0, fontSize: 11, color: "rgba(255,255,255,0.65)", textTransform: "capitalize", marginTop: 1 }}>
-                      {summaryData.tipo} · {new Date(summaryData.timestamp).toLocaleTimeString("es-ES")}
+                      {summaryData.tipo}
                     </p>
                   </div>
                 </div>
-                <button
-                  onClick={() => setShowSummary(false)}
-                  style={{ background: "rgba(255,255,255,0.15)", border: "none", borderRadius: 6, width: 30, height: 30, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}
-                >
+                <button onClick={() => setShowSummary(false)} style={{
+                  background: "rgba(255,255,255,0.15)", border: "none", borderRadius: 6,
+                  width: 30, height: 30, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+                }}>
                   <X size={14} color={C.white} />
                 </button>
               </div>
@@ -1192,8 +1087,8 @@ export default function PruebasPage() {
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
                   {[
                     { label: "Aciertos", value: summaryData.resultados?.aciertos || 0, color: C.emerald, bg: C.emeraldBg, pct: summaryData.resultados?.intentos > 0 ? Math.round((summaryData.resultados.aciertos / summaryData.resultados.intentos) * 100) + "%" : null },
-                    { label: "Errores", value: summaryData.resultados?.errores || 0, color: C.red, bg: C.redBg, pct: summaryData.resultados?.intentos > 0 ? (100 - Math.round((summaryData.resultados.aciertos / summaryData.resultados.intentos) * 100)) + "%" : null },
-                    { label: "Intentos", value: summaryData.resultados?.intentos || 0, color: C.blue, bg: C.blueBg, pct: "total" },
+                    { label: "Errores",  value: summaryData.resultados?.errores  || 0, color: C.red,     bg: C.redBg,     pct: summaryData.resultados?.intentos > 0 ? (100 - Math.round((summaryData.resultados.aciertos / summaryData.resultados.intentos) * 100)) + "%" : null },
+                    { label: "Intentos", value: summaryData.resultados?.intentos || 0, color: C.blue,    bg: C.blueBg,    pct: "total" },
                   ].map(({ label, value, color, bg, pct }) => (
                     <div key={label} style={{ background: bg, borderRadius: 8, padding: "14px 10px", textAlign: "center" }}>
                       <p style={{ margin: "0 0 6px", fontSize: 10, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color }}>{label}</p>
@@ -1205,8 +1100,8 @@ export default function PruebasPage() {
 
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
                   {[
-                    { label: "Jugador", value: summaryData.jugador ? `${summaryData.jugador.nombres} ${summaryData.jugador.apellidos}` : "—", sub: summaryData.jugador?.posicion || null },
-                    { label: "Duración", value: formatTime(summaryData.tiempo_transcurrido || 0), sub: "tiempo total" },
+                    { label: "Jugador",   value: summaryData.jugador ? `${summaryData.jugador.nombres} ${summaryData.jugador.apellidos}` : "—", sub: summaryData.jugador?.posicion || null },
+                    { label: "Duración",  value: formatTime(summaryData.tiempo_transcurrido || 0), sub: "tiempo total" },
                     { label: "Modalidad", value: summaryData.tipo, sub: null },
                     { label: "Cápsulas", value: summaryData.esp_seleccionadas?.join(", ") || "Todas", sub: null },
                   ].map(({ label, value, sub }) => (
@@ -1219,29 +1114,21 @@ export default function PruebasPage() {
                 </div>
 
                 <div style={{ display: "flex", gap: 10, paddingTop: 4, borderTop: `1px solid ${C.grayLight}` }}>
-                  <button
-                    onClick={copySummary}
-                    style={{
-                      flex: 1, padding: "10px 0", background: C.grayUltra, border: `1px solid ${C.grayLight}`,
-                      borderRadius: 6, fontSize: 12, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase",
-                      color: C.grayDark, cursor: "pointer", fontFamily: "'DM Sans', sans-serif",
-                      display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
-                      transition: "background 0.15s",
-                    }}
-                  >
+                  <button onClick={copySummary} style={{
+                    flex: 1, padding: "10px 0", background: C.grayUltra, border: `1px solid ${C.grayLight}`,
+                    borderRadius: 6, fontSize: 12, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase",
+                    color: C.grayDark, cursor: "pointer", fontFamily: "'DM Sans', sans-serif",
+                    display: "flex", alignItems: "center", justifyContent: "center", gap: 8, transition: "background 0.15s",
+                  }}>
                     <Copy size={13} /> Copiar
                   </button>
-                  <button
-                    onClick={() => setShowSummary(false)}
-                    style={{
-                      flex: 1, padding: "10px 0", background: C.guindo, border: "none",
-                      borderRadius: 6, fontSize: 12, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase",
-                      color: C.white, cursor: "pointer", fontFamily: "'DM Sans', sans-serif",
-                      transition: "background 0.15s",
-                    }}
+                  <button onClick={() => setShowSummary(false)} style={{
+                    flex: 1, padding: "10px 0", background: C.guindo, border: "none",
+                    borderRadius: 6, fontSize: 12, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase",
+                    color: C.white, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", transition: "background 0.15s",
+                  }}
                     onMouseEnter={e => e.currentTarget.style.background = C.guindoDark}
-                    onMouseLeave={e => e.currentTarget.style.background = C.guindo}
-                  >
+                    onMouseLeave={e => e.currentTarget.style.background = C.guindo}>
                     Cerrar
                   </button>
                 </div>

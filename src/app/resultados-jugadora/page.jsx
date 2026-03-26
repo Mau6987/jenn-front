@@ -1,31 +1,21 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useMemo } from "react"
 import {
   TrendingUp, TrendingDown, Minus, Download,
   Activity, Target, Zap, User, Calendar, BarChart2, List,
-  AlertCircle, Loader2, ChevronRight, ChevronLeft, X,
+  AlertCircle, Loader2, ChevronRight, ChevronLeft, X, Eye, EyeOff,
 } from "lucide-react"
 
 const BASE_URL = "https://jenn-back-reac.onrender.com"
-const MODOS = ["todos", "aleatorio", "secuencial", "manual"]
-const POR_PAGINA = 15
-
-// ── Semanas agrupadas por mes — espaciado visual uniforme ────────────────────
-// Los datos reales están en: oct/2025 (sem 1-4), feb/2025, mar/2026
-const SEMANAS = [
-  { id: "oct_s1", label: "S1",      labelFull: "Sem 1 oct",  mes: "Oct '25", desde: "2025-10-07", hasta: "2025-10-09",  mesBreak: true  },
-  { id: "oct_s2", label: "S2",      labelFull: "Sem 2 oct",  mes: "Oct '25", desde: "2025-10-10", hasta: "2025-10-14",  mesBreak: false },
-  { id: "oct_s3", label: "S3",      labelFull: "Sem 3 oct",  mes: "Oct '25", desde: "2025-10-15", hasta: "2025-10-19",  mesBreak: false },
-  { id: "oct_s4", label: "S4",      labelFull: "Sem 4 oct",  mes: "Oct '25", desde: "2025-10-20", hasta: "2025-10-26",  mesBreak: false },
-  { id: "feb_s1", label: "S1",      labelFull: "Sem 1 feb",  mes: "Feb '25", desde: "2025-02-01", hasta: "2025-02-28",  mesBreak: true  },
-  { id: "mar_s4", label: "S4",      labelFull: "Sem 4 mar",  mes: "Mar '26", desde: "2026-03-20", hasta: "2026-03-31",  mesBreak: true  },
-]
+const MODOS_FILTRO = ["todos", "aleatorio", "secuencial", "manual"]
+const MODOS_CHART  = ["aleatorio", "secuencial", "manual"]
+const POR_PAGINA   = 15
 
 const MODO_COLORS = {
-  aleatorio:  { line: "#6366f1", bg: "bg-indigo-100",   text: "text-indigo-700",  dot: "bg-indigo-500",  border: "border-indigo-200" },
-  secuencial: { line: "#f59e0b", bg: "bg-amber-100",    text: "text-amber-700",   dot: "bg-amber-500",   border: "border-amber-200"  },
-  manual:     { line: "#10b981", bg: "bg-emerald-100",  text: "text-emerald-700", dot: "bg-emerald-500", border: "border-emerald-200"},
+  aleatorio:  { line: "#6366f1", bg: "bg-indigo-100",   text: "text-indigo-700",  dot: "bg-indigo-500",  border: "border-indigo-200", hex: "#6366f1" },
+  secuencial: { line: "#f59e0b", bg: "bg-amber-100",    text: "text-amber-700",   dot: "bg-amber-500",   border: "border-amber-200",  hex: "#f59e0b" },
+  manual:     { line: "#10b981", bg: "bg-emerald-100",  text: "text-emerald-700", dot: "bg-emerald-500", border: "border-emerald-200", hex: "#10b981" },
 }
 
 const POS_COLORS = {
@@ -45,6 +35,51 @@ const precisionBg    = (p) =>
 const formatFecha      = (f) => !f ? "—" : new Date(f).toLocaleDateString("es-BO", { day: "2-digit", month: "short", year: "numeric" })
 const formatFechaCorta = (f) => !f ? "—" : new Date(f).toLocaleDateString("es-BO", { day: "2-digit", month: "short" })
 
+// ─── Agrupar sesiones en semanas dinámicas ────────────────────────────────────
+function agruparEnSemanas(sesiones) {
+  if (!sesiones.length) return []
+
+  const semSet = new Set()
+  sesiones.forEach(s => {
+    const d = new Date(s.fecha)
+    const dow = d.getDay() === 0 ? 6 : d.getDay() - 1
+    const lunes = new Date(d)
+    lunes.setDate(d.getDate() - dow)
+    lunes.setHours(0, 0, 0, 0)
+    semSet.add(lunes.toISOString().slice(0, 10))
+  })
+
+  const semanas = Array.from(semSet).sort()
+  return semanas.map((lunesISO, idx) => {
+    const lunes   = new Date(lunesISO)
+    const domingo = new Date(lunes)
+    domingo.setDate(lunes.getDate() + 6)
+    const mes = lunes.toLocaleDateString("es-BO", { month: "short", year: "2-digit" })
+    return {
+      idx,
+      desde:  lunesISO,
+      hasta:  domingo.toISOString().slice(0, 10),
+      label:  `S${idx + 1}`,
+      mes,
+      lunes,
+    }
+  })
+}
+
+function agruparPorMes(semanas) {
+  const grupos = []
+  let actual = null
+  semanas.forEach((sem, i) => {
+    if (!actual || sem.mes !== actual.mes) {
+      actual = { mes: sem.mes, inicio: i, fin: i }
+      grupos.push(actual)
+    } else {
+      actual.fin = i
+    }
+  })
+  return grupos
+}
+
 // ─── Sparkline ────────────────────────────────────────────────────────────────
 const Sparkline = ({ values = [], color = "#6366f1" }) => {
   const nonZero = values.filter(v => v > 0)
@@ -63,175 +98,185 @@ const Sparkline = ({ values = [], color = "#6366f1" }) => {
   )
 }
 
-// ─── Line chart mejorado — separadores de mes + espaciado limpio ─────────────
-const LineChart = ({ data, modoFiltro }) => {
+// ─── LineChart dinámico con eje Y dinámico ────────────────────────────────────
+// El eje Y arranca en el mínimo real de los datos (con padding) en lugar de 0,
+// aprovechando todo el espacio visual donde hay datos relevantes.
+const LineChart = ({ sesiones, modosVisibles }) => {
   const W = 1000, H = 420
-  const PAD = { t: 48, r: 48, b: 88, l: 68 }
+  const PAD = { t: 48, r: 48, b: 96, l: 68 }
   const IW = W - PAD.l - PAD.r
   const IH = H - PAD.t - PAD.b
-  const n = SEMANAS.length
 
-  // Espaciado uniforme — índice visual, no temporal
-  const xOf = (i) => PAD.l + (i / Math.max(n - 1, 1)) * IW
-  const yOf = (v) => PAD.t + IH - (v / 100) * IH
+  const semanas = useMemo(() => agruparEnSemanas(sesiones), [sesiones])
+  const grupos  = useMemo(() => agruparPorMes(semanas), [semanas])
+  const n = semanas.length
 
-  const modosActivos = modoFiltro !== "todos"
-    ? [modoFiltro]
-    : ["aleatorio", "secuencial", "manual"]
+  // Calcular precisión por modo y semana
+  const chartData = useMemo(() => {
+    const result = {}
+    MODOS_CHART.forEach(modo => {
+      result[modo] = semanas.map(sem => {
+        const enSem = sesiones.filter(s => {
+          const f = s.fecha.slice(0, 10)
+          return s.modo === modo && f >= sem.desde && f <= sem.hasta
+        })
+        if (!enSem.length) return { precision: 0, total: 0 }
+        const totalA = enSem.reduce((s, r) => s + (r.aciertos || 0), 0)
+        const totalI = enSem.reduce((s, r) => s + (r.intentos || (r.aciertos || 0) + (r.errores || 0)), 0)
+        return {
+          precision: totalI > 0 ? +((totalA / totalI) * 100).toFixed(1) : 0,
+          total: enSem.length,
+        }
+      })
+    })
+    return result
+  }, [sesiones, semanas])
 
-  const hayDatos = modosActivos.some(m =>
-    (data[m] || []).some(p => p.total > 0)
-  )
+  // ── Rango dinámico del eje Y ───────────────────────────────────────────────
+  // Solo considera los puntos visibles con datos reales.
+  const allValues = useMemo(() => {
+    const vals = []
+    MODOS_CHART.forEach(modo => {
+      if (!modosVisibles[modo]) return
+      ;(chartData[modo] || []).forEach(p => { if (p.total > 0) vals.push(p.precision) })
+    })
+    return vals
+  }, [chartData, modosVisibles])
 
-  // Agrupar semanas por mes para dibujar separadores y etiquetas de mes
-  const grupos = []
-  let grupoActual = null
-  SEMANAS.forEach((sem, i) => {
-    if (!grupoActual || sem.mes !== grupoActual.mes) {
-      grupoActual = { mes: sem.mes, inicio: i, fin: i }
-      grupos.push(grupoActual)
-    } else {
-      grupoActual.fin = i
-    }
-  })
+  // yMin: múltiplo de 5 más cercano por debajo, con al menos 5pp de margen
+  // yMax: múltiplo de 5 más cercano por encima, con al menos 5pp de margen
+  const yMin = allValues.length > 0
+    ? Math.max(0, Math.floor((Math.min(...allValues) - 5) / 5) * 5)
+    : 0
+  const yMax = allValues.length > 0
+    ? Math.min(100, Math.ceil((Math.max(...allValues) + 5) / 5) * 5)
+    : 100
+  const yRange = yMax - yMin || 1
 
-  // Ticks del eje Y
-  const yTicks = [0, 25, 50, 75, 100]
+  // Ticks: step 5 si rango ≤ 30pp, step 10 si es mayor
+  const yTicks = useMemo(() => {
+    const step = yRange <= 30 ? 5 : 10
+    const ticks = []
+    for (let v = yMin; v <= yMax; v += step) ticks.push(v)
+    if (ticks[ticks.length - 1] !== yMax) ticks.push(yMax)
+    return ticks
+  }, [yMin, yMax, yRange])
+
+  const xOf = (i) => n === 1
+    ? PAD.l + IW / 2
+    : PAD.l + (i / (n - 1)) * IW
+  const yOf = (v) => PAD.t + IH - ((v - yMin) / yRange) * IH
+
+  if (n === 0) {
+    return (
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-full">
+        <text x={W / 2} y={H / 2} textAnchor="middle" fontSize="14" fill="#94a3b8" fontFamily="inherit">
+          Sin datos para este período
+        </text>
+      </svg>
+    )
+  }
 
   return (
     <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-full" preserveAspectRatio="xMidYMid meet">
-      {/* ─── Fondos de mes alternados ─────────────────────────────── */}
+      {/* Fondos alternados por mes */}
       {grupos.map((g, gi) => {
-        const x1 = gi === 0
-          ? PAD.l
+        const x1 = gi === 0 ? PAD.l
           : (xOf(g.inicio) + xOf(grupos[gi - 1].fin)) / 2
-        const x2 = gi === grupos.length - 1
-          ? PAD.l + IW
+        const x2 = gi === grupos.length - 1 ? PAD.l + IW
           : (xOf(g.fin) + xOf(grupos[gi + 1]?.inicio ?? g.fin)) / 2
         return (
-          <rect
-            key={g.mes}
-            x={x1} y={PAD.t}
-            width={x2 - x1} height={IH}
-            fill={gi % 2 === 0 ? "rgba(241,245,249,0.5)" : "transparent"}
-          />
+          <rect key={g.mes} x={x1} y={PAD.t} width={x2 - x1} height={IH}
+            fill={gi % 2 === 0 ? "rgba(241,245,249,0.6)" : "transparent"} />
         )
       })}
 
-      {/* ─── Separadores verticales de mes ───────────────────────── */}
+      {/* Separadores verticales entre meses */}
       {grupos.slice(1).map((g) => {
-        const x = xOf(g.inicio) - (xOf(g.inicio) - xOf(g.inicio - 1)) / 2
+        const x = n > 1
+          ? (xOf(g.inicio) + xOf(g.inicio - 1)) / 2
+          : xOf(g.inicio)
         return (
-          <line
-            key={`sep-${g.mes}`}
-            x1={x} y1={PAD.t - 8}
-            x2={x} y2={PAD.t + IH}
-            stroke="#e2e8f0" strokeWidth="1.5" strokeDasharray="4,3"
-          />
+          <line key={`sep-${g.mes}`}
+            x1={x} y1={PAD.t - 8} x2={x} y2={PAD.t + IH}
+            stroke="#e2e8f0" strokeWidth="1.5" strokeDasharray="4,3" />
         )
       })}
 
-      {/* ─── Grid horizontal ─────────────────────────────────────── */}
+      {/* Grid horizontal dinámico */}
       {yTicks.map(v => (
         <g key={v}>
-          <line
-            x1={PAD.l} y1={yOf(v)} x2={PAD.l + IW} y2={yOf(v)}
-            stroke={v === 0 ? "#cbd5e1" : "#e2e8f0"}
-            strokeWidth={v === 0 ? 1.5 : 1}
-            strokeDasharray={v === 0 ? "none" : "4,4"}
-          />
+          <line x1={PAD.l} y1={yOf(v)} x2={PAD.l + IW} y2={yOf(v)}
+            stroke={v === yMin ? "#cbd5e1" : "#e2e8f0"}
+            strokeWidth={v === yMin ? 1.5 : 1}
+            strokeDasharray={v === yMin ? "none" : "4,4"} />
           <text x={PAD.l - 12} y={yOf(v) + 4} textAnchor="end" fontSize="12" fill="#94a3b8" fontFamily="inherit">
             {v}%
           </text>
         </g>
       ))}
 
-      {/* ─── Etiquetas de semana (eje X inferior) ─────────────────── */}
-      {SEMANAS.map((sem, i) => (
-        <text
-          key={sem.id}
-          x={xOf(i)} y={H - PAD.b + 22}
-          textAnchor="middle" fontSize="11" fill="#94a3b8" fontFamily="inherit"
-        >
+      {/* Etiquetas semana */}
+      {semanas.map((sem) => (
+        <text key={sem.desde} x={xOf(sem.idx)} y={H - PAD.b + 20}
+          textAnchor="middle" fontSize="11" fill="#94a3b8" fontFamily="inherit">
           {sem.label}
         </text>
       ))}
 
-      {/* ─── Etiquetas de mes (debajo de semanas) ─────────────────── */}
+      {/* Etiquetas mes */}
       {grupos.map((g) => {
         const xMid = (xOf(g.inicio) + xOf(g.fin)) / 2
         return (
           <g key={`mes-${g.mes}`}>
-            {/* línea decorativa bajo las semanas del mes */}
-            <line
-              x1={xOf(g.inicio) - 12} y1={H - PAD.b + 30}
-              x2={xOf(g.fin) + 12}    y2={H - PAD.b + 30}
-              stroke="#cbd5e1" strokeWidth="1.5" strokeLinecap="round"
-            />
-            <text
-              x={xMid} y={H - PAD.b + 46}
+            <line x1={xOf(g.inicio) - 14} y1={H - PAD.b + 30}
+              x2={xOf(g.fin) + 14}    y2={H - PAD.b + 30}
+              stroke="#cbd5e1" strokeWidth="1.5" strokeLinecap="round" />
+            <text x={xMid} y={H - PAD.b + 46}
               textAnchor="middle" fontSize="11.5" fontWeight="700"
-              fill="#64748b" fontFamily="inherit"
-            >
+              fill="#64748b" fontFamily="inherit">
               {g.mes}
             </text>
           </g>
         )
       })}
 
-      {/* ─── Sin datos ───────────────────────────────────────────── */}
-      {!hayDatos && (
-        <text x={W / 2} y={H / 2} textAnchor="middle" fontSize="14" fill="#94a3b8" fontFamily="inherit">
-          Sin datos para este período
-        </text>
-      )}
-
-      {/* ─── Líneas y puntos por modo ─────────────────────────────── */}
-      {modosActivos.map(modo => {
-        const conDatos = (data[modo] || [])
-          .map((p, i) => ({ ...p, idx: i }))
+      {/* Líneas y puntos por modo */}
+      {MODOS_CHART.filter(m => modosVisibles[m]).map(modo => {
+        const puntos = (chartData[modo] || [])
+          .map((p, i) => ({ ...p, i }))
           .filter(p => p.total > 0)
-        if (!conDatos.length) return null
+        if (!puntos.length) return null
         const c = MODO_COLORS[modo].line
 
-        const pathD = conDatos.length >= 2
-          ? conDatos
-              .map((p, j) => `${j === 0 ? "M" : "L"}${xOf(p.idx).toFixed(1)},${yOf(p.precision).toFixed(1)}`)
-              .join(" ")
+        const pathD = puntos.length >= 2
+          ? puntos.map((p, j) =>
+              `${j === 0 ? "M" : "L"}${xOf(p.i).toFixed(1)},${yOf(p.precision).toFixed(1)}`
+            ).join(" ")
           : null
 
         return (
           <g key={modo}>
-            {/* Área bajo la curva — sutil */}
-            {pathD && conDatos.length >= 2 && (() => {
-              const first = conDatos[0], last = conDatos[conDatos.length - 1]
-              const areaD = `${pathD} L${xOf(last.idx).toFixed(1)},${yOf(0).toFixed(1)} L${xOf(first.idx).toFixed(1)},${yOf(0).toFixed(1)} Z`
-              return (
-                <path d={areaD} fill={c} opacity="0.06" />
-              )
+            {/* Área — llega hasta yMin, no hasta 0 */}
+            {pathD && (() => {
+              const first = puntos[0], last = puntos[puntos.length - 1]
+              const area = `${pathD} L${xOf(last.i).toFixed(1)},${yOf(yMin).toFixed(1)} L${xOf(first.i).toFixed(1)},${yOf(yMin).toFixed(1)} Z`
+              return <path d={area} fill={c} opacity="0.07" />
             })()}
-
             {/* Línea */}
             {pathD && (
-              <path
-                d={pathD} fill="none" stroke={c}
-                strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" opacity="0.9"
-              />
+              <path d={pathD} fill="none" stroke={c}
+                strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" opacity="0.9" />
             )}
-
             {/* Puntos + etiquetas */}
-            {conDatos.map(p => (
-              <g key={p.idx}>
-                <circle
-                  cx={xOf(p.idx)} cy={yOf(p.precision)}
-                  r={conDatos.length === 1 ? 8 : 5}
-                  fill="white" stroke={c} strokeWidth="2.5"
-                />
-                <text
-                  x={xOf(p.idx)} y={yOf(p.precision) - 13}
+            {puntos.map(p => (
+              <g key={p.i}>
+                <circle cx={xOf(p.i)} cy={yOf(p.precision)}
+                  r={puntos.length === 1 ? 8 : 5}
+                  fill="white" stroke={c} strokeWidth="2.5" />
+                <text x={xOf(p.i)} y={yOf(p.precision) - 12}
                   textAnchor="middle" fontSize="11" fill={c}
-                  fontWeight="700" fontFamily="inherit"
-                >
+                  fontWeight="700" fontFamily="inherit">
                   {p.precision}%
                 </text>
               </g>
@@ -240,12 +285,9 @@ const LineChart = ({ data, modoFiltro }) => {
         )
       })}
 
-      {/* ─── Eje X base ──────────────────────────────────────────── */}
-      <line
-        x1={PAD.l} y1={PAD.t + IH}
-        x2={PAD.l + IW} y2={PAD.t + IH}
-        stroke="#cbd5e1" strokeWidth="1.5"
-      />
+      {/* Eje X base en yMin */}
+      <line x1={PAD.l} y1={PAD.t + IH} x2={PAD.l + IW} y2={PAD.t + IH}
+        stroke="#cbd5e1" strokeWidth="1.5" />
     </svg>
   )
 }
@@ -333,21 +375,59 @@ const DateRangePicker = ({ desde, hasta, onDesde, onHasta, onLimpiar }) => (
   </div>
 )
 
+// ─── Toggle de modos para el gráfico ─────────────────────────────────────────
+const ModoToggle = ({ modosVisibles, onToggle }) => (
+  <div className="flex items-center gap-2">
+    {MODOS_CHART.map(modo => {
+      const c = MODO_COLORS[modo]
+      const activo = modosVisibles[modo]
+      return (
+        <button
+          key={modo}
+          onClick={() => onToggle(modo)}
+          className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
+            activo
+              ? `${c.bg} ${c.text} ${c.border}`
+              : "bg-slate-100 text-slate-400 border-slate-200 opacity-50"
+          }`}
+        >
+          {activo
+            ? <Eye className="w-3 h-3" />
+            : <EyeOff className="w-3 h-3" />}
+          <span className="capitalize">{modo}</span>
+        </button>
+      )
+    })}
+  </div>
+)
+
 // ═══════════════════════════════════════════════════════════════════════════════
 export default function ResultadosReaccion() {
-  const [jugadores, setJugadores]       = useState([])
-  const [selectedJugador, setSelected]  = useState(null)
-  const [desde, setDesde]               = useState("")
-  const [hasta, setHasta]               = useState("")
-  const [modoFiltro, setModoFiltro]     = useState("todos")
-  const [loadingJugadores, setLoadingJ] = useState(true)
-  const [loadingDatos, setLoadingD]     = useState(false)
-  const [resultados, setResultados]     = useState(null)
-  const [sesiones, setSesiones]         = useState([])
-  const [chartData, setChartData]       = useState({})
-  const [error, setError]               = useState("")
-  const [showSidebar, setShowSidebar]   = useState(false)
-  const [pagina, setPagina]             = useState(1)
+  const [jugadores, setJugadores]      = useState([])
+  const [selectedJugador, setSelected] = useState(null)
+  const [desde, setDesde]              = useState("")
+  const [hasta, setHasta]              = useState("")
+  const [modoFiltro, setModoFiltro]    = useState("todos")
+  const [loadingJugadores, setLoadingJ]= useState(true)
+  const [loadingDatos, setLoadingD]    = useState(false)
+  const [resultados, setResultados]    = useState(null)
+  const [sesiones, setSesiones]        = useState([])
+  const [error, setError]              = useState("")
+  const [showSidebar, setShowSidebar]  = useState(false)
+  const [pagina, setPagina]            = useState(1)
+
+  // Toggle por modo en el gráfico — todos visibles por defecto
+  const [modosVisibles, setModosVisibles] = useState({
+    aleatorio: true, secuencial: true, manual: true,
+  })
+
+  const toggleModo = (modo) => {
+    setModosVisibles(prev => {
+      const nuevos = { ...prev, [modo]: !prev[modo] }
+      if (!Object.values(nuevos).some(Boolean)) return prev
+      return nuevos
+    })
+  }
 
   const token = () => typeof window !== "undefined" ? localStorage.getItem("token") : ""
 
@@ -361,7 +441,8 @@ export default function ResultadosReaccion() {
         const res  = await fetch(`${BASE_URL}/api/cuentas`, { headers: { Authorization: `Bearer ${token()}` } })
         const data = await res.json()
         if (data.success) {
-          const jgs = data.data.filter(c => c.rol === "jugador" && c.jugador)
+          const jgs = data.data
+            .filter(c => c.rol === "jugador" && c.jugador)
             .map(c => ({ ...c.jugador, cuentaId: c.id, path: c.path || "" }))
           setJugadores(jgs)
           if (jgs.length > 0) setSelected(jgs[0])
@@ -378,118 +459,168 @@ export default function ResultadosReaccion() {
     return params
   }, [desde, hasta])
 
-  // ─── Cargar datos ──────────────────────────────────────────────────────────
+  // ─── Cargar datos — sesiones sin filtro de fecha para el gráfico ──────────
   const cargarDatos = useCallback(async () => {
     if (!selectedJugador) return
     setLoadingD(true); setError("")
     try {
       const params = buildParams()
       const [resStats, resSesiones] = await Promise.all([
-        fetch(`${BASE_URL}/api/resultados/personal/${selectedJugador.cuentaId}?${params}`, { headers: { Authorization: `Bearer ${token()}` } }),
-        fetch(`${BASE_URL}/api/resultados/personal/${selectedJugador.cuentaId}/sesiones?${params}`, { headers: { Authorization: `Bearer ${token()}` } }),
+        fetch(`${BASE_URL}/api/resultados/personal/${selectedJugador.cuentaId}?${params}`,
+          { headers: { Authorization: `Bearer ${token()}` } }),
+        // Sin filtro de fecha — TODAS las sesiones para el gráfico dinámico
+        fetch(`${BASE_URL}/api/resultados/personal/${selectedJugador.cuentaId}/sesiones?periodo=general`,
+          { headers: { Authorization: `Bearer ${token()}` } }),
       ])
       const dataStats    = await resStats.json()
       const dataSesiones = await resSesiones.json()
       if (dataStats.success)    setResultados(dataStats.data)
       if (dataSesiones.success) setSesiones(dataSesiones.data.sesiones || [])
-      await construirChartData(selectedJugador.cuentaId)
     } catch { setError("Error al cargar datos") }
     finally  { setLoadingD(false) }
   }, [selectedJugador, desde, hasta])
 
   useEffect(() => { cargarDatos() }, [cargarDatos])
 
-  // ─── Chart: agrupar por semanas fijas ─────────────────────────────────────
-  const construirChartData = async (cuentaId) => {
-    const modos = ["aleatorio", "secuencial", "manual"]
-    const result = { aleatorio: [], secuencial: [], manual: [] }
+  // ─── Sesiones del gráfico: todas (sin filtro de fecha del header) ──────────
+  const sesionesParaGrafico = useMemo(() => {
+    if (modoFiltro === "todos") return sesiones
+    return sesiones.filter(s => s.modo === modoFiltro)
+  }, [sesiones, modoFiltro])
 
-    await Promise.all(SEMANAS.map(async (sem, idx) => {
-      const p = new URLSearchParams({ desde: sem.desde, hasta: sem.hasta })
-      try {
-        const res  = await fetch(
-          `${BASE_URL}/api/resultados/personal/${cuentaId}/sesiones?${p}`,
-          { headers: { Authorization: `Bearer ${token()}` } }
-        )
-        const data = await res.json()
-        const sessSem = data.success ? (data.data.sesiones || []) : []
-
-        modos.forEach(modo => {
-          const deModo = sessSem.filter(s => s.modo === modo)
-          if (!deModo.length) {
-            result[modo][idx] = { precision: 0, total: 0 }
-            return
-          }
-          const totalAciertos = deModo.reduce((s, r) => s + (r.aciertos || 0), 0)
-          const totalIntentos = deModo.reduce((s, r) => s + (r.intentos ?? (r.aciertos || 0) + (r.errores || 0)), 0)
-          result[modo][idx] = {
-            precision: totalIntentos > 0 ? +((totalAciertos / totalIntentos) * 100).toFixed(1) : 0,
-            total: deModo.length,
-          }
-        })
-      } catch {
-        modos.forEach(modo => { result[modo][idx] = { precision: 0, total: 0 } })
-      }
-    }))
-
-    setChartData(result)
-  }
-
-  // ─── Sesiones filtradas ───────────────────────────────────────────────────
-  const sesionesFiltradas = sesiones
-    .filter(s => modoFiltro === "todos" || s.modo === modoFiltro)
-    .sort((a, b) => new Date(b.fecha) - new Date(a.fecha))
+  // ─── Sesiones de la tabla: respetan filtro de fecha y modo ────────────────
+  const sesionesFiltradas = useMemo(() =>
+    sesiones
+      .filter(s => {
+        if (modoFiltro !== "todos" && s.modo !== modoFiltro) return false
+        if (desde) {
+          const f = s.fecha?.slice(0, 10) ?? ""
+          if (f < desde) return false
+        }
+        if (hasta) {
+          const f = s.fecha?.slice(0, 10) ?? ""
+          if (f > hasta) return false
+        }
+        return true
+      })
+      .sort((a, b) => new Date(b.fecha) - new Date(a.fecha))
+  , [sesiones, modoFiltro, desde, hasta])
 
   const totalPaginas   = Math.max(1, Math.ceil(sesionesFiltradas.length / POR_PAGINA))
   const paginaSegura   = Math.min(pagina, totalPaginas)
   const sesionesPagina = sesionesFiltradas.slice((paginaSegura - 1) * POR_PAGINA, paginaSegura * POR_PAGINA)
 
   // ─── KPIs ─────────────────────────────────────────────────────────────────
-  const kpis = (() => {
+  const kpis = useMemo(() => {
     if (!resultados) return null
     const tipos = resultados.por_tipo_reaccion || {}
     if (modoFiltro !== "todos") {
       const info = tipos[modoFiltro] || {}
-      const conDatos = (chartData[modoFiltro] || []).filter(p => p.total > 0)
-      const tendencia = conDatos.length >= 2
-        ? conDatos[conDatos.length - 1].precision - conDatos[conDatos.length - 2].precision : null
-      return { precision: info.precision ?? 0, mejorModo: modoFiltro, mejorPrec: info.precision ?? 0, tendencia, totalReacciones: info.total_realizadas ?? 0 }
+      const semanas = agruparEnSemanas(sesionesParaGrafico)
+      const ultimas2 = semanas.slice(-2)
+      let tendencia = null
+      if (ultimas2.length === 2) {
+        const calcPrec = (sem) => {
+          const en = sesionesParaGrafico.filter(s => {
+            const f = s.fecha.slice(0, 10)
+            return s.modo === modoFiltro && f >= sem.desde && f <= sem.hasta
+          })
+          if (!en.length) return 0
+          const tA = en.reduce((a, r) => a + (r.aciertos || 0), 0)
+          const tI = en.reduce((a, r) => a + (r.intentos || (r.aciertos || 0) + (r.errores || 0)), 0)
+          return tI > 0 ? (tA / tI) * 100 : 0
+        }
+        tendencia = calcPrec(ultimas2[1]) - calcPrec(ultimas2[0])
+      }
+      return {
+        precision: info.precision ?? 0,
+        mejorModo: modoFiltro,
+        mejorPrec: info.precision ?? 0,
+        tendencia,
+        totalReacciones: info.total_realizadas ?? 0,
+      }
     }
     const tg = resultados.totales_generales || {}
     let mejorModo = null, mejorPrec = -1
     Object.entries(tipos).forEach(([modo, info]) => {
-      if ((info.total_realizadas || 0) > 0 && info.precision > mejorPrec) { mejorPrec = info.precision; mejorModo = modo }
+      if ((info.total_realizadas || 0) > 0 && info.precision > mejorPrec) {
+        mejorPrec = info.precision; mejorModo = modo
+      }
     })
-    const allConDatos = [
-      ...(chartData.aleatorio || []), ...(chartData.secuencial || []), ...(chartData.manual || [])
-    ].filter(p => p.total > 0)
-    const tendencia = allConDatos.length >= 2
-      ? allConDatos[allConDatos.length - 1].precision - allConDatos[allConDatos.length - 2].precision : null
-    return { precision: tg.precision ?? 0, mejorModo, mejorPrec, tendencia, totalReacciones: tg.total_reacciones ?? 0 }
-  })()
+    const semanas = agruparEnSemanas(sesiones)
+    const ultimas2 = semanas.slice(-2)
+    let tendencia = null
+    if (ultimas2.length === 2) {
+      const calcPrec = (sem) => {
+        const en = sesiones.filter(s => {
+          const f = s.fecha.slice(0, 10)
+          return f >= sem.desde && f <= sem.hasta
+        })
+        if (!en.length) return 0
+        const tA = en.reduce((a, r) => a + (r.aciertos || 0), 0)
+        const tI = en.reduce((a, r) => a + (r.intentos || (r.aciertos || 0) + (r.errores || 0)), 0)
+        return tI > 0 ? (tA / tI) * 100 : 0
+      }
+      tendencia = calcPrec(ultimas2[1]) - calcPrec(ultimas2[0])
+    }
+    return {
+      precision: tg.precision ?? 0,
+      mejorModo,
+      mejorPrec,
+      tendencia,
+      totalReacciones: tg.total_reacciones ?? 0,
+    }
+  }, [resultados, modoFiltro, sesiones, sesionesParaGrafico])
+
+  // ─── sparklines por modo ───────────────────────────────────────────────────
+  const sparkData = useMemo(() => {
+    const semanas = agruparEnSemanas(sesiones)
+    const result  = {}
+    MODOS_CHART.forEach(modo => {
+      result[modo] = semanas.map(sem => {
+        const en = sesiones.filter(s => {
+          const f = s.fecha.slice(0, 10)
+          return s.modo === modo && f >= sem.desde && f <= sem.hasta
+        })
+        if (!en.length) return 0
+        const tA = en.reduce((a, r) => a + (r.aciertos || 0), 0)
+        const tI = en.reduce((a, r) => a + (r.intentos || (r.aciertos || 0) + (r.errores || 0)), 0)
+        return tI > 0 ? +((tA / tI) * 100).toFixed(1) : 0
+      })
+    })
+    return result
+  }, [sesiones])
+
+  // ─── Modos visibles efectivos en el gráfico ───────────────────────────────
+  const modosVisiblesEfectivos = useMemo(() => {
+    if (modoFiltro !== "todos") {
+      return { aleatorio: false, secuencial: false, manual: false, [modoFiltro]: true }
+    }
+    return modosVisibles
+  }, [modoFiltro, modosVisibles])
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800" style={{ fontFamily: "'DM Sans', sans-serif" }}>
 
-      {/* ════ PRINT HEADER (solo visible al imprimir) ════ */}
+      {/* Print header */}
       {selectedJugador && (
         <div className="print-only-header" style={{ display: "none" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "10pt", marginBottom: "12pt", borderBottom: "2pt solid #6366f1", paddingBottom: "8pt" }}>
-            <div style={{ width: "32pt", height: "32pt", background: "#6366f1", borderRadius: "6pt", display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <span style={{ color: "white", fontSize: "14pt", fontWeight: "900" }}>R</span>
+          <div style={{ display:"flex", alignItems:"center", gap:"10pt", marginBottom:"12pt", borderBottom:"2pt solid #6366f1", paddingBottom:"8pt" }}>
+            <div style={{ width:"32pt", height:"32pt", background:"#6366f1", borderRadius:"6pt", display:"flex", alignItems:"center", justifyContent:"center" }}>
+              <span style={{ color:"white", fontSize:"14pt", fontWeight:"900" }}>R</span>
             </div>
             <div>
-              <div style={{ fontSize: "13pt", fontWeight: "900", color: "#1e293b" }}>Resultados · Sistema de Reacción</div>
-              <div style={{ fontSize: "8pt", color: "#64748b", textTransform: "uppercase", letterSpacing: "0.08em" }}>Tech Volley UNV</div>
+              <div style={{ fontSize:"13pt", fontWeight:"900", color:"#1e293b" }}>Resultados · Sistema de Reacción</div>
+              <div style={{ fontSize:"8pt", color:"#64748b", textTransform:"uppercase", letterSpacing:"0.08em" }}>Tech Volley UNV</div>
             </div>
-            <div style={{ marginLeft: "auto", fontSize: "8pt", color: "#94a3b8" }}>
-              Generado: {new Date().toLocaleDateString("es-BO", { day: "2-digit", month: "long", year: "numeric" })}
+            <div style={{ marginLeft:"auto", fontSize:"8pt", color:"#94a3b8" }}>
+              Generado: {new Date().toLocaleDateString("es-BO", { day:"2-digit", month:"long", year:"numeric" })}
             </div>
           </div>
         </div>
       )}
 
-      {/* ════ HEADER ════ */}
+      {/* Header */}
       <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-sm print-hide-nav">
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
           <div className="flex items-center gap-3 py-3">
@@ -519,7 +650,6 @@ export default function ResultadosReaccion() {
             </div>
           </div>
 
-          {/* Filtros */}
           <div className="pb-3 flex flex-wrap gap-2 items-center">
             <DateRangePicker
               desde={desde} hasta={hasta}
@@ -527,7 +657,7 @@ export default function ResultadosReaccion() {
               onLimpiar={() => { setDesde(""); setHasta("") }}
             />
             <PillGroup
-              options={MODOS}
+              options={MODOS_FILTRO}
               value={modoFiltro}
               onChange={setModoFiltro}
               getLabel={m => m.charAt(0).toUpperCase() + m.slice(1)}
@@ -556,7 +686,7 @@ export default function ResultadosReaccion() {
         </div>
       </header>
 
-      {/* ════ PANEL JUGADORAS MÓVIL ════ */}
+      {/* Panel jugadoras móvil */}
       <div className={`lg:hidden print-hide-nav overflow-hidden transition-all duration-300 ${showSidebar ? "max-h-[600px]" : "max-h-0"}`}>
         <div className="bg-white border-b border-slate-200 px-4 py-3 space-y-2">
           <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2">Jugadoras</p>
@@ -588,7 +718,7 @@ export default function ResultadosReaccion() {
         </div>
       </div>
 
-      {/* ════ LAYOUT ════ */}
+      {/* Layout */}
       <div className="max-w-6xl mx-auto px-4 sm:px-6 py-5 flex gap-5">
 
         {/* Sidebar desktop */}
@@ -640,7 +770,7 @@ export default function ResultadosReaccion() {
             </div>
           ) : (
             <>
-              {/* ── A: Header jugadora ── */}
+              {/* A: Header jugadora */}
               <div className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 flex items-center gap-4 shadow-sm">
                 <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-2xl bg-slate-100 overflow-hidden border-2 border-slate-200 flex-shrink-0">
                   {selectedJugador.path
@@ -672,11 +802,15 @@ export default function ResultadosReaccion() {
                         Última: {formatFechaCorta(sesionesFiltradas[0]?.fecha)}
                       </span>
                     )}
+                    <span className="flex items-center gap-1 text-xs text-slate-400">
+                      <Activity className="w-3 h-3" />
+                      {sesiones.length} total histórico
+                    </span>
                   </div>
                 </div>
               </div>
 
-              {/* ── B: KPIs ── */}
+              {/* B: KPIs */}
               {kpis && (
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
                   <div className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 shadow-sm relative overflow-hidden">
@@ -743,7 +877,7 @@ export default function ResultadosReaccion() {
                               {kpis.tendencia > 0 ? "+" : ""}{kpis.tendencia.toFixed(1)}%
                             </p>
                           </div>
-                          <p className="text-xs text-slate-400 mt-0.5">vs período anterior</p>
+                          <p className="text-xs text-slate-400 mt-0.5">vs semana anterior</p>
                         </div>
                       ) : <p className="text-slate-400 text-sm">Sin datos suficientes</p>}
                     </div>
@@ -751,47 +885,47 @@ export default function ResultadosReaccion() {
                 </div>
               )}
 
-              {/* ── C: Gráfico mejorado ── */}
+              {/* C: Gráfico dinámico con toggle de modos */}
               <div className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-6 shadow-sm">
-                <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-0 justify-between mb-5">
-                  <div>
-                    <h3 className="text-sm font-bold text-slate-800">
-                      Evolución — % aciertos
-                      {modoFiltro !== "todos" ? ` · ${modoFiltro}` : " por modo"}
-                    </h3>
-                    <p className="text-xs text-slate-400 mt-0.5">
-                      Agrupado por semana · separado por mes de entrenamiento
-                    </p>
+                <div className="flex flex-col gap-3 mb-5">
+                  <div className="flex flex-col sm:flex-row sm:items-start gap-2 justify-between">
+                    <div>
+                      <h3 className="text-sm font-bold text-slate-800">
+                        Evolución — % aciertos
+                        {modoFiltro !== "todos" ? ` · ${modoFiltro}` : " por modo"}
+                      </h3>
+                      <p className="text-xs text-slate-400 mt-0.5">
+                        Todas las semanas con datos · agrupado por mes · eje Y dinámico
+                      </p>
+                    </div>
+                    {/* Toggle modos — solo visible si filtro = todos */}
+                    {modoFiltro === "todos" && (
+                      <ModoToggle modosVisibles={modosVisibles} onToggle={toggleModo} />
+                    )}
                   </div>
-                  <div className="flex items-center gap-4">
-                    {(modoFiltro === "todos" ? ["aleatorio", "secuencial", "manual"] : [modoFiltro]).map(m => (
-                      <div key={m} className="flex items-center gap-1.5">
-                        <span className="w-4 h-0.5 rounded-full inline-block" style={{ background: MODO_COLORS[m].line }} />
-                        <span className="text-[10px] sm:text-xs text-slate-500 capitalize">{m}</span>
-                      </div>
-                    ))}
-                  </div>
+                  <p className="text-[10px] text-slate-400">
+                    {agruparEnSemanas(sesionesParaGrafico).length} semana{agruparEnSemanas(sesionesParaGrafico).length !== 1 ? "s" : ""} con datos
+                    {sesiones.length > sesionesFiltradas.length && desde
+                      ? " · el gráfico muestra el historial completo, la tabla respeta el filtro de fechas"
+                      : ""}
+                  </p>
                 </div>
 
-                {/* Altura aumentada para acomodar las etiquetas de mes */}
-                <div className="h-[22rem] sm:h-[30rem]">
+                <div className="h-[22rem] sm:h-[28rem]">
                   <LineChart
-                    data={
-                      modoFiltro !== "todos"
-                        ? { aleatorio: [], secuencial: [], manual: [], [modoFiltro]: chartData[modoFiltro] || [] }
-                        : chartData
-                    }
-                    modoFiltro={modoFiltro}
+                    sesiones={sesionesParaGrafico}
+                    modosVisibles={modosVisiblesEfectivos}
                   />
                 </div>
               </div>
 
-              {/* ── D: Historial ── */}
+              {/* D: Historial */}
               <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
                 <div className="px-4 sm:px-6 py-4 border-b border-slate-100 flex items-center gap-3">
                   <List className="w-4 h-4 text-slate-400 flex-shrink-0" />
                   <h3 className="text-sm font-bold text-slate-800">
                     Historial{modoFiltro !== "todos" ? ` · ${modoFiltro}` : ""}
+                    {(desde || hasta) ? " · filtrado" : ""}
                   </h3>
                   <span className="ml-auto text-xs text-slate-400 flex-shrink-0">
                     {sesionesFiltradas.length} registro{sesionesFiltradas.length !== 1 ? "s" : ""}
@@ -884,13 +1018,12 @@ export default function ResultadosReaccion() {
                 <Paginador pagina={paginaSegura} totalPaginas={totalPaginas} totalItems={sesionesFiltradas.length} onChange={setPagina} />
               </div>
 
-              {/* ── E: Detalle por tipo ── */}
+              {/* E: Detalle por tipo */}
               {resultados?.por_tipo_reaccion && (
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
-                  {(modoFiltro !== "todos" ? [modoFiltro] : ["aleatorio", "secuencial", "manual"]).map(modo => {
-                    const info      = resultados.por_tipo_reaccion[modo] || {}
-                    const c         = MODO_COLORS[modo]
-                    const sparkVals = (chartData[modo] || []).map(p => p.precision)
+                  {(modoFiltro !== "todos" ? [modoFiltro] : MODOS_CHART).map(modo => {
+                    const info = resultados.por_tipo_reaccion[modo] || {}
+                    const c    = MODO_COLORS[modo]
                     return (
                       <div key={modo} className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 shadow-sm">
                         <div className="flex items-center justify-between mb-3">
@@ -898,7 +1031,7 @@ export default function ResultadosReaccion() {
                             <span className={`w-2 h-2 rounded-full ${c.dot}`} />
                             <span className="text-sm font-bold capitalize text-slate-800">{modo}</span>
                           </div>
-                          <Sparkline values={sparkVals} color={c.line} />
+                          <Sparkline values={sparkData[modo] || []} color={c.line} />
                         </div>
                         <div className="grid grid-cols-2 gap-2">
                           {[
@@ -945,60 +1078,32 @@ export default function ResultadosReaccion() {
         input[type="date"]::-webkit-calendar-picker-indicator { opacity: 0.4; cursor: pointer; }
 
         @media print {
-          /* ── Página ── */
           @page { size: A4 portrait; margin: 14mm 12mm 14mm 12mm; }
           * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-
-          /* ── Print header: mostrar solo al imprimir ── */
           .print-only-header { display: block !important; }
-
-          /* ── Ocultar navegación y controles ── */
-          .print-hide-nav,
+          nav, body > header, [class*="navbar"], [class*="nav-bar"],
+          [id*="navbar"], [id*="nav-bar"], .print-hide-nav,
           .lg\\:hidden { display: none !important; }
-
-          /* ── Fondo ── */
           body, html { background: white !important; }
           .min-h-screen { min-height: unset !important; background: white !important; }
           .bg-slate-50 { background: white !important; }
-
-          /* ── Layout: quitar sidebar, hacer full width ── */
           .max-w-6xl { max-width: 100% !important; padding: 0 !important; margin: 0 !important; }
           .flex.gap-5 { display: block !important; }
           aside { display: none !important; }
           main { width: 100% !important; min-width: 0 !important; }
           .py-5 { padding-top: 0 !important; padding-bottom: 0 !important; }
-
-          /* ── Espaciado entre secciones ── */
           .space-y-4 > * + * { margin-top: 8pt !important; }
-
-          /* ── Cards no se parten entre páginas ── */
           .rounded-2xl {
-            break-inside: avoid !important;
-            page-break-inside: avoid !important;
-            border: 1px solid #e2e8f0 !important;
-            box-shadow: none !important;
-            margin-bottom: 8pt !important;
-            background: white !important;
+            break-inside: avoid !important; page-break-inside: avoid !important;
+            border: 1px solid #e2e8f0 !important; box-shadow: none !important;
+            margin-bottom: 8pt !important; background: white !important;
           }
-
-          /* ── Gradientes: eliminar ── */
           .absolute.inset-0 { display: none !important; }
           .shadow-sm { box-shadow: none !important; }
-
-          /* ── KPI grid 3 columnas ── */
           .grid { display: grid !important; }
           .sm\\:grid-cols-3 { grid-template-columns: repeat(3, 1fr) !important; gap: 6pt !important; }
-          .sm\\:grid-cols-2 { grid-template-columns: repeat(2, 1fr) !important; gap: 6pt !important; }
-
-          /* ── Gráfico SVG: altura fija y visible ── */
-          .h-\\[22rem\\], .h-\\[30rem\\], .sm\\:h-\\[30rem\\] {
-            height: 200pt !important;
-            width: 100% !important;
-            overflow: visible !important;
-          }
+          .h-\\[22rem\\], .h-\\[28rem\\], .sm\\:h-\\[28rem\\] { height: 200pt !important; width: 100% !important; overflow: visible !important; }
           svg { overflow: visible !important; }
-
-          /* ── Tabla historial: mostrar versión desktop ── */
           .hidden.md\\:block { display: block !important; }
           .md\\:hidden { display: none !important; }
           table { width: 100% !important; border-collapse: collapse !important; font-size: 7.5pt !important; }
@@ -1006,15 +1111,9 @@ export default function ResultadosReaccion() {
           td { padding: 4pt 5pt !important; }
           thead { display: table-header-group !important; }
           tr { break-inside: avoid !important; }
-
-          /* ── Paginador: ocultar ── */
           .bg-slate-50\\/50 { display: none !important; }
-
-          /* ── Backdrop y blur: eliminar ── */
           .backdrop-blur-md { backdrop-filter: none !important; }
           .bg-white\\/95 { background: white !important; }
-
-          /* ── Tipografía ── */
           body { font-size: 9pt !important; color: #1e293b !important; }
         }
       `}</style>

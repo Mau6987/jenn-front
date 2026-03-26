@@ -331,15 +331,7 @@ export default function JugadoresPage() {
 
       <div className="px-6 md:px-12 xl:px-20 py-10 max-w-[1600px] mx-auto">
 
-        <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-slate-200 shadow-sm px-6 py-4 mb-8 flex items-center gap-4 w-full">
-          <div className="w-12 h-12 rounded-xl bg-indigo-600 flex items-center justify-center shadow-md shadow-indigo-200 flex-shrink-0">
-            <User className="w-6 h-6 text-white" />
-          </div>
-          <div>
-            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Entrenador</p>
-            <h2 className="text-base font-bold text-slate-800 leading-tight">{nombre?.toUpperCase()}</h2>
-          </div>
-        </div>
+        
 
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
           <div className="lg:col-span-1">

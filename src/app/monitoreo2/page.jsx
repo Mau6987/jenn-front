@@ -53,16 +53,17 @@ const css = `
     border-top: none; border-radius: 0 0 14px 14px; padding: 2rem;
   }
 
+  /* ── Sensores ── */
   .sensors-grid {
     display: grid; grid-template-columns: 1fr 1px 1fr 1px 1fr; gap: 0;
   }
   @media (max-width: 680px) {
     .sensors-grid { grid-template-columns: 1fr; }
-    .v-divider { display: none !important; }
+    .v-sep { display: none !important; }
     .sensor-col { border-bottom: 1px solid #e8e5f2; margin-bottom: 1.8rem; padding-bottom: 1.8rem; }
     .sensor-col:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
   }
-  .v-divider { background: #e8e5f2; }
+  .v-sep { background: #e8e5f2; }
   .sensor-col { padding: 0 1.5rem; }
   .sensor-col:first-child { padding-left: 0; }
   .sensor-col:last-child { padding-right: 0; }
@@ -79,6 +80,7 @@ const css = `
   }
   .fgap { margin-top: 1.1rem; }
 
+  /* Pills */
   .pill {
     display: inline-flex; align-items: center; gap: 0.28rem;
     padding: 0.18rem 0.65rem; border-radius: 999px;
@@ -92,14 +94,14 @@ const css = `
   .pill-streaming { background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; }
   .pill-streaming .pill-dot { background: #3b82f6; animation: pdot 0.8s infinite; }
   @keyframes pdot { 0%,100%{opacity:1} 50%{opacity:.2} }
+  @keyframes pulseDot { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.45;transform:scale(.65)} }
 
-  /* Reading monitor — fondo blanco */
+  /* Reading monitor */
   .reading-monitor {
     width: 100%; min-height: 100px; max-height: 150px;
     background: #fafafa; border: 1px solid #d8d5ea; border-radius: 8px;
     padding: 0.65rem 0.8rem; overflow-y: auto;
-    font-family: 'IBM Plex Mono', monospace;
-    font-size: 0.67rem; line-height: 1.75;
+    font-family: 'IBM Plex Mono', monospace; font-size: 0.67rem; line-height: 1.75;
   }
   .line { display: block; }
   .line-muted { color: #c0bdda; font-style: italic; }
@@ -127,43 +129,91 @@ const css = `
   .btn-stop:hover:not(:disabled) { border-color: #ef4444; color: #b91c1c; }
   .btn-start:disabled, .btn-stop:disabled { opacity: 0.3; cursor: not-allowed; }
 
-  .btn-ghost {
-    display: inline-flex; align-items: center; gap: 0.35rem;
+  /* ── Conexion tab ── */
+  .conexion-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;
+  }
+  @media (max-width: 640px) { .conexion-grid { grid-template-columns: 1fr; } }
+
+  .conn-section-title {
+    font-size: 0.6rem; font-weight: 800;
+    letter-spacing: 0.18em; text-transform: uppercase; color: #1a174d;
+    margin-bottom: 1rem; display: block;
+  }
+
+  .esp-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0.75rem 0; border-bottom: 1px solid #f0effa;
+  }
+  .esp-row:last-child { border-bottom: none; }
+  .esp-row-left { display: flex; align-items: center; gap: 0.65rem; }
+  .esp-row-label { font-size: 0.8rem; font-weight: 500; color: #1f2937; }
+  .esp-row-sub { font-size: 0.65rem; color: #9ca3af; margin-top: 1px; }
+  .esp-row-right { display: flex; align-items: center; gap: 0.65rem; }
+  .esp-status-text { font-size: 0.72rem; font-weight: 600; }
+
+  .status-dot {
+    display: inline-block; width: 8px; height: 8px;
+    border-radius: 50%; flex-shrink: 0;
+  }
+
+  .btn-probe {
+    font-size: 0.6rem; font-weight: 600; padding: 3px 12px; border-radius: 999px;
+    border: 1.5px solid #d8d5ea; background: #fff; color: #6b7280;
+    cursor: pointer; transition: border-color 0.15s, color 0.15s;
+    font-family: 'DM Sans', sans-serif;
+  }
+  .btn-probe:hover:not(:disabled) { border-color: #4338ca; color: #1a174d; }
+  .btn-probe:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .btn-test-all {
+    width: 100%; margin-top: 1rem;
+    display: inline-flex; align-items: center; justify-content: center; gap: 0.4rem;
+    padding: 0.5rem 1rem; border-radius: 7px;
     font-family: 'DM Sans', sans-serif; font-size: 0.65rem; font-weight: 600;
     letter-spacing: 0.06em; text-transform: uppercase;
-    padding: 0.38rem 0.9rem; border-radius: 6px;
     background: transparent; color: #555; border: 1px solid #d0cde8; cursor: pointer;
     transition: border-color 0.15s, color 0.15s;
   }
-  .btn-ghost:hover { border-color: #4338ca; color: #1a174d; }
+  .btn-test-all:hover { border-color: #4338ca; color: #1a174d; }
 
-  .micro-layout { display: grid; grid-template-columns: 1fr 1.6fr; gap: 3rem; align-items: start; }
-  @media (max-width: 600px) { .micro-layout { grid-template-columns: 1fr; gap: 1.5rem; } }
-  .conn-row { display: flex; align-items: center; gap: 0.9rem; margin-bottom: 1.8rem; }
-  .estab-label {
-    display: block; font-size: 0.6rem; font-weight: 700;
-    letter-spacing: 0.15em; text-transform: uppercase; color: #aaa; margin-bottom: 0.7rem;
-  }
-  .radio-group { display: flex; flex-direction: column; gap: 0.55rem; }
-  .radio-item { display: flex; align-items: center; gap: 0.55rem; font-size: 0.875rem; font-weight: 500; color: #374151; cursor: pointer; }
-  .radio-item input { accent-color: #1a174d; width: 15px; height: 15px; cursor: pointer; }
-
+  /* ── Server status boxes ── */
   .server-box { border: 1px solid #d8d5ea; border-radius: 12px; overflow: hidden; }
   .server-box-head {
     background: #f5f4fc; border-bottom: 1px solid #d8d5ea;
     padding: 0.65rem 1.1rem; font-size: 0.6rem; font-weight: 800;
     letter-spacing: 0.18em; text-transform: uppercase; color: #1a174d;
   }
-  .server-box-body { padding: 1.1rem; display: flex; flex-direction: column; gap: 1rem; }
-  .server-row { display: flex; flex-direction: column; gap: 0.3rem; }
-  .server-row-lbl { font-size: 0.6rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #aaa; }
-  .response-box {
-    border: 1px solid #d8d5ea; border-radius: 7px; padding: 0.4rem 0.65rem;
-    background: #f9f8fc; font-family: 'IBM Plex Mono', monospace;
-    font-size: 0.7rem; color: #666; min-height: 32px;
+  .server-section {
+    padding: 0.8rem 1.1rem; border-bottom: 1px solid #f0effa;
+    display: flex; flex-direction: column; gap: 0.35rem;
   }
+  .server-section:last-child { border-bottom: none; }
+  .server-section-row { display: flex; align-items: center; justify-content: space-between; }
+  .server-icon-label { display: flex; align-items: center; gap: 0.5rem; font-size: 0.8rem; font-weight: 600; color: #1f2937; }
+  .server-section-sub { font-size: 0.65rem; color: #9ca3af; }
+  .server-latency { font-size: 0.65rem; color: #9ca3af; display: flex; align-items: center; gap: 0.3rem; margin-top: 0.2rem; }
+  .latency-val { color: #10b981; font-weight: 700; }
 
-  /* Monitor de mensajes — fondo blanco */
+  .refresh-btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 26px; height: 26px; border-radius: 6px;
+    border: 1.5px solid #d0cde8; background: #fff;
+    cursor: pointer; color: #9ca3af; transition: border-color 0.15s, color 0.15s;
+  }
+  .refresh-btn:hover:not(:disabled) { border-color: #4338ca; color: #1a174d; }
+  .refresh-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .test-log-box {
+    border: 1px solid #d8d5ea; border-radius: 8px;
+    background: #eef2ff; padding: 0.7rem 0.9rem;
+    font-family: 'IBM Plex Mono', monospace; font-size: 0.67rem;
+    min-height: 48px; color: #9ca3af; margin-top: 0.8rem;
+  }
+  .test-log-box.ok { color: #047857; }
+  .test-log-box.fail { color: #dc2626; }
+
+  /* ── Log monitor ── */
   .log-section { margin-top: 2rem; }
   .log-header {
     display: flex; align-items: center; justify-content: space-between;
@@ -184,7 +234,6 @@ const css = `
     transition: border-color 0.15s, color 0.15s;
   }
   .log-clear:hover { border-color: #4338ca; color: #1a174d; }
-
   .log-body {
     background: #fff; border: 1px solid #d8d5ea; border-radius: 0 0 12px 12px;
     padding: 0.75rem 1.1rem; min-height: 180px; max-height: 260px; overflow-y: auto;
@@ -192,7 +241,6 @@ const css = `
     display: flex; flex-direction: column;
   }
   .log-entry { display: flex; gap: 0.65rem; align-items: baseline; }
-  .log-ts { color: #b0adc8; flex-shrink: 0; font-size: 0.63rem; }
   .log-badge {
     font-size: 0.54rem; font-weight: 700; letter-spacing: 0.1em;
     padding: 0.06rem 0.4rem; border-radius: 3px; flex-shrink: 0;
@@ -209,16 +257,40 @@ const css = `
   .log-empty       { color: #c4c2d4; font-size: 0.65rem; font-style: italic; }
 `
 
+/* ── SVG Icons ── */
+const IconServer = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" style={{width:14,height:14,color:"#6366f1"}}>
+    <rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/>
+    <line x1="6" y1="6" x2="6.01" y2="6" strokeLinecap="round" strokeWidth="2"/>
+    <line x1="6" y1="18" x2="6.01" y2="18" strokeLinecap="round" strokeWidth="2"/>
+  </svg>
+)
+const IconDatabase = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" style={{width:14,height:14,color:"#6366f1"}}>
+    <ellipse cx="12" cy="5" rx="9" ry="3"/>
+    <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" strokeLinecap="round"/>
+  </svg>
+)
+const IconZap = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" style={{width:14,height:14,color:"#6366f1"}}>
+    <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+  </svg>
+)
+const IconWifi = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" style={{width:13,height:13}}>
+    <path d="M5 12.55a11 11 0 0114.08 0M1.42 9a16 16 0 0121.16 0M8.53 16.11a6 6 0 016.95 0M12 20h.01" strokeLinecap="round"/>
+  </svg>
+)
+
 function formatTs(ts) {
   const d = new Date(ts)
   return (
-    String(d.getHours()).padStart(2, "0") + ":" +
-    String(d.getMinutes()).padStart(2, "0") + ":" +
-    String(d.getSeconds()).padStart(2, "0") + "." +
-    String(d.getMilliseconds()).padStart(3, "0").slice(0, 2)
+    String(d.getHours()).padStart(2,"0") + ":" +
+    String(d.getMinutes()).padStart(2,"0") + ":" +
+    String(d.getSeconds()).padStart(2,"0") + "." +
+    String(d.getMilliseconds()).padStart(3,"0").slice(0,2)
   )
 }
-
 function badgeClass(type) {
   return type === "response" ? "badge-response"
     : type === "command"    ? "badge-command"
@@ -232,11 +304,9 @@ function SensorCol({ title, startCmd, stopCmd, isConnected, streaming, lines, on
   useEffect(() => {
     if (monRef.current) monRef.current.scrollTop = monRef.current.scrollHeight
   }, [lines])
-
   return (
     <div className="sensor-col">
       <div className="sensor-heading">{title}</div>
-
       <div>
         <span className="flabel">Estado</span>
         <span className={`pill ${!isConnected ? "pill-off" : streaming ? "pill-streaming" : "pill-off"}`}>
@@ -244,7 +314,6 @@ function SensorCol({ title, startCmd, stopCmd, isConnected, streaming, lines, on
           {!isConnected ? "Inactivo" : streaming ? "Activo" : "Inactivo"}
         </span>
       </div>
-
       <div className="fgap">
         <span className="flabel">Lectura en vivo</span>
         <div className="reading-monitor" ref={monRef}>
@@ -258,20 +327,11 @@ function SensorCol({ title, startCmd, stopCmd, isConnected, streaming, lines, on
             ))}
         </div>
       </div>
-
       <div className="stream-controls">
-        <button
-          className="btn-start"
-          disabled={streaming || !isConnected}
-          onClick={() => onStart(startCmd)}
-        >
+        <button className="btn-start" disabled={streaming || !isConnected} onClick={() => onStart(startCmd)}>
           <Play size={10} strokeWidth={2.5} /> Iniciar
         </button>
-        <button
-          className="btn-stop"
-          disabled={!streaming}
-          onClick={() => onStop(stopCmd)}
-        >
+        <button className="btn-stop" disabled={!streaming} onClick={() => onStop(stopCmd)}>
           <Square size={9} strokeWidth={2.5} /> Parar
         </button>
       </div>
@@ -279,22 +339,173 @@ function SensorCol({ title, startCmd, stopCmd, isConnected, streaming, lines, on
   )
 }
 
+function StatusDot({ color, pulse }) {
+  return (
+    <span className="status-dot" style={{
+      background: color,
+      animation: pulse ? "pulseDot 1s ease-in-out infinite" : "none",
+    }} />
+  )
+}
+
+function ConexionTab({ espStates, pusherConnected, onTestESP, onTestAll, serverStatus, onTestServer, onTestDB, dbStatus }) {
+  const statusColor = (s) =>
+    s === "online"  ? "#10b981" :
+    s === "testing" ? "#eab308" :
+    s === "failed"  ? "#ef4444" : "#d1d5db"
+
+  const statusLabel = (s) =>
+    s === "online"  ? "Activo" :
+    s === "testing" ? "Probando…" :
+    s === "failed"  ? "Inactivo" : "Sin verificar"
+
+  const statusTextColor = (s) =>
+    s === "online"  ? "#047857" :
+    s === "testing" ? "#a16207" :
+    s === "failed"  ? "#dc2626" : "#9ca3af"
+
+  return (
+    <div className="conexion-grid">
+      {/* ESP32 connections */}
+      <div>
+        <span className="conn-section-title">Estado de Conexión ESP32</span>
+        {Object.entries(espStates).map(([id, state]) => (
+          <div key={id} className="esp-row">
+            <div className="esp-row-left">
+              <StatusDot color={statusColor(state.status)} pulse={state.status === "testing"} />
+              <div>
+                <div className="esp-row-label">ESP-{id}</div>
+                {state.lastSeen && (
+                  <div className="esp-row-sub">Visto: {new Date(state.lastSeen).toLocaleTimeString()}</div>
+                )}
+              </div>
+            </div>
+            <div className="esp-row-right">
+              <span className="esp-status-text" style={{ color: statusTextColor(state.status) }}>
+                {statusLabel(state.status)}
+              </span>
+              <button
+                className="btn-probe"
+                disabled={state.status === "testing"}
+                onClick={() => onTestESP(id)}
+              >
+                {state.status === "testing" ? "Probando…" : "Probar"}
+              </button>
+            </div>
+          </div>
+        ))}
+        <button className="btn-test-all" onClick={onTestAll}>
+          <IconWifi /> Probar Conexión de Todos
+        </button>
+      </div>
+
+      {/* Server + DB status */}
+      <div>
+        <span className="conn-section-title">Estado del Servidor</span>
+        <div className="server-box">
+          <div className="server-box-head">Diagnóstico del sistema</div>
+
+          {/* API Backend */}
+          <div className="server-section">
+            <div className="server-section-row">
+              <div className="server-icon-label">
+                <IconServer /> API Backend
+              </div>
+              <div style={{ display:"flex", alignItems:"center", gap:"0.5rem" }}>
+                <span style={{ display:"flex", alignItems:"center", gap:"0.4rem", fontSize:"0.72rem", fontWeight:600, color: statusTextColor(serverStatus.api) }}>
+                  <StatusDot color={statusColor(serverStatus.api)} pulse={serverStatus.api === "testing"} />
+                  {statusLabel(serverStatus.api)}
+                </span>
+                <button className="refresh-btn" onClick={onTestServer} disabled={serverStatus.api === "testing"} title="Verificar API">
+                  <RefreshCw size={12} strokeWidth={2.5} />
+                </button>
+              </div>
+            </div>
+            {serverStatus.apiLatency && (
+              <div className="server-latency">
+                Latencia: <span className="latency-val">{serverStatus.apiLatency}ms</span>
+                {serverStatus.apiMsg && <span>· {serverStatus.apiMsg}</span>}
+              </div>
+            )}
+          </div>
+
+          {/* Base de Datos — ahora con botón propio */}
+          <div className="server-section">
+            <div className="server-section-row">
+              <div className="server-icon-label"><IconDatabase /> Base de Datos</div>
+              <div style={{ display:"flex", alignItems:"center", gap:"0.5rem" }}>
+                <span style={{ display:"flex", alignItems:"center", gap:"0.4rem", fontSize:"0.72rem", fontWeight:600, color: statusTextColor(dbStatus.status) }}>
+                  <StatusDot color={statusColor(dbStatus.status)} pulse={dbStatus.status === "testing"} />
+                  {statusLabel(dbStatus.status)}
+                </span>
+                <button className="refresh-btn" onClick={onTestDB} disabled={dbStatus.status === "testing"} title="Verificar DB">
+                  <RefreshCw size={12} strokeWidth={2.5} />
+                </button>
+              </div>
+            </div>
+            {dbStatus.latency && (
+              <div className="server-latency">
+                Latencia: <span className="latency-val">{dbStatus.latency}ms</span>
+                {dbStatus.dialect && <span>· {dbStatus.dialect}</span>}
+              </div>
+            )}
+            <div className="server-section-sub">PostgreSQL · SSL habilitado</div>
+          </div>
+
+          {/* Pusher */}
+          <div className="server-section">
+            <div className="server-section-row">
+              <div className="server-icon-label"><IconZap /> Pusher WebSocket</div>
+              <span style={{ display:"flex", alignItems:"center", gap:"0.4rem", fontSize:"0.72rem", fontWeight:600, color: pusherConnected ? "#047857" : "#dc2626" }}>
+                <StatusDot color={pusherConnected ? "#10b981" : "#ef4444"} pulse={!pusherConnected} />
+                {pusherConnected ? "Conectado" : "Desconectado"}
+              </span>
+            </div>
+            <div className="server-section-sub">Cluster: us2 · Canal: private-device-ESP-6</div>
+          </div>
+        </div>
+
+        {/* Logs de último test — API y DB por separado */}
+        <div style={{ display:"flex", flexDirection:"column", gap:"0.5rem", marginTop:"0.8rem" }}>
+          <div className={`test-log-box ${serverStatus.lastTest?.startsWith("✓") ? "ok" : serverStatus.lastTest?.startsWith("✗") ? "fail" : ""}`}>
+            <span style={{fontSize:"0.58rem", fontWeight:700, letterSpacing:"0.1em", textTransform:"uppercase", opacity:0.6}}>API · </span>
+            {serverStatus.lastTest || "Presiona refresh para verificar…"}
+          </div>
+          <div className={`test-log-box ${dbStatus.lastTest?.startsWith("✓") ? "ok" : dbStatus.lastTest?.startsWith("✗") ? "fail" : ""}`}>
+            <span style={{fontSize:"0.58rem", fontWeight:700, letterSpacing:"0.1em", textTransform:"uppercase", opacity:0.6}}>DB · </span>
+            {dbStatus.lastTest || "Presiona refresh para verificar DB…"}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/* ══════════════════════════════════════════════════════════════
+   MAIN
+══════════════════════════════════════════════════════════════ */
 export default function ESP6Monitor() {
   const [activeTab, setActiveTab] = useState("sensores")
   const [pusherConnected, setPusherConnected] = useState(false)
-  const [stability, setStability] = useState("excelente")
-  const [responseTime, setResponseTime] = useState("")
+  const [espStates, setEspStates] = useState({ 6: { status: "unknown", lastSeen: null } })
+  const connTimeouts = useRef({})
 
-  // streaming[x] = true SOLO cuando llegan datos reales del sensor
+  const [serverStatus, setServerStatus] = useState({
+    api: "unknown", apiLatency: null, apiMsg: null, lastTest: null,
+  })
+  // Estado de DB separado
+  const [dbStatus, setDbStatus] = useState({
+    status: "unknown", latency: null, dialect: null, lastTest: null,
+  })
+
   const [streaming, setStreaming] = useState({ cell1: false, cell2: false, mpu: false })
-
   const MAX_LINES = 60
   const [cell1Lines, setCell1Lines] = useState([])
   const [cell2Lines, setCell2Lines] = useState([])
   const [mpuLines,   setMpuLines]   = useState([])
-
   const [log, setLog] = useState([])
-  const logRef = useRef(null)
+  const logRef    = useRef(null)
+  const pusherRef = useRef(null)
 
   useEffect(() => {
     if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight
@@ -324,6 +535,7 @@ export default function ESP6Monitor() {
       authEndpoint: `${BACKEND_URL}/api/pusher/pusher/auth`,
       forceTLS: true,
     })
+    pusherRef.current = pusher
     pusher.connection.bind("connected", () => {
       setPusherConnected(true)
       subscribeToChannel(pusher)
@@ -338,10 +550,14 @@ export default function ESP6Monitor() {
   const subscribeToChannel = (pusher) => {
     const channel = pusher.subscribe("private-device-ESP-6")
 
+    channel.bind("client-status", (data) => {
+      setEspStates(prev => ({ ...prev, 6: { status: "online", lastSeen: Date.now() } }))
+      addLog("status", `ESP-6 conectado · IP: ${data?.ip || "—"}`, "success")
+    })
+
     channel.bind("client-sensor-data", ({ sensorType, value }) => {
       const ts  = formatTs(Date.now())
       const num = Number(value)
-
       if (sensorType === "CELL1") {
         pushLine(setCell1Lines, ts, `${num.toFixed(4)} kg`)
         setStreaming(s => ({ ...s, cell1: true }))
@@ -367,25 +583,27 @@ export default function ESP6Monitor() {
 
     channel.bind("client-response", (d) => {
       const msg = d.message || ""
-      addLog("response", msg, msg.toLowerCase().includes("error") ? "error" : "success")
-      // El ESP confirma parada
+      const msgLower = msg.toLowerCase()
+      addLog("response", msg, msgLower.includes("error") ? "error" : "success")
+
+      if (msgLower === "ok" || msgLower.includes("con_vida") || msgLower.includes("vivo")) {
+        setEspStates(prev => ({ ...prev, 6: { status: "online", lastSeen: Date.now() } }))
+        if (connTimeouts.current[6]) { clearTimeout(connTimeouts.current[6]); delete connTimeouts.current[6] }
+      }
+
       if (msg.includes("CELL1_STOP") || msg.includes("STREAM_CELL1_OFF"))
         setStreaming(s => ({ ...s, cell1: false }))
       if (msg.includes("CELL2_STOP") || msg.includes("STREAM_CELL2_OFF"))
         setStreaming(s => ({ ...s, cell2: false }))
-      if (msg.includes("MPU_STOP")   || msg.includes("STREAM_MPU_OFF"))
+      if (msg.includes("MPU_STOP") || msg.includes("STREAM_MPU_OFF"))
         setStreaming(s => ({ ...s, mpu: false }))
     })
-
-    channel.bind("client-status", (d) =>
-      addLog("status", typeof d === "string" ? d : JSON.stringify(d), "info"))
 
     channel.bind("client-error", (d) =>
       addLog("error", d.message || "Error desconocido", "error"))
   }
 
   const sendCommand = async (command) => {
-    const t0 = Date.now()
     addLog("command", `→ ${command}`, "info")
     try {
       const res = await fetch(`${BACKEND_URL}/api/pusher/send-command`, {
@@ -393,7 +611,6 @@ export default function ESP6Monitor() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ deviceId: "ESP-6", command, data: {}, channel: "private-device-ESP-6" }),
       })
-      setResponseTime(`${Date.now() - t0} ms`)
       if (!res.ok) { const d = await res.json(); throw new Error(d.message) }
     } catch (e) {
       addLog("error", `Error: ${e.message}`, "error")
@@ -401,13 +618,93 @@ export default function ESP6Monitor() {
   }
 
   const handleStart = (cmd) => sendCommand(cmd)
-
-  const handleStop = (cmd) => {
+  const handleStop  = (cmd) => {
     sendCommand(cmd)
-    // Apagamos estado inmediatamente — el ESP confirmará con su respuesta
     if (cmd.includes("CELL1")) setStreaming(s => ({ ...s, cell1: false }))
     if (cmd.includes("CELL2")) setStreaming(s => ({ ...s, cell2: false }))
     if (cmd.includes("MPU"))   setStreaming(s => ({ ...s, mpu: false }))
+  }
+
+  const handleTestESP = (id) => {
+    setEspStates(prev => ({ ...prev, [id]: { ...prev[id], status: "testing" } }))
+    const tid = setTimeout(() => {
+      setEspStates(prev => ({ ...prev, [id]: { ...prev[id], status: "failed" } }))
+      addLog("error", `ESP-${id}: sin respuesta al STATE (5s)`, "error")
+      delete connTimeouts.current[id]
+    }, 5000)
+    connTimeouts.current[id] = tid
+    sendCommand("STATE")
+  }
+
+  const handleTestAll = () => { Object.keys(espStates).forEach(id => handleTestESP(Number(id))) }
+
+  // ── Verificar API Backend ────────────────────────────────────────────────
+  const handleTestServer = async () => {
+    setServerStatus(prev => ({ ...prev, api: "testing", apiLatency: null, apiMsg: null }))
+    const start = Date.now()
+    try {
+      const res     = await fetch(`${BACKEND_URL}/api/health/backend`)
+      const latency = Date.now() - start
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      const data = await res.json()
+      setServerStatus(prev => ({
+        ...prev, api: "online",
+        apiLatency: latency,
+        apiMsg:     data.message || "OK",
+        lastTest:   `✓ ${latency}ms · ${data.message || "OK"}`,
+      }))
+      addLog("status", `API activa · ${latency}ms`, "success")
+    } catch (err) {
+      // Fallback al endpoint anterior si el nuevo no existe aún
+      try {
+        const start2  = Date.now()
+        const res2    = await fetch(`${BACKEND_URL}/api/pusher/test`)
+        const latency = Date.now() - start2
+        if (!res2.ok) throw new Error(`HTTP ${res2.status}`)
+        const data = await res2.json()
+        setServerStatus(prev => ({
+          ...prev, api: "online",
+          apiLatency: latency,
+          apiMsg:     data.message || "OK",
+          lastTest:   `✓ ${latency}ms · ${data.message || "OK"}`,
+        }))
+        addLog("status", `API activa · ${latency}ms`, "success")
+      } catch (err2) {
+        setServerStatus(prev => ({
+          ...prev, api: "failed",
+          apiLatency: null, apiMsg: err2.message,
+          lastTest: `✗ ${err2.message}`,
+        }))
+        addLog("error", `API inaccesible: ${err2.message}`, "error")
+      }
+    }
+  }
+
+  // ── Verificar Base de Datos ──────────────────────────────────────────────
+  const handleTestDB = async () => {
+    setDbStatus(prev => ({ ...prev, status: "testing", latency: null }))
+    const start = Date.now()
+    try {
+      const res     = await fetch(`${BACKEND_URL}/api/health/database`)
+      const latency = Date.now() - start
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      const data = await res.json()
+      setDbStatus({
+        status:   "online",
+        latency:  data.latency ?? latency,
+        dialect:  data.dialect || "postgresql",
+        lastTest: `✓ ${data.latency ?? latency}ms · ${data.message || "OK"}`,
+      })
+      addLog("status", `DB activa · ${data.latency ?? latency}ms`, "success")
+    } catch (err) {
+      setDbStatus({
+        status:   "failed",
+        latency:  null,
+        dialect:  null,
+        lastTest: `✗ ${err.message}`,
+      })
+      addLog("error", `DB inaccesible: ${err.message}`, "error")
+    }
   }
 
   return (
@@ -424,10 +721,13 @@ export default function ESP6Monitor() {
           </div>
 
           <div className="tab-bar">
-            {["sensores", "microcontrolador"].map(t => (
-              <button key={t} className={`tab-btn ${activeTab === t ? "active" : ""}`}
-                onClick={() => setActiveTab(t)}>
-                {t.charAt(0).toUpperCase() + t.slice(1)}
+            {["sensores", "conexion"].map(t => (
+              <button
+                key={t}
+                className={`tab-btn ${activeTab === t ? "active" : ""}`}
+                onClick={() => setActiveTab(t)}
+              >
+                {t === "sensores" ? "Sensores" : "Conexión"}
               </button>
             ))}
           </div>
@@ -439,12 +739,12 @@ export default function ESP6Monitor() {
                   startCmd="STREAM_CELL1_ON" stopCmd="STREAM_CELL1_OFF"
                   isConnected={pusherConnected} streaming={streaming.cell1}
                   lines={cell1Lines} onStart={handleStart} onStop={handleStop} />
-                <div className="v-divider" />
+                <div className="v-sep" />
                 <SensorCol title="Celda de Carga 2"
                   startCmd="STREAM_CELL2_ON" stopCmd="STREAM_CELL2_OFF"
                   isConnected={pusherConnected} streaming={streaming.cell2}
                   lines={cell2Lines} onStart={handleStart} onStop={handleStop} />
-                <div className="v-divider" />
+                <div className="v-sep" />
                 <SensorCol title="MPU6050 (X · Y · Z)"
                   startCmd="STREAM_MPU_ON" stopCmd="STREAM_MPU_OFF"
                   isConnected={pusherConnected} streaming={streaming.mpu}
@@ -452,57 +752,17 @@ export default function ESP6Monitor() {
               </div>
             )}
 
-            {activeTab === "microcontrolador" && (
-              <div className="micro-layout">
-                <div>
-                  <span className="flabel">Estado de Conexión</span>
-                  <div className="conn-row">
-                    <span className={`pill ${pusherConnected ? "pill-on" : "pill-off"}`}>
-                      <span className="pill-dot" />
-                      {pusherConnected ? "Activo" : "Inactivo"}
-                    </span>
-                    <button className="btn-ghost" onClick={() => sendCommand("CHECK")}>
-                      <RefreshCw size={11} strokeWidth={2.5} /> Reconectar
-                    </button>
-                  </div>
-                  <span className="estab-label">Estabilidad de Conexión</span>
-                  <div className="radio-group">
-                    {["excelente", "intermitente", "inestable"].map(v => (
-                      <label key={v} className="radio-item">
-                        <input type="radio" name="stab" value={v}
-                          checked={stability === v} onChange={() => setStability(v)} />
-                        {v.charAt(0).toUpperCase() + v.slice(1)}
-                      </label>
-                    ))}
-                  </div>
-                </div>
-                <div>
-                  <span className="flabel">Estado del Servidor</span>
-                  <div className="server-box">
-                    <div className="server-box-head">Diagnóstico del sistema</div>
-                    <div className="server-box-body">
-                      <div className="server-row">
-                        <span className="server-row-lbl">API</span>
-                        <span className={`pill ${pusherConnected ? "pill-on" : "pill-off"}`}
-                          style={{ alignSelf: "flex-start" }}>
-                          <span className="pill-dot" />
-                          {pusherConnected ? "Activo" : "Inactivo"}
-                        </span>
-                      </div>
-                      <div className="server-row">
-                        <span className="server-row-lbl">Base de Datos</span>
-                        <span className="pill pill-off" style={{ alignSelf: "flex-start" }}>
-                          <span className="pill-dot" />Conectado / Desconectado
-                        </span>
-                      </div>
-                      <div className="server-row">
-                        <span className="server-row-lbl">Tiempo de Respuesta</span>
-                        <div className="response-box">{responseTime || "—"}</div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
+            {activeTab === "conexion" && (
+              <ConexionTab
+                espStates={espStates}
+                pusherConnected={pusherConnected}
+                onTestESP={handleTestESP}
+                onTestAll={handleTestAll}
+                serverStatus={serverStatus}
+                onTestServer={handleTestServer}
+                dbStatus={dbStatus}
+                onTestDB={handleTestDB}
+              />
             )}
           </div>
 
@@ -520,7 +780,6 @@ export default function ESP6Monitor() {
                 ? <span className="log-empty">sin actividad</span>
                 : log.map((e, i) => (
                   <div key={i} className="log-entry">
-                    <span className="log-ts">{formatTs(e.ts)}</span>
                     <span className={`log-badge ${badgeClass(e.type)}`}>{e.type}</span>
                     <span className={`log-msg ${e.status}`}>{e.message}</span>
                   </div>

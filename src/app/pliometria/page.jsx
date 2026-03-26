@@ -10,6 +10,7 @@ const DEVICE_ID = "ESP-6"
 const PUSHER_KEY = "4f85ef5c792df94cebc9"
 const PUSHER_CLUSTER = "us2"
 const ALCANCE_DURACION_SEG = 15
+const CALIBRATION_TIMEOUT_MS = 6000 // 5s calibración + 1s margen
 
 const SALTO_SIMPLE_IMAGES = [
   "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/conos-removebg-preview__2_-removebg-preview-ZdpOb2qgOJERfCssbovE9QRaOX5m1U.png",
@@ -141,33 +142,115 @@ function ResultModal({ isOpen, onClose, title, data }) {
 }
 
 // ── MODAL CALIBRACIÓN ──────────────────────────────────────────────────────
-function CalibrationModal({ isOpen, isCalibrated, onClose, onCancel }) {
+function CalibrationModal({ isOpen, calibrationStatus, onClose, onCancel }) {
+  const [countdown, setCountdown] = useState(5)
+  const [errorCountdown, setErrorCountdown] = useState(6)
+  const countdownRef = useRef(null)
+  const errorCountdownRef = useRef(null)
+
+  // Contador regresivo 5→0 durante calibración
+  useEffect(() => {
+    if (countdownRef.current) { clearInterval(countdownRef.current); countdownRef.current = null }
+    if (!isOpen || calibrationStatus !== "calibrating") { setCountdown(5); return }
+    setCountdown(5)
+    countdownRef.current = setInterval(() => {
+      setCountdown((prev) => {
+        if (prev <= 1) { clearInterval(countdownRef.current); countdownRef.current = null; return 0 }
+        return prev - 1
+      })
+    }, 1000)
+    return () => { if (countdownRef.current) clearInterval(countdownRef.current) }
+  }, [isOpen, calibrationStatus])
+
+  // Cierre automático 6→0 en error
+  useEffect(() => {
+    if (errorCountdownRef.current) { clearInterval(errorCountdownRef.current); errorCountdownRef.current = null }
+    if (!isOpen || calibrationStatus !== "failed") { setErrorCountdown(6); return }
+    setErrorCountdown(6)
+    errorCountdownRef.current = setInterval(() => {
+      setErrorCountdown((prev) => {
+        if (prev <= 1) {
+          clearInterval(errorCountdownRef.current)
+          errorCountdownRef.current = null
+          onClose()
+          return 0
+        }
+        return prev - 1
+      })
+    }, 1000)
+    return () => { if (errorCountdownRef.current) clearInterval(errorCountdownRef.current) }
+  }, [isOpen, calibrationStatus])
+
   if (!isOpen) return null
+
+  const isCalibrationFailed  = calibrationStatus === "failed"
+  const isCalibrationSuccess = calibrationStatus === "success"
+  const isCalibrating        = !isCalibrationSuccess && !isCalibrationFailed
+
   return (
     <div className="fixed inset-0 bg-black/40 backdrop-blur-md flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-2xl shadow-lg max-w-sm w-full p-8 text-center relative" style={{ boxShadow: "0 12px 32px rgba(0,0,0,.08)" }}>
         <button onClick={onClose} className="absolute top-4 right-4 w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors">
           <X className="h-4 w-4 text-gray-500" />
         </button>
-        {!isCalibrated ? (
+
+        {isCalibrating && (
           <>
-            <div className="w-20 h-20 rounded-full bg-red-50 flex items-center justify-center mx-auto mb-5 animate-pulse">
-              <img src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/calibrar-removebg-preview-1y4aBupjFQ9WApv9Ru1gxKoxsOdMqW.png"
-                alt="Calibrando" className="w-12 h-12 object-contain animate-spin" style={{ animationDuration: "2s" }} />
+            <div className="w-48 h-48 mx-auto mb-5">
+              <img src="/calibrar1.png" alt="Calibrando" className="w-full h-full object-contain" />
             </div>
-            <h3 className="text-xl font-bold text-gray-900 mb-2">Calibrando...</h3>
-            <p className="text-sm text-gray-600 mb-6">Jugador <strong className="text-gray-800">quieto y de pie</strong> sobre las celdas (~5 segundos)</p>
+            <h3 className="text-xl font-bold text-gray-900 mb-4">Calibrando...</h3>
+            <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 mb-6">
+              <p className="text-sm font-semibold text-amber-800 leading-snug">
+                JUGADOR DEBE PERMANECER QUIETO Y DE PIE DURANTE{" "}
+                <span
+                  className="inline-block text-2xl font-extrabold tabular-nums align-middle"
+                  style={{ color: countdown === 0 ? "#059669" : "#d97706", minWidth: 28, transition: "color .3s" }}
+                >
+                  ({countdown})
+                </span>{" "}
+                segundos
+              </p>
+            </div>
             <button onClick={onCancel} className="w-full py-3 rounded-lg bg-red-50 text-red-700 border border-red-200 text-sm font-semibold hover:bg-red-100 transition-colors">
               Cancelar calibración
             </button>
           </>
-        ) : (
+        )}
+
+        {isCalibrationSuccess && (
           <>
-            <div className="w-20 h-20 rounded-full bg-green-50 flex items-center justify-center mx-auto mb-5">
-              <CheckCircle className="h-10 w-10 text-green-600" />
+            <div className="w-48 h-48 mx-auto mb-5">
+              <img src="/calibrarbien.png" alt="Calibrado correctamente" className="w-full h-full object-contain" />
             </div>
             <h3 className="text-xl font-bold text-green-700 mb-1">¡Calibrado!</h3>
             <p className="text-sm text-gray-600">MPU6050 y celdas HX711 listas</p>
+          </>
+        )}
+
+        {isCalibrationFailed && (
+          <>
+            <div className="w-48 h-48 mx-auto mb-5">
+              <img src="/calibrarmal.png" alt="Error en calibración" className="w-full h-full object-contain" />
+            </div>
+            <h3 className="text-xl font-bold text-red-700 mb-1">Error de calibración</h3>
+            <p className="text-sm text-gray-600 mb-2">
+              Asegúrate que el jugador esté quieto y de pie sobre las celdas
+            </p>
+            <p className="text-xs text-gray-400 mb-4 font-mono">
+              Cerrando en{" "}
+              <span className="font-bold text-red-400">{errorCountdown}s</span>
+              ...
+            </p>
+            <button
+              onClick={() => {
+                if (errorCountdownRef.current) { clearInterval(errorCountdownRef.current); errorCountdownRef.current = null }
+                onCancel()
+              }}
+              className="w-full py-3 rounded-lg bg-red-50 text-red-700 border border-red-200 text-sm font-semibold hover:bg-red-100 transition-colors"
+            >
+              Volver a calibrar
+            </button>
           </>
         )}
       </div>
@@ -265,6 +348,7 @@ export default function SistemaUnificadoPage() {
 
   const [calibrationModalOpen, setCalibrationModalOpen] = useState(false)
   const [isCalibrated, setIsCalibrated]                 = useState(false)
+  const [calibrationStatus, setCalibrationStatus]       = useState("calibrating")
   const calibrationTimerRef = useRef(null)
   const calibrandoRef       = useRef(false)
   const alcanceTimerRef     = useRef(null)
@@ -324,6 +408,18 @@ export default function SistemaUnificadoPage() {
 
   const resetFatiga = () => { setPrimerSaltoSesion(null); setUltimoSaltoSesion(null); setTotalSaltosSesion(0) }
 
+  // ── Función centralizada para marcar fallo de calibración ─────────────────
+  const triggerCalibrationFailed = () => {
+    if (calibrationTimerRef.current) { clearTimeout(calibrationTimerRef.current); calibrationTimerRef.current = null }
+    calibrandoRef.current = false
+    setCalibrationStatus("failed")
+    setIsCalibrated(false)
+    setPliometriaCalibrada(false)
+    setFaseAlcance("idle")
+    setCalibrationModalOpen(true)
+    notify("error", "Error de calibración — intenta nuevamente")
+  }
+
   const subscribeToESP = (pusher) => {
     const channel = pusher.subscribe(`private-device-${DEVICE_ID}`)
     channel.bind("pusher:subscription_succeeded", () => { setEspConnected(true); addMessage(DEVICE_ID, "Conectado", "success", setMessages); notify("success", "ESP-6 conectado") })
@@ -336,17 +432,25 @@ export default function SistemaUnificadoPage() {
       addMessage(DEVICE_ID, msg, "success", setMessages)
 
       if (msg.includes("CALIBRADO_OK")) {
+        // Cancelar timeout — llegó respuesta a tiempo
         if (calibrationTimerRef.current) { clearTimeout(calibrationTimerRef.current); calibrationTimerRef.current = null }
         calibrandoRef.current = false
+        setCalibrationStatus("success")
         setIsCalibrated(true); setPliometriaCalibrada(true); setFaseAlcance("calibrated"); setCalibrationModalOpen(true)
-        setTimeout(() => { setCalibrationModalOpen(false); setIsCalibrated(false) }, 2000)
+        setTimeout(() => { setCalibrationModalOpen(false); setIsCalibrated(false); setCalibrationStatus("calibrating") }, 2000)
         notify("success", "¡Calibrado! — listo para iniciar"); return
       }
-      if (msg.includes("CALIBRACION_CANCELADA")) {
+      if (msg.includes("CALIBRACION_CANCELADA") || msg.includes("ERROR_CALIBRACION")) {
         if (calibrationTimerRef.current) { clearTimeout(calibrationTimerRef.current); calibrationTimerRef.current = null }
         calibrandoRef.current = false
-        setFaseAlcance("idle"); setCalibrationModalOpen(false); setIsCalibrated(false); setPliometriaCalibrada(false)
-        notify("error", "Calibración cancelada"); return
+        if (msg.includes("ERROR_CALIBRACION")) {
+          triggerCalibrationFailed()
+        } else {
+          setFaseAlcance("idle"); setCalibrationModalOpen(false); setIsCalibrated(false); setPliometriaCalibrada(false)
+          setCalibrationStatus("calibrating")
+          notify("error", "Calibración cancelada")
+        }
+        return
       }
       if (msg.includes("SESION_INICIADA")) {
         setFaseAlcance("jumping"); setEjercicioEnCurso(true); setSaltoRTActual(null); setResultadoFinal(null)
@@ -417,24 +521,26 @@ export default function SistemaUnificadoPage() {
   const handleCalibrar = async () => {
     if (!jugadorSeleccionado) { notify("error", "Selecciona un jugador primero"); return }
     if (calibrandoRef.current) return
+    // Limpiar cualquier timer previo
     if (calibrationTimerRef.current) { clearTimeout(calibrationTimerRef.current); calibrationTimerRef.current = null }
     calibrandoRef.current = true
     setFaseAlcance("calibrating"); setPliometriaCalibrada(false); setSaltoRTActual(null); setResultadoFinal(null)
-    setIncrementoAnterior(""); setIsCalibrated(false); setCalibrationModalOpen(true); resetFatiga()
+    setIncrementoAnterior(""); setIsCalibrated(false); setCalibrationStatus("calibrating"); setCalibrationModalOpen(true); resetFatiga()
     await sendCommand(CMD.CALIBRAR, setMessages)
+    // Timeout de 6 segundos (5s calibración + 1s margen)
     calibrationTimerRef.current = setTimeout(() => {
       calibrationTimerRef.current = null
       if (calibrandoRef.current) {
-        calibrandoRef.current = false; setFaseAlcance("idle"); setCalibrationModalOpen(false); setIsCalibrated(false)
-        notify("error", "Calibración sin respuesta — intenta nuevamente")
+        triggerCalibrationFailed()
       }
-    }, 25000)
+    }, CALIBRATION_TIMEOUT_MS)
   }
 
   const handleCancelarCalibracion = async () => {
     if (calibrationTimerRef.current) { clearTimeout(calibrationTimerRef.current); calibrationTimerRef.current = null }
     calibrandoRef.current = false
-    setCalibrationModalOpen(false); setIsCalibrated(false); setFaseAlcance("idle"); setPliometriaCalibrada(false)
+    setCalibrationModalOpen(false); setIsCalibrated(false); setFaseAlcance("idle")
+    setPliometriaCalibrada(false); setCalibrationStatus("calibrating")
     await sendCommand(CMD.CANCELAR, setMessages)
     notify("error", "Cancelación enviada al ESP")
   }
@@ -569,7 +675,6 @@ export default function SistemaUnificadoPage() {
     return faseAlcance === "done" ? "done" : faseAlcance === "jumping" ? "active" : "idle"
   }
 
-  // ── Estilos reutilizables ─────────────────────────────────────────────────
   const card = { background: "rgba(255,255,255,.82)", backdropFilter: "blur(16px)", border: "1px solid rgba(148,163,184,.2)", boxShadow: "0 4px 24px rgba(148,163,184,.1)", borderRadius: 24 }
   const pillBtn = (active, disabled) => ({
     borderRadius: 50,
@@ -596,7 +701,12 @@ export default function SistemaUnificadoPage() {
       <Toast notification={notification} onClose={() => setNotification(null)} />
       <ResultModal isOpen={modalAlcanceOpen}    onClose={cerrarModalAlcance}    title="Alcance Guardado"    data={alcanceGuardado    || {}} />
       <ResultModal isOpen={modalPliometriaOpen} onClose={cerrarModalPliometria} title="Pliometría Guardada" data={pliometriaGuardada  || {}} />
-      <CalibrationModal isOpen={calibrationModalOpen} isCalibrated={isCalibrated} onClose={handleCancelarCalibracion} onCancel={handleCancelarCalibracion} />
+      <CalibrationModal
+        isOpen={calibrationModalOpen}
+        calibrationStatus={calibrationStatus}
+        onClose={handleCancelarCalibracion}
+        onCancel={handleCancelarCalibracion}
+      />
 
       <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8 space-y-5">
 
@@ -823,7 +933,6 @@ export default function SistemaUnificadoPage() {
               </div>
             </div>
 
-            {/* Resultados alcance */}
             <div className="flex justify-center">
               <div className="w-full max-w-md p-6" style={card}>
                 <p className="text-[10px] uppercase tracking-widest font-bold text-slate-400 text-center mb-5">Resultados</p>
@@ -892,7 +1001,6 @@ export default function SistemaUnificadoPage() {
               </div>
             </div>
 
-            {/* Progress bar */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <p className="text-[9px] uppercase tracking-widest font-bold text-slate-400">Tiempo transcurrido</p>
@@ -907,7 +1015,6 @@ export default function SistemaUnificadoPage() {
               </div>
             </div>
 
-            {/* Resultados pruebas */}
             <div className="flex justify-center">
               <div className="w-full max-w-md p-6" style={card}>
                 <p className="text-[10px] uppercase tracking-widest font-bold text-slate-400 text-center mb-5">Resultados</p>

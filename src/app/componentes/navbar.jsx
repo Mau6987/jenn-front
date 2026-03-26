@@ -38,7 +38,6 @@ export default function Navbar() {
   const [userPhoto, setUserPhoto] = useState(null)
   const [loadingPhoto, setLoadingPhoto] = useState(false)
 
-  // Obtener la foto del usuario del API
   useEffect(() => {
     const fetchUserPhoto = async () => {
       if (!isAuthenticated || !idUser || !token) return
@@ -74,43 +73,30 @@ export default function Navbar() {
 
   const getHomeRoute = () => {
     switch (rol) {
-      case "jugador":
-        return "/homeJ"
-      case "entrenador":
-        return "/homeE"
-      case "tecnico":
-        return "/homeT"
-      default:
-        return "/"
+      case "jugador":    return "/homeJ"
+      case "entrenador": return "/homeE"
+      case "tecnico":    return "/homeT"
+      default:           return "/"
     }
   }
 
-  const adminViews = ["/jugadores", "/entrenadores", "/tecnicos"]
-  const isAdminView = adminViews.includes(pathname)
-
+  const adminViews    = ["/jugadores", "/entrenadores", "/tecnicos"]
+  const isAdminView   = adminViews.includes(pathname)
   const monitoreoRoutes = ["/monitoreo", "/monitoreo2"]
   const isMonitoreoView = monitoreoRoutes.includes(pathname)
 
-  const handleLogoutClick = () => {
-    setShowLogoutDialog(true)
-  }
+  const handleLogoutClick   = () => setShowLogoutDialog(true)
 
   const handleLogoutConfirm = async () => {
-
     setShowLogoutDialog(false)
     setIsLoggingOut(true)
-
     await new Promise((resolve) => setTimeout(resolve, 1500))
-
     await logout()
-
     setIsLoggingOut(false)
-
     router.push("/")
   }
 
   const getRoleIconComponent = () => {
-
     if (rol === "jugador" && posicion) {
       return (
         <img
@@ -120,62 +106,53 @@ export default function Navbar() {
         />
       )
     }
-
     const iconMap = {
-      tecnico: <Shield className="w-5 h-5 text-white" />,
+      tecnico:    <Shield className="w-5 h-5 text-white" />,
       entrenador: <Briefcase className="w-5 h-5 text-white" />,
-      jugador: <User className="w-5 h-5 text-white" />,
+      jugador:    <User className="w-5 h-5 text-white" />,
     }
-
     return iconMap[rol] || <User className="w-5 h-5 text-white" />
   }
 
   const getMenuItems = () => {
-
     switch (rol) {
-
+      // ── Jugador: se quitó { Perfil } ──────────────────────────────────────
       case "jugador":
         return [
-          { icon: Activity, label: "Resultados Reacción", href: "/resultados2" },
-          { icon: TrendingUp, label: "Resultados Salto", href: "/rankings2" },
-          { icon: Trophy, label: "Ranking Reacción", href: "/ranking" },
-          { icon: Award, label: "Ranking Salto", href: "/rankings3" },
-          { icon: User, label: "Perfil", href: "/perfil" },
+          { icon: Activity,   label: "Resultados Reacción", href: "/resultados2" },
+          { icon: TrendingUp, label: "Resultados Salto",    href: "/rankings2"   },
+          { icon: Trophy,     label: "Ranking Reacción",    href: "/ranking"     },
+          { icon: Award,      label: "Ranking Salto",       href: "/rankings3"   },
         ]
 
+      // ── Entrenador: se quitó { Perfil } ───────────────────────────────────
       case "entrenador":
         return [
-          { icon: ClipboardList, label: "Pruebas de reacción", href: "/pruebas2" },
-          { icon: Activity, label: "Pruebas de salto", href: "/pliometria" },
-          { icon: Users, label: "Jugadores", href: "/jugadores" },
-          { icon: User, label: "Perfil", href: "/perfil" },
+          { icon: ClipboardList, label: "Pruebas de reacción", href: "/pruebas2"   },
+          { icon: Activity,      label: "Pruebas de salto",    href: "/pliometria" },
+          { icon: Users,         label: "Jugadores",           href: "/jugadores"  },
         ]
 
+      // ── Técnico: se quitó { Perfil } en todas las vistas ──────────────────
       case "tecnico":
-
         if (isMonitoreoView) {
           return [
-            { icon: Activity, label: "Monitoreo Cápsulas", href: "/monitoreo" },
+            { icon: Activity, label: "Monitoreo Cápsulas", href: "/monitoreo"  },
             { icon: Activity, label: "Monitoreo Cinturón", href: "/monitoreo2" },
-            { icon: User, label: "Perfil", href: "/perfil" },
           ]
         }
-
         if (isAdminView) {
           return [
-            { icon: Users, label: "Jugadores", href: "/jugadores" },
+            { icon: Users,     label: "Jugadores",    href: "/jugadores"    },
             { icon: UserCheck, label: "Entrenadores", href: "/entrenadores" },
-            { icon: Shield, label: "Técnicos", href: "/tecnicos" },
-            { icon: User, label: "Perfil", href: "/perfil" },
+            { icon: Shield,    label: "Técnicos",     href: "/tecnicos"     },
           ]
         }
-
         return [
-          { icon: Users, label: "Jugadores", href: "/jugadores" },
+          { icon: Users,     label: "Jugadores",    href: "/jugadores"    },
           { icon: UserCheck, label: "Entrenadores", href: "/entrenadores" },
-          { icon: Shield, label: "Técnicos", href: "/tecnicos" },
-          { icon: Activity, label: "Monitoreo", href: "/monitoreo" },
-          { icon: User, label: "Perfil", href: "/perfil" },
+          { icon: Shield,    label: "Técnicos",     href: "/tecnicos"     },
+          { icon: Activity,  label: "Monitoreo",    href: "/monitoreo"    },
         ]
 
       default:
@@ -183,58 +160,34 @@ export default function Navbar() {
     }
   }
 
-  /* -------- NAVBAR SIN LOGIN -------- */
-
+  /* ── NAVBAR SIN LOGIN ────────────────────────────────────────────────────── */
   if (!isAuthenticated) {
-
     const isLoginPage = pathname === "/login"
-
     return (
       <header className="sticky top-0 z-50 px-6 py-6 bg-white shadow-md border-b border-gray-200">
-
         <nav className="flex items-center justify-between max-w-7xl mx-auto">
-
           <div className="flex items-center space-x-3">
-
-            <Image
-              src="/logo.png"
-              alt="logo"
-              width={56}
-              height={56}
-            />
-
-            <span className="text-[#800020] font-bold text-2xl">
-              Tech Volley UNV
-            </span>
-
+            <Image src="/logo.png" alt="logo" width={56} height={56} />
+            <span className="text-[#800020] font-bold text-2xl">Tech Volley UNV</span>
           </div>
-
           <Link
             href={isLoginPage ? "/" : "/login"}
             className="bg-[#800020] text-white px-5 py-2 rounded-lg font-medium hover:opacity-90"
           >
             {isLoginPage ? "Inicio" : "Iniciar Sesión"}
           </Link>
-
         </nav>
-
       </header>
     )
   }
 
   if (pathname === "/login") {
-
     return (
       <header className="sticky top-0 z-50 flex h-20 items-center gap-2 border-b bg-white px-6 shadow-lg">
-
-        <Link
-          href="/"
-          className="flex items-center gap-2 text-[#800020]"
-        >
+        <Link href="/" className="flex items-center gap-2 text-[#800020]">
           <ArrowLeft className="h-6 w-6" />
           Volver
         </Link>
-
       </header>
     )
   }
@@ -246,18 +199,8 @@ export default function Navbar() {
       <header className="sticky top-0 z-50 flex h-24 items-center gap-4 border-b bg-white px-6 shadow-lg">
 
         <div className="flex items-center space-x-3">
-
-          <Image
-            src="/logo.png"
-            alt="logo"
-            width={48}
-            height={48}
-          />
-
-          <h1 className="text-[#800020] font-bold text-xl">
-            Tech Volley UNV
-          </h1>
-
+          <Image src="/logo.png" alt="logo" width={48} height={48} />
+          <h1 className="text-[#800020] font-bold text-xl">Tech Volley UNV</h1>
         </div>
 
         <Link
@@ -269,71 +212,46 @@ export default function Navbar() {
         </Link>
 
         {!isRoleHome && (
-
           <nav className="hidden lg:flex flex-1 items-center justify-center gap-2">
-
             {menuItems
               .filter((item) => item.href !== pathname)
               .map((item) => {
-
                 const Icon = item.icon
-
                 return (
                   <Link
                     key={item.href}
                     href={item.href}
                     className="flex items-center gap-2 px-4 py-2 rounded-lg text-gray-700 hover:bg-[#800020] hover:text-white"
                   >
-
                     <Icon className="w-5 h-5" />
-
                     {item.label}
-
                   </Link>
                 )
               })}
-
           </nav>
-
         )}
 
+        {/* Avatar → enlace al perfil (reemplaza el ítem del menú) */}
         <div className="flex items-center gap-3 ml-auto">
-
-          <Link
-            href="/perfil"
-            className="flex items-center gap-2"
-          >
-
+          <Link href="/perfil" className="flex items-center gap-2">
             <div className="w-10 h-10 bg-[#800020] rounded-full flex items-center justify-center overflow-hidden">
               {userPhoto && !loadingPhoto ? (
-                <img
-                  src={userPhoto}
-                  alt={nombre}
-                  className="w-full h-full object-cover"
-                />
+                <img src={userPhoto} alt={nombre} className="w-full h-full object-cover" />
               ) : (
                 getRoleIconComponent()
               )}
             </div>
-
-            <span className="text-[#800020] font-medium">
-              {nombre}
-            </span>
-
+            <span className="text-[#800020] font-medium">{nombre}</span>
           </Link>
 
           <button
             onClick={handleLogoutClick}
             className="flex items-center gap-2 text-[#800020]"
           >
-
             <LogOut className="w-4 h-4" />
             Cerrar Sesión
-
           </button>
-
         </div>
-
       </header>
 
       <LogoutDialog
@@ -343,7 +261,6 @@ export default function Navbar() {
       />
 
       {isLoggingOut && <LogoutLoading />}
-
     </>
   )
 }
