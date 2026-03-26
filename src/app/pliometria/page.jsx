@@ -1,22 +1,18 @@
 "use client"
-
 import { useState, useEffect, useRef } from "react"
 import { ChevronDown, User, CheckCircle, X } from "lucide-react"
 import { ImageSequence } from "../../components/image-sequence"
 import { getPositionIcon, getPositionName } from "../../lib/position-icons"
-
 const BACKEND_URL = "https://jenn-back-reac.onrender.com"
 const DEVICE_ID = "ESP-6"
 const PUSHER_KEY = "4f85ef5c792df94cebc9"
 const PUSHER_CLUSTER = "us2"
 const ALCANCE_DURACION_SEG = 15
-const CALIBRATION_TIMEOUT_MS = 10000 // 6 segundos timeout
-
+const CALIBRATION_TIMEOUT_MS = 15000 // 15 segundos reales, pantalla muestra 10
 const SALTO_SIMPLE_IMAGES = [
   "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/conos-removebg-preview__2_-removebg-preview-ZdpOb2qgOJERfCssbovE9QRaOX5m1U.png",
 ]
 const SALTO_CONOS_IMAGES = SALTO_SIMPLE_IMAGES
-
 const CMD = {
   CALIBRAR:       "CALIBRAR",
   CANCELAR:       "CANCELAR",
@@ -26,12 +22,10 @@ const CMD = {
   VERTICAL_TIMED: (s) => `VERTICAL:${s}`,
   CONO_TIMED:     (s) => `CONO:${s}`,
 }
-
 function addMessage(device, message, status, setMessages) {
   const timestamp = new Date().toLocaleTimeString()
   setMessages((prev) => [...prev, { device, message, status, timestamp }])
 }
-
 async function sendCommand(command, setMessages) {
   try {
     const res = await fetch(`${BACKEND_URL}/api/pusher/send-command`, {
@@ -46,7 +40,6 @@ async function sendCommand(command, setMessages) {
     addMessage("SISTEMA", "Error al enviar comando", "error", setMessages)
   }
 }
-
 async function cargarCuentas(setCuentas, setJugadoresDisponibles) {
   try {
     const res = await fetch(`${BACKEND_URL}/api/cuentas`)
@@ -57,7 +50,6 @@ async function cargarCuentas(setCuentas, setJugadoresDisponibles) {
     }
   } catch (e) { console.error(e) }
 }
-
 function loadPusher(subscribeToESP) {
   if (typeof window === "undefined") return
   if (!window.Pusher) {
@@ -70,7 +62,6 @@ function loadPusher(subscribeToESP) {
     initializePusher(subscribeToESP)
   }
 }
-
 function initializePusher(subscribeToESP) {
   window.Pusher.logToConsole = false
   const pusher = new window.Pusher(PUSHER_KEY, {
@@ -81,7 +72,6 @@ function initializePusher(subscribeToESP) {
   })
   subscribeToESP(pusher)
 }
-
 function calcularIndiceFatiga(primerSalto, ultimoSalto) {
   if (!primerSalto || !ultimoSalto) return null
   const fInicial = parseFloat(primerSalto.pico_izq) + parseFloat(primerSalto.pico_der)
@@ -89,7 +79,6 @@ function calcularIndiceFatiga(primerSalto, ultimoSalto) {
   if (fInicial <= 0) return null
   return ((fInicial - fFinal) / fInicial * 100).toFixed(1)
 }
-
 // ── TOAST ──────────────────────────────────────────────────────────────────
 function Toast({ notification, onClose }) {
   if (!notification) return null
@@ -108,7 +97,6 @@ function Toast({ notification, onClose }) {
     </div>
   )
 }
-
 // ── MODAL RESULTADO ────────────────────────────────────────────────────────
 function ResultModal({ isOpen, onClose, title, data }) {
   if (!isOpen) return null
@@ -142,19 +130,17 @@ function ResultModal({ isOpen, onClose, title, data }) {
     </div>
   )
 }
-
 // ── MODAL CALIBRACIÓN ──────────────────────────────────────────────────────
 function CalibrationModal({ isOpen, calibrationStatus, onClose, onCancel }) {
-  const [countdown, setCountdown] = useState(5)
+  const [countdown, setCountdown] = useState(10)
   const [errorCountdown, setErrorCountdown] = useState(6)
   const countdownRef = useRef(null)
   const errorCountdownRef = useRef(null)
-
-  // Contador regresivo 5→0 durante calibración
+  // Contador regresivo 10→0 durante calibración (pantalla muestra 10, tiempo real es 15s)
   useEffect(() => {
     if (countdownRef.current) { clearInterval(countdownRef.current); countdownRef.current = null }
-    if (!isOpen || calibrationStatus !== "calibrating") { setCountdown(5); return }
-    setCountdown(5)
+    if (!isOpen || calibrationStatus !== "calibrating") { setCountdown(10); return }
+    setCountdown(10)
     countdownRef.current = setInterval(() => {
       setCountdown((prev) => {
         if (prev <= 1) { clearInterval(countdownRef.current); countdownRef.current = null; return 0 }
@@ -163,7 +149,6 @@ function CalibrationModal({ isOpen, calibrationStatus, onClose, onCancel }) {
     }, 1000)
     return () => { if (countdownRef.current) clearInterval(countdownRef.current) }
   }, [isOpen, calibrationStatus])
-
   // Cierre automático 6→0 en error
   useEffect(() => {
     if (errorCountdownRef.current) { clearInterval(errorCountdownRef.current); errorCountdownRef.current = null }
@@ -182,20 +167,16 @@ function CalibrationModal({ isOpen, calibrationStatus, onClose, onCancel }) {
     }, 1000)
     return () => { if (errorCountdownRef.current) clearInterval(errorCountdownRef.current) }
   }, [isOpen, calibrationStatus])
-
   if (!isOpen) return null
-
   const isCalibrationFailed  = calibrationStatus === "failed"
   const isCalibrationSuccess = calibrationStatus === "success"
   const isCalibrating        = !isCalibrationSuccess && !isCalibrationFailed
-
   return (
     <div className="fixed inset-0 bg-black/40 backdrop-blur-md flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-2xl shadow-lg max-w-sm w-full p-8 text-center relative" style={{ boxShadow: "0 12px 32px rgba(0,0,0,.08)" }}>
         <button onClick={onClose} className="absolute top-4 right-4 w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors">
           <X className="h-4 w-4 text-gray-500" />
         </button>
-
         {isCalibrating && (
           <>
             <div className="w-48 h-48 mx-auto mb-5">
@@ -219,7 +200,6 @@ function CalibrationModal({ isOpen, calibrationStatus, onClose, onCancel }) {
             </button>
           </>
         )}
-
         {isCalibrationSuccess && (
           <>
             <div className="w-48 h-48 mx-auto mb-5">
@@ -229,7 +209,6 @@ function CalibrationModal({ isOpen, calibrationStatus, onClose, onCancel }) {
             <p className="text-sm text-gray-600">MPU6050 y celdas HX711 listas</p>
           </>
         )}
-
         {isCalibrationFailed && (
           <>
             <div className="w-48 h-48 mx-auto mb-5">
@@ -259,7 +238,6 @@ function CalibrationModal({ isOpen, calibrationStatus, onClose, onCancel }) {
     </div>
   )
 }
-
 // ── FATIGA ─────────────────────────────────────────────────────────────────
 function FatigaCard({ primerSalto, ultimoSalto, totalSaltos }) {
   const IF = calcularIndiceFatiga(primerSalto, ultimoSalto)
@@ -269,7 +247,6 @@ function FatigaCard({ primerSalto, ultimoSalto, totalSaltos }) {
   const fInicialDer = primerSalto ? parseFloat(primerSalto.pico_der).toFixed(2) : "—"
   const fFinalIzq   = ultimoSalto ? parseFloat(ultimoSalto.pico_izq).toFixed(2)  : "—"
   const fFinalDer   = ultimoSalto ? parseFloat(ultimoSalto.pico_der).toFixed(2)  : "—"
-
   const nivel = IF === null ? "slate" : parseFloat(IF) < 0 ? "blue" : parseFloat(IF) < 10 ? "emerald" : parseFloat(IF) < 20 ? "amber" : "red"
   const palettes = {
     slate:   { grad: "from-gray-50 to-white",   accent: "#78716c", bar: "#a89968", label: "Sin datos suficientes",                      badgeBg: "#f5f5f5", badgeText: "#5a5a5a" },
@@ -280,7 +257,6 @@ function FatigaCard({ primerSalto, ultimoSalto, totalSaltos }) {
   }
   const p = palettes[nivel]
   const barPct = IF === null ? 0 : parseFloat(IF) < 0 ? Math.min(Math.abs(parseFloat(IF)) * 3, 30) : Math.min(parseFloat(IF) * 3, 100)
-
   return (
     <div className={`rounded-2xl bg-gradient-to-br ${p.grad} p-6 space-y-5`}
       style={{ border: `1px solid ${p.accent}20`, boxShadow: `0 2px 12px ${p.accent}08` }}>
@@ -328,7 +304,6 @@ function FatigaCard({ primerSalto, ultimoSalto, totalSaltos }) {
     </div>
   )
 }
-
 // ═════════════════════════════════════════════════════════════════════════════
 //  COMPONENTE PRINCIPAL
 // ═════════════════════════════════════════════════════════════════════════════
@@ -340,22 +315,19 @@ export default function SistemaUnificadoPage() {
   const [messages, setMessages]                         = useState([])
   const [notification, setNotification]                 = useState(null)
   const [activeTab, setActiveTab]                       = useState("alcance")
-
   const [faseAlcance, setFaseAlcance]                   = useState("idle")
   const [incrementoAnterior, setIncrementoAnterior]     = useState("")
   const [ultimoAlcance, setUltimoAlcance]               = useState(null)
   const [alcanceGuardado, setAlcanceGuardado]           = useState(null)
   const [modalAlcanceOpen, setModalAlcanceOpen]         = useState(false)
   const [alcanceSegundos, setAlcanceSegundos]           = useState(0)
-
   const [calibrationModalOpen, setCalibrationModalOpen] = useState(false)
   const [isCalibrated, setIsCalibrated]                 = useState(false)
   const [calibrationStatus, setCalibrationStatus]       = useState("calibrating")
-  const [calibracionOrigen, setCalibracionOrigen]       = useState(null) // "alcance" o "pruebas"
+  const [calibracionOrigen, setCalibracionOrigen]       = useState(null)
   const calibrationTimerRef = useRef(null)
   const calibrandoRef       = useRef(false)
   const alcanceTimerRef     = useRef(null)
-
   const [tiempoPliometria, setTiempoPliometria]         = useState("60")
   const [tipoSalto, setTipoSalto]                       = useState("salto simple")
   const [pliometriaId, setPliometriaId]                 = useState(null)
@@ -369,27 +341,21 @@ export default function SistemaUnificadoPage() {
   const [saltoFlash, setSaltoFlash]                     = useState(false)
   const [ultimaAlturaCono, setUltimaAlturaCono]         = useState(null)
   const [resultadoFinal, setResultadoFinal]             = useState(null)
-
   const [primerSaltoSesion, setPrimerSaltoSesion]       = useState(null)
   const [ultimoSaltoSesion, setUltimoSaltoSesion]       = useState(null)
   const [totalSaltosSesion, setTotalSaltosSesion]       = useState(0)
-
   const saltoConosContadorRef = useRef(0)
   const progresoTimerRef      = useRef(null)
   const jugadorRef            = useRef(null)
   const tipoSaltoRef          = useRef(tipoSalto)
   const ultimoAlcanceRef      = useRef(null)
-
   const jugadorSeleccionado = cuentas.find((c) => c.id === Number(cuentaSeleccionada))
-
   useEffect(() => { jugadorRef.current   = jugadorSeleccionado }, [jugadorSeleccionado])
   useEffect(() => { tipoSaltoRef.current = tipoSalto },          [tipoSalto])
-
   useEffect(() => {
     cargarCuentas(setCuentas, setJugadoresDisponibles)
     loadPusher(subscribeToESP)
   }, [])
-
   useEffect(() => {
     if (!cuentaSeleccionada) { setUltimoAlcance(null); ultimoAlcanceRef.current = null; return }
     fetch(`${BACKEND_URL}/api/alcances/ultimo/${cuentaSeleccionada}`)
@@ -397,63 +363,46 @@ export default function SistemaUnificadoPage() {
       .then((d) => { setUltimoAlcance(d.data ?? null); ultimoAlcanceRef.current = d.data ?? null })
       .catch(console.error)
   }, [cuentaSeleccionada])
-
   const notify = (type, message) => {
     setNotification({ type, message })
     setTimeout(() => setNotification(null), 3500)
   }
-
   const getAlcanceEstaticoCm = () => {
     const j = jugadorRef.current
     if (!j) return 0
     return parseFloat(j?.jugador?.alcance_estatico ?? j?.alcance_estatico ?? 0) * 100
   }
-
   const resetFatiga = () => { setPrimerSaltoSesion(null); setUltimoSaltoSesion(null); setTotalSaltosSesion(0) }
-
-  // ── Función centralizada para marcar fallo de calibración ─────────────────
   const triggerCalibrationFailed = () => {
     if (calibrationTimerRef.current) { clearTimeout(calibrationTimerRef.current); calibrationTimerRef.current = null }
     calibrandoRef.current = false
     setCalibrationStatus("failed")
-    
-    // Resetear según origen
     if (calibracionOrigen === "alcance") {
       setIsCalibrated(false)
       setFaseAlcance("idle")
     } else if (calibracionOrigen === "pruebas") {
       setPliometriaCalibrada(false)
     }
-    
     setCalibrationModalOpen(true)
     notify("error", "Error de calibración — intenta nuevamente")
   }
-
-  // ── Función para resetear calibración exitosa ────────────────────────────
   const onCalibrationSuccess = () => {
     if (calibrationTimerRef.current) { clearTimeout(calibrationTimerRef.current); calibrationTimerRef.current = null }
     calibrandoRef.current = false
     setCalibrationStatus("success")
-    
-    // Actualizar según origen
     if (calibracionOrigen === "alcance") {
       setIsCalibrated(true)
       setFaseAlcance("calibrated")
     } else if (calibracionOrigen === "pruebas") {
       setPliometriaCalibrada(true)
     }
-    
     setCalibrationModalOpen(true)
-    
-    // Cerrar modal automáticamente después de 2 segundos
     setTimeout(() => {
       setCalibrationModalOpen(false)
       setCalibrationStatus("calibrating")
     }, 2000)
-    
     notify("success", "¡Calibrado! — listo para iniciar")
   }
-
   const subscribeToESP = (pusher) => {
     const channel = pusher.subscribe(`private-device-${DEVICE_ID}`)
     channel.bind("pusher:subscription_succeeded", () => { setEspConnected(true); addMessage(DEVICE_ID, "Conectado", "success", setMessages); notify("success", "ESP-6 conectado") })
@@ -464,52 +413,31 @@ export default function SistemaUnificadoPage() {
       try { const p = JSON.parse(rawMsg); if (p?.message) rawMsg = p.message } catch (_) {}
       const msg = String(rawMsg).trim()
       addMessage(DEVICE_ID, msg, "success", setMessages)
-
-      // Manejar respuesta de calibración exitosa
-      if (msg.includes("CALIBRADO_OK")) {
-        onCalibrationSuccess()
-        return
-      }
-      
-      // Manejar cancelación o error de calibración
+      if (msg.includes("CALIBRADO_OK")) { onCalibrationSuccess(); return }
       if (msg.includes("CALIBRACION_CANCELADA") || msg.includes("ERROR_CALIBRACION")) {
         if (calibrationTimerRef.current) { clearTimeout(calibrationTimerRef.current); calibrationTimerRef.current = null }
         calibrandoRef.current = false
-        
         if (msg.includes("ERROR_CALIBRACION")) {
           triggerCalibrationFailed()
         } else {
-          // Cancelación manual
-          if (calibracionOrigen === "alcance") {
-            setFaseAlcance("idle")
-            setIsCalibrated(false)
-          } else if (calibracionOrigen === "pruebas") {
-            setPliometriaCalibrada(false)
-          }
+          if (calibracionOrigen === "alcance") { setFaseAlcance("idle"); setIsCalibrated(false) }
+          else if (calibracionOrigen === "pruebas") { setPliometriaCalibrada(false) }
           setCalibrationModalOpen(false)
           setCalibrationStatus("calibrating")
           notify("error", "Calibración cancelada")
         }
         return
       }
-      
       if (msg.includes("SESION_INICIADA")) {
-        setFaseAlcance("jumping")
-        setEjercicioEnCurso(true)
-        setSaltoRTActual(null)
-        setResultadoFinal(null)
-        saltoConosContadorRef.current = 0
-        resetFatiga()
-        return
+        setFaseAlcance("jumping"); setEjercicioEnCurso(true); setSaltoRTActual(null)
+        setResultadoFinal(null); saltoConosContadorRef.current = 0; resetFatiga(); return
       }
-      
       if (msg.includes("SESION_FINALIZADA")) {
         setEjercicioEnCurso(false)
         if (progresoTimerRef.current) { clearInterval(progresoTimerRef.current); progresoTimerRef.current = null }
         if (alcanceTimerRef.current)  { clearInterval(alcanceTimerRef.current);  alcanceTimerRef.current  = null }
         return
       }
-      
       if (msg.startsWith("SALTO_JSON:")) {
         try {
           const json = JSON.parse(msg.slice("SALTO_JSON:".length))
@@ -530,7 +458,6 @@ export default function SistemaUnificadoPage() {
         } catch (e) { addMessage(DEVICE_ID, `Error SALTO_JSON: ${e.message}`, "error", setMessages) }
         return
       }
-      
       if (msg.startsWith("RESULTADO_JSON:")) {
         try {
           const json = JSON.parse(msg.slice("RESULTADO_JSON:".length))
@@ -542,12 +469,9 @@ export default function SistemaUnificadoPage() {
           const numSaltos = json.saltos       ?? json.saltos_validos               ?? saltoConosContadorRef.current
           const resultado = {
             _tipo: json.modo ?? (currentTipo === "salto conos" ? "cono" : "vertical"),
-            saltos_validos: numSaltos,
-            alt_max_cm: Number(json.alt_max_cm).toFixed(1),
-            pico_izq_kg: Number(picoIzq).toFixed(2),
-            pico_der_kg: Number(picoDer).toFixed(2),
-            alcanceEstaticoCm: parseFloat(alcanceEstaticoCm.toFixed(1)),
-            alcanceTotal,
+            saltos_validos: numSaltos, alt_max_cm: Number(json.alt_max_cm).toFixed(1),
+            pico_izq_kg: Number(picoIzq).toFixed(2), pico_der_kg: Number(picoDer).toFixed(2),
+            alcanceEstaticoCm: parseFloat(alcanceEstaticoCm.toFixed(1)), alcanceTotal,
           }
           if (resultado._tipo !== "cono") {
             const previo = ultimoAlcanceRef.current
@@ -555,8 +479,7 @@ export default function SistemaUnificadoPage() {
               ? `${(alcanceTotal - parseFloat(previo.alcance)) >= 0 ? "+" : ""}${(alcanceTotal - parseFloat(previo.alcance)).toFixed(1)} cm`
               : "Sin registro previo")
           }
-          setResultadoFinal(resultado)
-          setEjercicioEnCurso(false)
+          setResultadoFinal(resultado); setEjercicioEnCurso(false)
           if (progresoTimerRef.current) { clearInterval(progresoTimerRef.current); progresoTimerRef.current = null }
           if (alcanceTimerRef.current)  { clearInterval(alcanceTimerRef.current);  alcanceTimerRef.current  = null }
           setFaseAlcance("done")
@@ -567,73 +490,36 @@ export default function SistemaUnificadoPage() {
     })
     channel.bind("client-status", (data) => { if (data?.status === "connected") setEspConnected(true) })
   }
-
-  // ── FUNCIÓN DE CALIBRACIÓN MEJORADA ──────────────────────────────────────
   const handleCalibrar = async (origen = "alcance") => {
-    if (!jugadorSeleccionado) { 
-      notify("error", "Selecciona un jugador primero"); 
-      return 
-    }
+    if (!jugadorSeleccionado) { notify("error", "Selecciona un jugador primero"); return }
     if (calibrandoRef.current) return
-    
-    // Limpiar timers previos
-    if (calibrationTimerRef.current) { 
-      clearTimeout(calibrationTimerRef.current); 
-      calibrationTimerRef.current = null 
-    }
-    
+    if (calibrationTimerRef.current) { clearTimeout(calibrationTimerRef.current); calibrationTimerRef.current = null }
     calibrandoRef.current = true
     setCalibracionOrigen(origen)
-    
-    // Resetear estados según origen
     if (origen === "alcance") {
-      setFaseAlcance("calibrating")
-      setSaltoRTActual(null)
-      setResultadoFinal(null)
-      setIncrementoAnterior("")
-      setIsCalibrated(false)
+      setFaseAlcance("calibrating"); setSaltoRTActual(null); setResultadoFinal(null)
+      setIncrementoAnterior(""); setIsCalibrated(false)
     } else if (origen === "pruebas") {
-      setPliometriaCalibrada(false)
-      setEjercicioEnCurso(false)
-      setResultadoFinal(null)
-      setSaltoRTActual(null)
-      resetFatiga()
+      setPliometriaCalibrada(false); setEjercicioEnCurso(false)
+      setResultadoFinal(null); setSaltoRTActual(null); resetFatiga()
     }
-    
-    setCalibrationStatus("calibrating")
-    setCalibrationModalOpen(true)
-    resetFatiga()
-    
-    // Enviar comando CALIBRAR
+    setCalibrationStatus("calibrating"); setCalibrationModalOpen(true); resetFatiga()
     await sendCommand(CMD.CALIBRAR, setMessages)
-    
-    // Timeout de 6 segundos
     calibrationTimerRef.current = setTimeout(() => {
       calibrationTimerRef.current = null
-      if (calibrandoRef.current) {
-        triggerCalibrationFailed()
-      }
-    }, CALIBRATION_TIMEOUT_MS)
+      if (calibrandoRef.current) triggerCalibrationFailed()
+    }, CALIBRATION_TIMEOUT_MS) // 15 segundos reales
   }
-
   const handleCancelarCalibracion = async () => {
     if (calibrationTimerRef.current) { clearTimeout(calibrationTimerRef.current); calibrationTimerRef.current = null }
     calibrandoRef.current = false
     setCalibrationModalOpen(false)
-    
-    // Resetear según origen
-    if (calibracionOrigen === "alcance") {
-      setIsCalibrated(false)
-      setFaseAlcance("idle")
-    } else if (calibracionOrigen === "pruebas") {
-      setPliometriaCalibrada(false)
-    }
-    
+    if (calibracionOrigen === "alcance") { setIsCalibrated(false); setFaseAlcance("idle") }
+    else if (calibracionOrigen === "pruebas") { setPliometriaCalibrada(false) }
     setCalibrationStatus("calibrating")
     await sendCommand(CMD.CANCELAR, setMessages)
     notify("error", "Cancelación enviada al ESP")
   }
-
   const handleIniciarSalto = async () => {
     if (faseAlcance !== "calibrated") { notify("error", "Calibra primero el sensor"); return }
     setSaltoRTActual(null); setResultadoFinal(null); setIncrementoAnterior(""); setAlcanceSegundos(0)
@@ -648,20 +534,17 @@ export default function SistemaUnificadoPage() {
       })
     }, 1000)
   }
-
   const handleFinalizarSalto = async () => {
     if (faseAlcance !== "jumping") return
     if (alcanceTimerRef.current) { clearInterval(alcanceTimerRef.current); alcanceTimerRef.current = null }
     await sendCommand(CMD.STOP, setMessages)
   }
-
   const handleGuardarAlcance = async () => {
     if (!resultadoFinal || !cuentaSeleccionada) return
     if (resultadoFinal._tipo === "cono") { notify("error", "El salto con conos no guarda alcance"); return }
     try {
       const res = await fetch(`${BACKEND_URL}/api/alcances`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+        method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ cuentaId: Number(cuentaSeleccionada), alcance: resultadoFinal.alcanceTotal }),
       })
       const d = await res.json()
@@ -678,7 +561,6 @@ export default function SistemaUnificadoPage() {
       }
     } catch (e) { console.error(e); notify("error", "Error al guardar") }
   }
-
   const cerrarModalAlcance = () => {
     setModalAlcanceOpen(false); setAlcanceGuardado(null); setFaseAlcance("idle")
     setSaltoRTActual(null); setResultadoFinal(null); setIncrementoAnterior(""); setAlcanceSegundos(0); resetFatiga()
@@ -687,7 +569,6 @@ export default function SistemaUnificadoPage() {
         .then((d) => { setUltimoAlcance(d.data ?? null); ultimoAlcanceRef.current = d.data ?? null }).catch(console.error)
     }
   }
-
   const iniciarPliometria = async () => {
     if (!cuentaSeleccionada)  { notify("error", "Selecciona un jugador primero"); return }
     if (!pliometriaCalibrada) { notify("error", "Calibra primero el sensor"); return }
@@ -714,13 +595,11 @@ export default function SistemaUnificadoPage() {
     }, 1000)
     setPliometriaIniciada(true); notify("success", `Prueba de ${duracion}s iniciada`)
   }
-
   const detenerPliometria = async () => {
     if (!pliometriaIniciada) { notify("error", "No hay prueba activa"); return }
     if (progresoTimerRef.current) { clearInterval(progresoTimerRef.current); progresoTimerRef.current = null }
     await sendCommand(CMD.STOP, setMessages)
   }
-
   const finalizarPliometria = async () => {
     if (!pliometriaId || !resultadoFinal) { notify("error", "No hay datos para guardar"); return }
     const IF = calcularIndiceFatiga(primerSaltoSesion, ultimoSaltoSesion)
@@ -746,7 +625,6 @@ export default function SistemaUnificadoPage() {
       }
     } catch (e) { console.error(e) }
   }
-
   const cerrarModalPliometria = () => {
     setModalPliometriaOpen(false); setPliometriaId(null); setPliometriaCalibrada(false)
     setPliometriaIniciada(false); setPliometriaGuardada(null); setEjercicioEnCurso(false)
@@ -755,15 +633,12 @@ export default function SistemaUnificadoPage() {
     setSaltoRTActual(null); setResultadoFinal(null); setIncrementoAnterior("")
     setFaseAlcance("idle"); saltoConosContadorRef.current = 0; resetFatiga()
   }
-
   const saltoImages = tipoSalto === "salto conos" ? SALTO_CONOS_IMAGES : SALTO_SIMPLE_IMAGES
-
   const stepState = (step) => {
     if (step === 1) return faseAlcance === "calibrating" ? "active" : ["calibrated","jumping","done"].includes(faseAlcance) ? "done" : "idle"
     if (step === 2) return faseAlcance === "jumping" ? "active" : faseAlcance === "done" ? "done" : "idle"
     return faseAlcance === "done" ? "done" : faseAlcance === "jumping" ? "active" : "idle"
   }
-
   const card = { background: "rgba(255,255,255,.82)", backdropFilter: "blur(16px)", border: "1px solid rgba(148,163,184,.2)", boxShadow: "0 4px 24px rgba(148,163,184,.1)", borderRadius: 24 }
   const pillBtn = (active, disabled) => ({
     borderRadius: 50,
@@ -774,7 +649,6 @@ export default function SistemaUnificadoPage() {
     transition: "all .18s cubic-bezier(.4,0,.2,1)",
     boxShadow: active && !disabled ? "0 4px 16px rgba(30,41,59,.22)" : "none",
   })
-
   return (
     <div className="min-h-screen" style={{ background: "linear-gradient(160deg,#f8fafc 0%,#f0f4f8 60%,#e8eef5 100%)", fontFamily: "'DM Sans', sans-serif" }}>
       <style>{`
@@ -786,7 +660,6 @@ export default function SistemaUnificadoPage() {
         .step-card { transition: border-color .3s ease, box-shadow .3s ease; }
         select { -webkit-appearance: none; }
       `}</style>
-
       <Toast notification={notification} onClose={() => setNotification(null)} />
       <ResultModal isOpen={modalAlcanceOpen}    onClose={cerrarModalAlcance}    title="Alcance Guardado"    data={alcanceGuardado    || {}} />
       <ResultModal isOpen={modalPliometriaOpen} onClose={cerrarModalPliometria} title="Pliometría Guardada" data={pliometriaGuardada  || {}} />
@@ -796,13 +669,8 @@ export default function SistemaUnificadoPage() {
         onClose={handleCancelarCalibracion}
         onCancel={handleCancelarCalibracion}
       />
-
       <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8 space-y-5">
-
-        {/* ══ FILA SUPERIOR ═══════════════════════════════════════════════ */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-
-          {/* Card jugador */}
           <div style={card} className="p-5 flex items-center gap-4">
             <div className="flex flex-col gap-1.5 shrink-0">
               <span className="text-[9px] uppercase tracking-widest font-bold text-slate-400">Jugador</span>
@@ -824,9 +692,7 @@ export default function SistemaUnificadoPage() {
                 <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
               </div>
             </div>
-
             <div className="w-px self-stretch bg-slate-100 shrink-0" />
-
             <div className="flex items-center gap-3 min-w-0">
               <div className="w-12 h-12 shrink-0 overflow-hidden"
                 style={{ borderRadius: 16, background: "#f1f5f9", border: "1.5px solid #e2e8f0" }}>
@@ -852,8 +718,6 @@ export default function SistemaUnificadoPage() {
               </div>
             </div>
           </div>
-
-          {/* Panel control */}
           <div style={card} className="p-5">
             {activeTab === "alcance" && (
               <>
@@ -900,7 +764,6 @@ export default function SistemaUnificadoPage() {
                 )}
               </>
             )}
-
             {activeTab === "pruebas" && (
               <>
                 <span className="text-[9px] uppercase tracking-widest font-bold text-slate-400 block mb-3">Configuración</span>
@@ -945,8 +808,6 @@ export default function SistemaUnificadoPage() {
             )}
           </div>
         </div>
-
-        {/* ══ TABS ════════════════════════════════════════════════════════ */}
         <div className="flex justify-center">
           <div className="flex p-1 gap-1"
             style={{ background: "rgba(255,255,255,.9)", border: "1px solid rgba(148,163,184,.2)", borderRadius: 50, boxShadow: "0 2px 12px rgba(148,163,184,.1)" }}>
@@ -964,8 +825,6 @@ export default function SistemaUnificadoPage() {
             ))}
           </div>
         </div>
-
-        {/* ══ TAB ALCANCE ═════════════════════════════════════════════════ */}
         {activeTab === "alcance" && (
           <div className="space-y-6">
             <div className="space-y-3">
@@ -1021,7 +880,6 @@ export default function SistemaUnificadoPage() {
                 })}
               </div>
             </div>
-
             <div className="flex justify-center">
               <div className="w-full max-w-md p-6" style={card}>
                 <p className="text-[10px] uppercase tracking-widest font-bold text-slate-400 text-center mb-5">Resultados</p>
@@ -1064,14 +922,11 @@ export default function SistemaUnificadoPage() {
                 </div>
               </div>
             </div>
-
             {primerSaltoSesion && (
               <FatigaCard primerSalto={primerSaltoSesion} ultimoSalto={ultimoSaltoSesion} totalSaltos={totalSaltosSesion} />
             )}
           </div>
         )}
-
-        {/* ══ TAB PRUEBAS ═════════════════════════════════════════════════ */}
         {activeTab === "pruebas" && (
           <div className="space-y-6">
             <div className="space-y-3">
@@ -1089,7 +944,6 @@ export default function SistemaUnificadoPage() {
                 ))}
               </div>
             </div>
-
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <p className="text-[9px] uppercase tracking-widest font-bold text-slate-400">Tiempo transcurrido</p>
@@ -1103,7 +957,6 @@ export default function SistemaUnificadoPage() {
                   }} />
               </div>
             </div>
-
             <div className="flex justify-center">
               <div className="w-full max-w-md p-6" style={card}>
                 <p className="text-[10px] uppercase tracking-widest font-bold text-slate-400 text-center mb-5">Resultados</p>
@@ -1139,7 +992,6 @@ export default function SistemaUnificadoPage() {
                 </div>
               </div>
             </div>
-
             {primerSaltoSesion && (
               <div className="flex justify-center">
                 <div className="w-full max-w-md">
@@ -1149,7 +1001,6 @@ export default function SistemaUnificadoPage() {
             )}
           </div>
         )}
-
       </div>
     </div>
   )
