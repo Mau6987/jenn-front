@@ -1096,9 +1096,8 @@ export default function SistemaUnificadoPage() {
                     {!ejercicioEnCurso ? (
                       <button
                         onClick={iniciarPliometria}
-                        disabled={!pliometriaCalibrada || !tiempoPliometria}
                         className="pill-btn py-2 px-4 text-sm font-semibold"
-                        style={pillBtn(pliometriaCalibrada && !!tiempoPliometria, !pliometriaCalibrada || !tiempoPliometria)}
+                        style={pillBtn(true, false)}
                       >
                         Iniciar
                       </button>
