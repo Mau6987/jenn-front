@@ -136,7 +136,6 @@ function CalibrationModal({ isOpen, calibrationStatus, onClose, onCancel }) {
   const [errorCountdown, setErrorCountdown] = useState(6)
   const countdownRef = useRef(null)
   const errorCountdownRef = useRef(null)
-  // Contador regresivo 10→0 durante calibración (pantalla muestra 10, tiempo real es 15s)
   useEffect(() => {
     if (countdownRef.current) { clearInterval(countdownRef.current); countdownRef.current = null }
     if (!isOpen || calibrationStatus !== "calibrating") { setCountdown(10); return }
@@ -149,7 +148,6 @@ function CalibrationModal({ isOpen, calibrationStatus, onClose, onCancel }) {
     }, 1000)
     return () => { if (countdownRef.current) clearInterval(countdownRef.current) }
   }, [isOpen, calibrationStatus])
-  // Cierre automático 6→0 en error
   useEffect(() => {
     if (errorCountdownRef.current) { clearInterval(errorCountdownRef.current); errorCountdownRef.current = null }
     if (!isOpen || calibrationStatus !== "failed") { setErrorCountdown(6); return }
@@ -508,7 +506,7 @@ export default function SistemaUnificadoPage() {
     calibrationTimerRef.current = setTimeout(() => {
       calibrationTimerRef.current = null
       if (calibrandoRef.current) triggerCalibrationFailed()
-    }, CALIBRATION_TIMEOUT_MS) // 15 segundos reales
+    }, CALIBRATION_TIMEOUT_MS)
   }
   const handleCancelarCalibracion = async () => {
     if (calibrationTimerRef.current) { clearTimeout(calibrationTimerRef.current); calibrationTimerRef.current = null }
@@ -520,6 +518,13 @@ export default function SistemaUnificadoPage() {
     await sendCommand(CMD.CANCELAR, setMessages)
     notify("error", "Cancelación enviada al ESP")
   }
+
+  // ── FIX: cierra el modal sin resetear el estado de calibración exitosa ──
+  const handleCerrarModalCalibracion = () => {
+    setCalibrationModalOpen(false)
+    setCalibrationStatus("calibrating")
+  }
+
   const handleIniciarSalto = async () => {
     if (faseAlcance !== "calibrated") { notify("error", "Calibra primero el sensor"); return }
     setSaltoRTActual(null); setResultadoFinal(null); setIncrementoAnterior(""); setAlcanceSegundos(0)
@@ -663,12 +668,15 @@ export default function SistemaUnificadoPage() {
       <Toast notification={notification} onClose={() => setNotification(null)} />
       <ResultModal isOpen={modalAlcanceOpen}    onClose={cerrarModalAlcance}    title="Alcance Guardado"    data={alcanceGuardado    || {}} />
       <ResultModal isOpen={modalPliometriaOpen} onClose={cerrarModalPliometria} title="Pliometría Guardada" data={pliometriaGuardada  || {}} />
+
+      {/* FIX: onClose usa handleCerrarModalCalibracion (solo cierra), onCancel usa handleCancelarCalibracion (resetea + envía comando) */}
       <CalibrationModal
         isOpen={calibrationModalOpen}
         calibrationStatus={calibrationStatus}
-        onClose={handleCancelarCalibracion}
+        onClose={handleCerrarModalCalibracion}
         onCancel={handleCancelarCalibracion}
       />
+
       <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8 space-y-5">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <div style={card} className="p-5 flex items-center gap-4">
