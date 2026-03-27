@@ -327,6 +327,7 @@ export default function SistemaUnificadoPage() {
   // ── FIX: ref para el auto-cierre del modal tras éxito ──────────────────
   const calibrationAutoCloseRef = useRef(null)
   const calibrandoRef          = useRef(false)
+  const [shouldKeepCalibrated, setShouldKeepCalibrated] = useState(false)
   const alcanceTimerRef        = useRef(null)
   const [tiempoPliometria, setTiempoPliometria]         = useState("60")
   const [tipoSalto, setTipoSalto]                       = useState("salto simple")
@@ -396,17 +397,20 @@ export default function SistemaUnificadoPage() {
     if (calibracionOrigen === "alcance") {
       setIsCalibrated(true)
       setFaseAlcance("calibrated")
+      setShouldKeepCalibrated("alcance")
     } else if (calibracionOrigen === "pruebas") {
       setPliometriaCalibrada(true)
+      setShouldKeepCalibrated("pruebas")
     }
     setCalibrationModalOpen(true)
     // Guardar el timeout en ref para poder cancelarlo si el usuario cierra el modal manualmente
     if (calibrationAutoCloseRef.current) clearTimeout(calibrationAutoCloseRef.current)
     calibrationAutoCloseRef.current = setTimeout(() => {
       calibrationAutoCloseRef.current = null
+      setShouldKeepCalibrated(false)
       setCalibrationModalOpen(false)
       setCalibrationStatus("calibrating")
-      // NO se toca faseAlcance ni pliometriaCalibrada aquí
+      // NO se toca faseAlcance ni pliometriaCalibrada aquí — mantienen sus valores
     }, 2000)
     notify("success", "¡Calibrado! — listo para iniciar")
   }
@@ -525,6 +529,7 @@ export default function SistemaUnificadoPage() {
     // Cancelar auto-cierre si existe
     if (calibrationAutoCloseRef.current) { clearTimeout(calibrationAutoCloseRef.current); calibrationAutoCloseRef.current = null }
     calibrandoRef.current = false
+    setShouldKeepCalibrated(false)
     setCalibrationModalOpen(false)
     if (calibracionOrigen === "alcance") { setIsCalibrated(false); setFaseAlcance("idle") }
     else if (calibracionOrigen === "pruebas") { setPliometriaCalibrada(false) }
@@ -543,6 +548,7 @@ export default function SistemaUnificadoPage() {
     }
     setCalibrationModalOpen(false)
     setCalibrationStatus("calibrating")
+    setShouldKeepCalibrated(false)
     // faseAlcance y pliometriaCalibrada quedan intactos → "Iniciar" se habilita
   }
 
@@ -652,12 +658,14 @@ export default function SistemaUnificadoPage() {
     } catch (e) { console.error(e) }
   }
   const cerrarModalPliometria = () => {
-    setModalPliometriaOpen(false); setPliometriaId(null); setPliometriaCalibrada(false)
+    setModalPliometriaOpen(false); setPliometriaId(null)
     setPliometriaIniciada(false); setPliometriaGuardada(null); setEjercicioEnCurso(false)
     setProgresoSegundos(0); setTiempoPliometria("60")
     if (progresoTimerRef.current) { clearInterval(progresoTimerRef.current); progresoTimerRef.current = null }
     setSaltoRTActual(null); setResultadoFinal(null); setIncrementoAnterior("")
     setFaseAlcance("idle"); saltoConosContadorRef.current = 0; resetFatiga()
+    // IMPORTANTE: NO resetamos pliometriaCalibrada aquí — la calibración debe permanecer válida
+    // para poder hacer múltiples pruebas sin recalibrar
   }
   const saltoImages = tipoSalto === "salto conos" ? SALTO_CONOS_IMAGES : SALTO_SIMPLE_IMAGES
   const stepState = (step) => {
@@ -704,7 +712,7 @@ export default function SistemaUnificadoPage() {
                 <select value={cuentaSeleccionada}
                   onChange={(e) => {
                     setCuentaSeleccionada(e.target.value)
-                    setFaseAlcance("idle"); setSaltoRTActual(null); setResultadoFinal(null); setIncrementoAnterior("")
+                    setFaseAlcance("idle"); setPliometriaCalibrada(false); setSaltoRTActual(null); setResultadoFinal(null); setIncrementoAnterior("")
                   }}
                   style={{ background: "#f8fafc", border: "1.5px solid #e2e8f0", borderRadius: 14, padding: "9px 36px 9px 14px", fontSize: 13, color: "#374151", width: 168, cursor: "pointer" }}
                   className="focus:outline-none focus:ring-2 focus:ring-slate-200">
