@@ -323,9 +323,11 @@ export default function SistemaUnificadoPage() {
   const [isCalibrated, setIsCalibrated]                 = useState(false)
   const [calibrationStatus, setCalibrationStatus]       = useState("calibrating")
   const [calibracionOrigen, setCalibracionOrigen]       = useState(null)
-  const calibrationTimerRef = useRef(null)
-  const calibrandoRef       = useRef(false)
-  const alcanceTimerRef     = useRef(null)
+  const calibrationTimerRef    = useRef(null)
+  // ── FIX: ref para el auto-cierre del modal tras éxito ──────────────────
+  const calibrationAutoCloseRef = useRef(null)
+  const calibrandoRef          = useRef(false)
+  const alcanceTimerRef        = useRef(null)
   const [tiempoPliometria, setTiempoPliometria]         = useState("60")
   const [tipoSalto, setTipoSalto]                       = useState("salto simple")
   const [pliometriaId, setPliometriaId]                 = useState(null)
@@ -373,6 +375,8 @@ export default function SistemaUnificadoPage() {
   const resetFatiga = () => { setPrimerSaltoSesion(null); setUltimoSaltoSesion(null); setTotalSaltosSesion(0) }
   const triggerCalibrationFailed = () => {
     if (calibrationTimerRef.current) { clearTimeout(calibrationTimerRef.current); calibrationTimerRef.current = null }
+    // Limpiar auto-cierre si existe
+    if (calibrationAutoCloseRef.current) { clearTimeout(calibrationAutoCloseRef.current); calibrationAutoCloseRef.current = null }
     calibrandoRef.current = false
     setCalibrationStatus("failed")
     if (calibracionOrigen === "alcance") {
@@ -384,6 +388,7 @@ export default function SistemaUnificadoPage() {
     setCalibrationModalOpen(true)
     notify("error", "Error de calibración — intenta nuevamente")
   }
+  // ── FIX PRINCIPAL: onCalibrationSuccess usa ref para el auto-cierre ────
   const onCalibrationSuccess = () => {
     if (calibrationTimerRef.current) { clearTimeout(calibrationTimerRef.current); calibrationTimerRef.current = null }
     calibrandoRef.current = false
@@ -395,9 +400,13 @@ export default function SistemaUnificadoPage() {
       setPliometriaCalibrada(true)
     }
     setCalibrationModalOpen(true)
-    setTimeout(() => {
+    // Guardar el timeout en ref para poder cancelarlo si el usuario cierra el modal manualmente
+    if (calibrationAutoCloseRef.current) clearTimeout(calibrationAutoCloseRef.current)
+    calibrationAutoCloseRef.current = setTimeout(() => {
+      calibrationAutoCloseRef.current = null
       setCalibrationModalOpen(false)
       setCalibrationStatus("calibrating")
+      // NO se toca faseAlcance ni pliometriaCalibrada aquí
     }, 2000)
     notify("success", "¡Calibrado! — listo para iniciar")
   }
@@ -414,6 +423,7 @@ export default function SistemaUnificadoPage() {
       if (msg.includes("CALIBRADO_OK")) { onCalibrationSuccess(); return }
       if (msg.includes("CALIBRACION_CANCELADA") || msg.includes("ERROR_CALIBRACION")) {
         if (calibrationTimerRef.current) { clearTimeout(calibrationTimerRef.current); calibrationTimerRef.current = null }
+        if (calibrationAutoCloseRef.current) { clearTimeout(calibrationAutoCloseRef.current); calibrationAutoCloseRef.current = null }
         calibrandoRef.current = false
         if (msg.includes("ERROR_CALIBRACION")) {
           triggerCalibrationFailed()
@@ -492,6 +502,8 @@ export default function SistemaUnificadoPage() {
     if (!jugadorSeleccionado) { notify("error", "Selecciona un jugador primero"); return }
     if (calibrandoRef.current) return
     if (calibrationTimerRef.current) { clearTimeout(calibrationTimerRef.current); calibrationTimerRef.current = null }
+    // Cancelar cualquier auto-cierre pendiente antes de iniciar nueva calibración
+    if (calibrationAutoCloseRef.current) { clearTimeout(calibrationAutoCloseRef.current); calibrationAutoCloseRef.current = null }
     calibrandoRef.current = true
     setCalibracionOrigen(origen)
     if (origen === "alcance") {
@@ -510,6 +522,8 @@ export default function SistemaUnificadoPage() {
   }
   const handleCancelarCalibracion = async () => {
     if (calibrationTimerRef.current) { clearTimeout(calibrationTimerRef.current); calibrationTimerRef.current = null }
+    // Cancelar auto-cierre si existe
+    if (calibrationAutoCloseRef.current) { clearTimeout(calibrationAutoCloseRef.current); calibrationAutoCloseRef.current = null }
     calibrandoRef.current = false
     setCalibrationModalOpen(false)
     if (calibracionOrigen === "alcance") { setIsCalibrated(false); setFaseAlcance("idle") }
@@ -519,10 +533,17 @@ export default function SistemaUnificadoPage() {
     notify("error", "Cancelación enviada al ESP")
   }
 
-  // ── FIX: cierra el modal sin resetear el estado de calibración exitosa ──
+  // ── FIX: cierra el modal sin resetear faseAlcance ni pliometriaCalibrada ──
+  // Si el usuario pulsa la X mientras el modal está en "success", cancela el
+  // auto-cierre y cierra inmediatamente, pero NO toca el estado de calibración.
   const handleCerrarModalCalibracion = () => {
+    if (calibrationAutoCloseRef.current) {
+      clearTimeout(calibrationAutoCloseRef.current)
+      calibrationAutoCloseRef.current = null
+    }
     setCalibrationModalOpen(false)
     setCalibrationStatus("calibrating")
+    // faseAlcance y pliometriaCalibrada quedan intactos → "Iniciar" se habilita
   }
 
   const handleIniciarSalto = async () => {
@@ -668,15 +689,12 @@ export default function SistemaUnificadoPage() {
       <Toast notification={notification} onClose={() => setNotification(null)} />
       <ResultModal isOpen={modalAlcanceOpen}    onClose={cerrarModalAlcance}    title="Alcance Guardado"    data={alcanceGuardado    || {}} />
       <ResultModal isOpen={modalPliometriaOpen} onClose={cerrarModalPliometria} title="Pliometría Guardada" data={pliometriaGuardada  || {}} />
-
-      {/* FIX: onClose usa handleCerrarModalCalibracion (solo cierra), onCancel usa handleCancelarCalibracion (resetea + envía comando) */}
       <CalibrationModal
         isOpen={calibrationModalOpen}
         calibrationStatus={calibrationStatus}
         onClose={handleCerrarModalCalibracion}
         onCancel={handleCancelarCalibracion}
       />
-
       <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8 space-y-5">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <div style={card} className="p-5 flex items-center gap-4">
