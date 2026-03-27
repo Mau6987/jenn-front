@@ -388,6 +388,11 @@ export default function SistemaUnificadoPage() {
     loadPusher(subscribeToESP)
   }, [])
 
+  // Monitorear cambios en faseAlcance para debug
+  useEffect(() => {
+    console.log("[v0] faseAlcance updated:", faseAlcance, "isCalibrated:", isCalibrated, "calibrationStatus:", calibrationStatus, "modalOpen:", calibrationModalOpen)
+  }, [faseAlcance, isCalibrated, calibrationStatus, calibrationModalOpen])
+
   useEffect(() => {
     if (!cuentaSeleccionada) { setUltimoAlcance(null); ultimoAlcanceRef.current = null; return }
     fetch(`${BACKEND_URL}/api/alcances/ultimo/${cuentaSeleccionada}`)
@@ -422,8 +427,10 @@ export default function SistemaUnificadoPage() {
     if (calibracionOrigen === "alcance") {
       setIsCalibrated(true)
       setFaseAlcance("calibrated")
+      console.log("[v0] ✓ Alcance calibrado exitosamente - faseAlcance set to 'calibrated'")
     } else if (calibracionOrigen === "pruebas") {
       setPliometriaCalibrada(true)
+      console.log("[v0] ✓ Pliometría calibrada exitosamente - setPliometriaCalibrada(true)")
     }
 
     setCalibrationModalOpen(true)
@@ -432,7 +439,8 @@ export default function SistemaUnificadoPage() {
     calibrationAutoCloseRef.current = setTimeout(() => {
       calibrationAutoCloseRef.current = null
       setCalibrationModalOpen(false)
-    }, 2000)
+      console.log("[v0] Modal de calibración cerrado automáticamente después de 5s")
+    }, 5000)
 
     notify("success", "¡Calibrado! — listo para iniciar")
   }
@@ -477,6 +485,7 @@ export default function SistemaUnificadoPage() {
 
       // ── Calibración OK ────────────────────────────────────────────────────
       if (msg.includes("CALIBRADO_OK")) {
+        console.log("[v0] CALIBRADO_OK recibido - llamando onCalibrationSuccess()")
         onCalibrationSuccess()
         return
       }
@@ -694,13 +703,18 @@ export default function SistemaUnificadoPage() {
       clearTimeout(calibrationAutoCloseRef.current)
       calibrationAutoCloseRef.current = null
     }
+    console.log("[v0] Modal calibración cerrado - faseAlcance actual:", faseAlcance, "pliometriaCalibrada:", pliometriaCalibrada)
     setCalibrationModalOpen(false)
     // NO reseteamos faseAlcance ni pliometriaCalibrada — la calibración sigue válida
   }
 
   // ── Iniciar salto de alcance ──────────────────────────────────────────────
   const handleIniciarSalto = async () => {
-    if (faseAlcance !== "calibrated") { notify("error", "Calibra primero el sensor"); return }
+    console.log("[v0] handleIniciarSalto called - faseAlcance:", faseAlcance, "isCalibrated:", isCalibrated)
+    if (faseAlcance !== "calibrated") { 
+      console.log("[v0] ERROR: faseAlcance es", faseAlcance, "pero debería ser 'calibrated'")
+      notify("error", "Calibra primero el sensor"); return 
+    }
     setSaltoRTActual(null)
     setResultadoFinal(null)
     setIncrementoAnterior("")
