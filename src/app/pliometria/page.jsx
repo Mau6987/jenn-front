@@ -785,7 +785,6 @@ export default function SistemaUnificadoPage() {
   // ── Iniciar pliometría ────────────────────────────────────────────────────
   const iniciarPliometria = async () => {
     if (!cuentaSeleccionada)  { notify("error", "Selecciona un jugador primero"); return }
-    if (!pliometriaCalibrada) { notify("error", "Calibra primero el sensor"); return }
     const duracion = Math.round(Number.parseFloat(tiempoPliometria))
     if (!tiempoPliometria || duracion <= 0) { notify("error", "Ingresa un tiempo válido"); return }
 
