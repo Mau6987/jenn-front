@@ -1180,37 +1180,30 @@ export default function SistemaUnificadoPage() {
               <div className="w-full max-w-md p-6" style={card}>
                 <p className="text-[10px] uppercase tracking-widest font-bold text-slate-400 text-center mb-5">Resultados</p>
                 <div className="space-y-3">
-                  {[
-                    {
-                      label: "Altura de alcance registrada",
-                      value: resultadoFinal?.alcanceTotal
-                        ? `${resultadoFinal.alcanceTotal} cm`
-                        : saltoRTActual?.alcanceTotal
-                        ? `${saltoRTActual.alcanceTotal} cm`
-                        : "",
-                      live: faseAlcance === "jumping" && !!saltoRTActual,
-                    },
-                    { label: "Incremento respecto al anterior", value: incrementoAnterior, special: true },
-                  ].map(({ label, value, live, special }) => {
-                    const isPos = special && value.startsWith("+")
-                    const isNeg = special && value.startsWith("-")
+                  {(() => {
+                    const value = resultadoFinal?.alcanceTotal
+                      ? `${resultadoFinal.alcanceTotal} cm`
+                      : saltoRTActual?.alcanceTotal
+                      ? `${saltoRTActual.alcanceTotal} cm`
+                      : ""
+                    const live = faseAlcance === "jumping" && !!saltoRTActual
                     return (
-                      <div key={label} className="flex items-center justify-between gap-3">
-                        <span className="text-[10px] uppercase tracking-wide font-semibold text-slate-500 shrink-0">{label}</span>
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="text-[10px] uppercase tracking-wide font-semibold text-slate-500 shrink-0">Altura de alcance registrada</span>
                         <div className="relative shrink-0">
                           <input readOnly value={value} placeholder="—"
                             className={`w-36 text-xs text-center font-bold focus:outline-none ${live ? "field-live" : ""}`}
                             style={{
                               padding: "8px 14px", borderRadius: 12,
-                              background: live || isPos ? "#ecfdf5" : isNeg ? "#fff1f2" : "#f8fafc",
-                              border: `1.5px solid ${live || isPos ? "#6ee7b7" : isNeg ? "#fca5a5" : "#e2e8f0"}`,
-                              color: live || isPos ? "#059669" : isNeg ? "#dc2626" : "#475569",
+                              background: live ? "#ecfdf5" : "#f8fafc",
+                              border: `1.5px solid ${live ? "#6ee7b7" : "#e2e8f0"}`,
+                              color: live ? "#059669" : "#475569",
                             }} />
                           {live && <span className="absolute right-2.5 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />}
                         </div>
                       </div>
                     )
-                  })}
+                  })()}
                 </div>
                 <div className="flex justify-center mt-6">
                   <button
