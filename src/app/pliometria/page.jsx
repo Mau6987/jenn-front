@@ -1,7 +1,6 @@
 "use client"
 import { useState, useEffect, useRef } from "react"
 import { ChevronDown, User, CheckCircle, X } from "lucide-react"
-import { ImageSequence } from "../../components/image-sequence"
 import { getPositionIcon, getPositionName } from "../../lib/position-icons"
 
 const BACKEND_URL = "https://jenn-back-reac.onrender.com"
@@ -11,12 +10,14 @@ const PUSHER_CLUSTER = "us2"
 const ALCANCE_DURACION_SEG = 15
 const CALIBRATION_TIMEOUT_MS = 15000
 
-const SALTO_SIMPLE_IMAGES = [
-  "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/conos-removebg-preview__2_-removebg-preview-ZdpOb2qgOJERfCssbovE9QRaOX5m1U.png",
-]
-const SALTO_CONOS_IMAGES = SALTO_SIMPLE_IMAGES
+// ── IMÁGENES POR SECCIÓN ──────────────────────────────────────────────────
+const ALCANCE_CALIBRACION_IMG    = "/calibraAlcance2.png"
+const ALCANCE_INICIO_IMAGES      = ["/alcance1ima.png", "/alcance3.png", "/alcance2.png"]
 
-// ── COMANDOS — coinciden exactamente con processCommand() del ESP32 ──────────
+const SALTO_SIMPLE_IMAGES = ["/saltosimple1.jpeg", "/saltosimple2.jpeg", "/saltosimple3.jpeg"]
+const SALTO_CONOS_IMAGES  = ["/cono1ima.jpeg", "/cono2ima.jpeg", "/cono3ima.jpeg"]
+
+// ── COMANDOS ──────────────────────────────────────────────────────────────
 const CMD = {
   CALIBRAR:       "CALIBRAR",
   CANCELAR:       "CANCELAR",
@@ -88,6 +89,32 @@ function calcularIndiceFatiga(primerSalto, ultimoSalto) {
   const fFinal   = parseFloat(ultimoSalto.pico_izq)  + parseFloat(ultimoSalto.pico_der)
   if (fInicial <= 0) return null
   return ((fInicial - fFinal) / fInicial * 100).toFixed(1)
+}
+
+// ── CARRUSEL ───────────────────────────────────────────────────────────────
+function Carrusel({ images, alt }) {
+  const [idx, setIdx] = useState(0)
+  useEffect(() => {
+    if (images.length <= 1) return
+    const t = setInterval(() => setIdx((i) => (i + 1) % images.length), 2500)
+    return () => clearInterval(t)
+  }, [images])
+  return (
+    <div
+      className="relative w-full h-full flex items-center justify-center overflow-hidden"
+      style={{ background: "linear-gradient(160deg,#f8fafc,#fff)" }}
+    >
+      {images.map((src, i) => (
+        <img
+          key={src}
+          src={src}
+          alt={`${alt} ${i + 1}`}
+          className="absolute inset-0 w-full h-full object-contain transition-opacity duration-700"
+          style={{ opacity: i === idx ? 1 : 0 }}
+        />
+      ))}
+    </div>
+  )
 }
 
 // ── TOAST ──────────────────────────────────────────────────────────────────
@@ -333,7 +360,6 @@ export default function SistemaUnificadoPage() {
   const [notification, setNotification]                 = useState(null)
   const [activeTab, setActiveTab]                       = useState("alcance")
 
-  // ── Estado de alcance ──────────────────────────────────────────────────────
   const [faseAlcance, setFaseAlcance]                   = useState("idle")
   const [incrementoAnterior, setIncrementoAnterior]     = useState("")
   const [ultimoAlcance, setUltimoAlcance]               = useState(null)
@@ -341,7 +367,6 @@ export default function SistemaUnificadoPage() {
   const [modalAlcanceOpen, setModalAlcanceOpen]         = useState(false)
   const [alcanceSegundos, setAlcanceSegundos]           = useState(0)
 
-  // ── Calibración ────────────────────────────────────────────────────────────
   const [calibrationModalOpen, setCalibrationModalOpen] = useState(false)
   const [isCalibrated, setIsCalibrated]                 = useState(false)
   const [calibrationStatus, setCalibrationStatus]       = useState("calibrating")
@@ -352,7 +377,6 @@ export default function SistemaUnificadoPage() {
 
   const alcanceTimerRef = useRef(null)
 
-  // ── Estado de pruebas (pliometría) ─────────────────────────────────────────
   const [tiempoPliometria, setTiempoPliometria]         = useState("60")
   const [tipoSalto, setTipoSalto]                       = useState("salto simple")
   const [pliometriaId, setPliometriaId]                 = useState(null)
@@ -367,7 +391,6 @@ export default function SistemaUnificadoPage() {
   const [ultimaAlturaCono, setUltimaAlturaCono]         = useState(null)
   const [resultadoFinal, setResultadoFinal]             = useState(null)
 
-  // ── Fatiga ─────────────────────────────────────────────────────────────────
   const [primerSaltoSesion, setPrimerSaltoSesion]       = useState(null)
   const [ultimoSaltoSesion, setUltimoSaltoSesion]       = useState(null)
   const [totalSaltosSesion, setTotalSaltosSesion]       = useState(0)
@@ -387,8 +410,6 @@ export default function SistemaUnificadoPage() {
     cargarCuentas(setCuentas, setJugadoresDisponibles)
     loadPusher(subscribeToESP)
   }, [])
-
-
 
   useEffect(() => {
     if (!cuentaSeleccionada) { setUltimoAlcance(null); ultimoAlcanceRef.current = null; return }
@@ -415,7 +436,6 @@ export default function SistemaUnificadoPage() {
     setTotalSaltosSesion(0)
   }
 
-  // ── Calibración: éxito ─────────────��──────────────────────────────────────
   const onCalibrationSuccess = () => {
     if (calibrationTimerRef.current) { clearTimeout(calibrationTimerRef.current); calibrationTimerRef.current = null }
     calibrandoRef.current = false
@@ -439,7 +459,6 @@ export default function SistemaUnificadoPage() {
     notify("success", "¡Calibrado! — listo para iniciar")
   }
 
-  // ── Calibración: fallo ────────────────────────────────────────────────────
   const triggerCalibrationFailed = () => {
     if (calibrationTimerRef.current) { clearTimeout(calibrationTimerRef.current); calibrationTimerRef.current = null }
     if (calibrationAutoCloseRef.current) { clearTimeout(calibrationAutoCloseRef.current); calibrationAutoCloseRef.current = null }
@@ -457,7 +476,6 @@ export default function SistemaUnificadoPage() {
     notify("error", "Error de calibración — intenta nuevamente")
   }
 
-  // ── Pusher ─────────────────────────────────────────────────────────────────
   const subscribeToESP = (pusher) => {
     const channel = pusher.subscribe(`private-device-${DEVICE_ID}`)
 
@@ -477,13 +495,11 @@ export default function SistemaUnificadoPage() {
       const msg = String(rawMsg).trim()
       addMessage(DEVICE_ID, msg, "success", setMessages)
 
-      // ── Calibración OK ────────────────────────────────────────────────────
       if (msg.includes("CALIBRADO_OK")) {
         onCalibrationSuccess()
         return
       }
 
-      // ── Calibración cancelada / error ─────────────────────────────────────
       if (msg.includes("CALIBRACION_CANCELADA") || msg.includes("ERROR_CALIBRACION")) {
         if (calibrationTimerRef.current) { clearTimeout(calibrationTimerRef.current); calibrationTimerRef.current = null }
         if (calibrationAutoCloseRef.current) { clearTimeout(calibrationAutoCloseRef.current); calibrationAutoCloseRef.current = null }
@@ -501,23 +517,18 @@ export default function SistemaUnificadoPage() {
         return
       }
 
-      // ── Sesión iniciada ───────────────────────────────────────────────────
       if (msg.includes("SESION_INICIADA")) {
-        // Tanto alcance como pruebas arrancan aquí
         setEjercicioEnCurso(true)
         setSaltoRTActual(null)
         setResultadoFinal(null)
         saltoConosContadorRef.current = 0
         resetFatiga()
-        // Solo para alcance: marcar fase "jumping"
-        // Para pruebas: ejercicioEnCurso=true activa el botón Detener
         if (calibracionOrigen === "alcance" || faseAlcance === "jumping") {
           setFaseAlcance("jumping")
         }
         return
       }
 
-      // ── Sesión finalizada ─────────────────────────────────────────────────
       if (msg.includes("SESION_FINALIZADA")) {
         setEjercicioEnCurso(false)
         if (progresoTimerRef.current) { clearInterval(progresoTimerRef.current); progresoTimerRef.current = null }
@@ -525,8 +536,6 @@ export default function SistemaUnificadoPage() {
         return
       }
 
-      // ── SALTO_JSON — ESP32 envía pico_izq_kgf / pico_der_kgf ─────────────
-      // FIX: leer las claves correctas que genera el firmware
       if (msg.startsWith("SALTO_JSON:")) {
         try {
           const json = JSON.parse(msg.slice("SALTO_JSON:".length))
@@ -534,7 +543,6 @@ export default function SistemaUnificadoPage() {
           const alcanceEstaticoCm = getAlcanceEstaticoCm()
           const alcanceTotal = parseFloat((alcanceEstaticoCm + json.altura_cm).toFixed(1))
 
-          // FIX: el ESP32 usa pico_izq_kgf / pico_der_kgf en SALTO_JSON
           const picoIzq = parseFloat(json.pico_izq_kgf ?? json.pico_izq ?? 0)
           const picoDer = parseFloat(json.pico_der_kgf ?? json.pico_der ?? 0)
 
@@ -570,8 +578,6 @@ export default function SistemaUnificadoPage() {
         return
       }
 
-      // ── RESULTADO_JSON — ESP32 envía fuerza_max_izq_kgf / fuerza_max_der_kgf ─
-      // FIX: mapear todas las variantes posibles del firmware
       if (msg.startsWith("RESULTADO_JSON:")) {
         try {
           const json = JSON.parse(msg.slice("RESULTADO_JSON:".length))
@@ -580,13 +586,11 @@ export default function SistemaUnificadoPage() {
           const altMax = Number(json.alt_max_cm ?? 0)
           const alcanceTotal = parseFloat((alcanceEstaticoCm + altMax).toFixed(1))
 
-          // FIX: el ESP32 usa fuerza_max_izq_kgf / fuerza_max_der_kgf
-          // Fallbacks para versiones anteriores del firmware
           const picoIzq = parseFloat(
-            json.fuerza_max_izq_kgf ??   // firmware actual
-            json.fuerza_izq          ??   // alias antiguo
-            json.pico_izq_kg         ??   // alias antiguo
-            json.pico_izq            ??   // alias antiguo
+            json.fuerza_max_izq_kgf ??
+            json.fuerza_izq          ??
+            json.pico_izq_kg         ??
+            json.pico_izq            ??
             0
           )
           const picoDer = parseFloat(
@@ -597,7 +601,6 @@ export default function SistemaUnificadoPage() {
             0
           )
 
-          // El campo de saltos del ESP32 es "saltos", no "saltos_validos"
           const numSaltos = json.saltos ?? json.saltos_validos ?? saltoConosContadorRef.current
 
           const resultado = {
@@ -639,7 +642,6 @@ export default function SistemaUnificadoPage() {
     })
   }
 
-  // ── Iniciar calibración ───────────────────────────────────────────────────
   const handleCalibrar = async (origen = "alcance") => {
     if (!jugadorSeleccionado) { notify("error", "Selecciona un jugador primero"); return }
     if (calibrandoRef.current) return
@@ -675,7 +677,6 @@ export default function SistemaUnificadoPage() {
     }, CALIBRATION_TIMEOUT_MS)
   }
 
-  // ── Cancelar calibración ──────────────────────────────────────────────────
   const handleCancelarCalibracion = async () => {
     if (calibrationTimerRef.current) { clearTimeout(calibrationTimerRef.current); calibrationTimerRef.current = null }
     if (calibrationAutoCloseRef.current) { clearTimeout(calibrationAutoCloseRef.current); calibrationAutoCloseRef.current = null }
@@ -690,17 +691,14 @@ export default function SistemaUnificadoPage() {
     notify("error", "Cancelación enviada al ESP")
   }
 
-  // ── Cerrar modal calibración (X) — no toca el estado de calibración ───────
   const handleCerrarModalCalibracion = () => {
     if (calibrationAutoCloseRef.current) {
       clearTimeout(calibrationAutoCloseRef.current)
       calibrationAutoCloseRef.current = null
     }
     setCalibrationModalOpen(false)
-    // NO reseteamos faseAlcance ni pliometriaCalibrada — la calibración sigue válida
   }
 
-  // ── Iniciar salto de alcance ──────────────────────────────────────────────
   const handleIniciarSalto = async () => {
     setSaltoRTActual(null)
     setResultadoFinal(null)
@@ -726,14 +724,12 @@ export default function SistemaUnificadoPage() {
     }, 1000)
   }
 
-  // ── Detener salto de alcance ──────────────────────────────────────────────
   const handleFinalizarSalto = async () => {
     if (faseAlcance !== "jumping") return
     if (alcanceTimerRef.current) { clearInterval(alcanceTimerRef.current); alcanceTimerRef.current = null }
     await sendCommand(CMD.STOP, setMessages)
   }
 
-  // ── Guardar resultado de alcance ──────────────────────────────────────────
   const handleGuardarAlcance = async () => {
     if (!resultadoFinal || !cuentaSeleccionada) return
     if (resultadoFinal._tipo === "cono") { notify("error", "El salto con conos no guarda alcance"); return }
@@ -782,7 +778,6 @@ export default function SistemaUnificadoPage() {
     }
   }
 
-  // ── Iniciar pliometría ────────────────────────────────────────────────────
   const iniciarPliometria = async () => {
     if (!cuentaSeleccionada)  { notify("error", "Selecciona un jugador primero"); return }
     const duracion = Math.round(Number.parseFloat(tiempoPliometria))
@@ -820,7 +815,6 @@ export default function SistemaUnificadoPage() {
         if (next >= duracion) {
           clearInterval(progresoTimerRef.current)
           progresoTimerRef.current = null
-          // No enviar STOP extra — el ESP lo hace por tiempo
         }
         return next
       })
@@ -829,14 +823,12 @@ export default function SistemaUnificadoPage() {
     notify("success", `Prueba de ${duracion}s iniciada`)
   }
 
-  // ── Detener pliometría ────────────────────────────────────────────────────
   const detenerPliometria = async () => {
     if (!pliometriaIniciada && !ejercicioEnCurso) { notify("error", "No hay prueba activa"); return }
     if (progresoTimerRef.current) { clearInterval(progresoTimerRef.current); progresoTimerRef.current = null }
     await sendCommand(CMD.STOP, setMessages)
   }
 
-  // ── Guardar pliometría ────────────────────────────────────────────────────
   const finalizarPliometria = async () => {
     if (!pliometriaId || !resultadoFinal) { notify("error", "No hay datos para guardar"); return }
     const IF = calcularIndiceFatiga(primerSaltoSesion, ultimoSaltoSesion)
@@ -885,11 +877,7 @@ export default function SistemaUnificadoPage() {
     setFaseAlcance("idle")
     saltoConosContadorRef.current = 0
     resetFatiga()
-    // IMPORTANTE: NO se resetea pliometriaCalibrada aquí
   }
-
-  // ── Helpers de UI ─────────────────────────────────────────────────────────
-  const saltoImages = tipoSalto === "salto conos" ? SALTO_CONOS_IMAGES : SALTO_SIMPLE_IMAGES
 
   const stepState = (step) => {
     if (step === 1) return faseAlcance === "calibrating" ? "active" : ["calibrated","jumping","done"].includes(faseAlcance) ? "done" : "idle"
@@ -908,6 +896,9 @@ export default function SistemaUnificadoPage() {
     transition: "all .18s cubic-bezier(.4,0,.2,1)",
     boxShadow: active && !disabled ? "0 4px 16px rgba(30,41,59,.22)" : "none",
   })
+
+  const getPruebasCarrusel = () =>
+    tipoSalto === "salto conos" ? SALTO_CONOS_IMAGES : SALTO_SIMPLE_IMAGES
 
   return (
     <div className="min-h-screen" style={{ background: "linear-gradient(160deg,#f8fafc 0%,#f0f4f8 60%,#e8eef5 100%)", fontFamily: "'DM Sans', sans-serif" }}>
@@ -1141,58 +1132,46 @@ export default function SistemaUnificadoPage() {
         {/* ══════════════════ TAB ALCANCE ══════════════════ */}
         {activeTab === "alcance" && (
           <div className="space-y-6">
-            {/* Pasos */}
+            {/* Pasos — 2 cards pequeños */}
             <div className="space-y-3">
               <p className="text-center text-[10px] font-bold uppercase tracking-widest text-slate-400">Pasos a seguir para el jugador</p>
-              <div className="grid grid-cols-3 gap-4">
-                {[
-                  { step: 1, label: "Calibración" },
-                  { step: 2, label: "Inicio de prueba" },
-                  { step: 3, label: "Finalización de prueba" },
-                ].map(({ step, label }) => {
-                  const s = stepState(step)
+              <div className="flex justify-center gap-4">
+                {/* Card 1: Calibración — imagen fija */}
+                {(() => {
+                  const s = stepState(1)
                   const border = s === "done" ? "#10b981" : s === "active" ? "#818cf8" : "#e2e8f0"
                   const shadow = s === "done" ? "0 6px 24px rgba(16,185,129,.15)" : s === "active" ? "0 6px 24px rgba(99,102,241,.15)" : "0 2px 8px rgba(148,163,184,.07)"
                   const lc     = s === "done" ? "#059669" : s === "active" ? "#4f46e5" : "#94a3b8"
-                  const sc     = s === "done" ? "#10b981" : s === "active" ? "#6366f1" : "#cbd5e1"
                   return (
-                    <div key={step} className="flex flex-col gap-2.5">
-                      <p className="text-[9px] font-bold uppercase tracking-widest text-center" style={{ color: lc }}>{label}</p>
-                      <div className="step-card bg-white overflow-hidden" style={{ borderRadius: 20, border: `2px solid ${border}`, boxShadow: shadow }}>
-                        <div className="aspect-[3/4] flex items-center justify-center" style={{ background: "linear-gradient(160deg,#f8fafc,#fff)" }}>
-                          <svg viewBox="0 0 100 140" className="w-20 sm:w-24" fill="none" strokeLinecap="round" strokeLinejoin="round">
-                            {step === 1 && <>
-                              <circle cx="50" cy="24" r="11" stroke={sc} strokeWidth="2.2" />
-                              <line x1="50" y1="35" x2="50" y2="82" stroke={sc} strokeWidth="2.2" />
-                              <line x1="50" y1="52" x2="30" y2="68" stroke={sc} strokeWidth="2" />
-                              <line x1="50" y1="52" x2="70" y2="68" stroke={sc} strokeWidth="2" />
-                              <line x1="50" y1="82" x2="35" y2="110" stroke={sc} strokeWidth="2" />
-                              <line x1="50" y1="82" x2="65" y2="110" stroke={sc} strokeWidth="2" />
-                            </>}
-                            {step === 2 && <>
-                              <circle cx="50" cy="32" r="11" stroke={sc} strokeWidth="2.2" />
-                              <path d="M50 43 Q46 58 38 70" stroke={sc} strokeWidth="2" />
-                              <path d="M50 43 Q54 58 62 70" stroke={sc} strokeWidth="2" />
-                              <path d="M44 64 Q36 82 30 96" stroke={sc} strokeWidth="2" />
-                              <path d="M56 64 Q64 82 70 96" stroke={sc} strokeWidth="2" />
-                              <path d="M80 55 L80 30" stroke="#e2e8f0" strokeWidth="1.5" />
-                              <path d="M75 36 L80 30 L85 36" stroke="#e2e8f0" strokeWidth="1.5" />
-                            </>}
-                            {step === 3 && <>
-                              <circle cx="50" cy="24" r="11" stroke={sc} strokeWidth="2.2" />
-                              <path d="M50 35 Q46 52 40 64" stroke={sc} strokeWidth="2" />
-                              <path d="M50 35 Q54 52 60 64" stroke={sc} strokeWidth="2" />
-                              <path d="M40 64 Q34 82 28 98" stroke={sc} strokeWidth="2" />
-                              <path d="M60 64 Q66 82 72 98" stroke={sc} strokeWidth="2" />
-                              <line x1="20" y1="108" x2="80" y2="108" stroke={sc} strokeWidth="2.5" />
-                              {s === "done" && <path d="M36 120 l8 8 l18 -14" stroke="#10b981" strokeWidth="2.5" />}
-                            </>}
-                          </svg>
+                    <div className="flex flex-col gap-2" style={{ width: 280 }}>
+                      <p className="text-[9px] font-bold uppercase tracking-widest text-center" style={{ color: lc }}>Calibración</p>
+                      <div className="step-card bg-white overflow-hidden" style={{ borderRadius: 18, border: `2px solid ${border}`, boxShadow: shadow }}>
+                        <div className="overflow-hidden relative" style={{ height: 360 }}>
+                          <img src="/calibraAlcance2.png" alt="Calibración"
+                            className="w-full h-full object-contain"
+                            style={{ background: "linear-gradient(160deg,#f8fafc,#fff)" }} />
                         </div>
                       </div>
                     </div>
                   )
-                })}
+                })()}
+                {/* Card 2: Prueba — carrusel */}
+                {(() => {
+                  const s = stepState(2)
+                  const border = s === "done" ? "#10b981" : s === "active" ? "#818cf8" : "#e2e8f0"
+                  const shadow = s === "done" ? "0 6px 24px rgba(16,185,129,.15)" : s === "active" ? "0 6px 24px rgba(99,102,241,.15)" : "0 2px 8px rgba(148,163,184,.07)"
+                  const lc     = s === "done" ? "#059669" : s === "active" ? "#4f46e5" : "#94a3b8"
+                  return (
+                    <div className="flex flex-col gap-2" style={{ width: 280 }}>
+                      <p className="text-[9px] font-bold uppercase tracking-widest text-center" style={{ color: lc }}>Prueba</p>
+                      <div className="step-card bg-white overflow-hidden" style={{ borderRadius: 18, border: `2px solid ${border}`, boxShadow: shadow }}>
+                        <div className="overflow-hidden relative" style={{ height: 360 }}>
+                          <Carrusel images={ALCANCE_INICIO_IMAGES} alt="Prueba de alcance" />
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })()}
               </div>
             </div>
 
@@ -1258,20 +1237,32 @@ export default function SistemaUnificadoPage() {
         {/* ══════════════════ TAB PRUEBAS ══════════════════ */}
         {activeTab === "pruebas" && (
           <div className="space-y-6">
-            {/* Pasos */}
+            {/* Pasos — 2 cards pequeños */}
             <div className="space-y-3">
               <p className="text-center text-[10px] font-bold uppercase tracking-widest text-slate-400">Pasos a seguir para el jugador</p>
-              <div className="grid grid-cols-3 gap-4">
-                {["Calibración", "Inicio de prueba", "Finalización"].map((label, idx) => (
-                  <div key={idx} className="flex flex-col gap-2.5">
-                    <p className="text-[9px] font-bold uppercase tracking-widest text-center text-slate-400">{label}</p>
-                    <div className="step-card bg-white overflow-hidden" style={{ borderRadius: 20, border: "2px solid #e2e8f0", boxShadow: "0 2px 8px rgba(148,163,184,.07)" }}>
-                      <div className="aspect-[3/4] flex items-center justify-center overflow-hidden" style={{ background: "linear-gradient(160deg,#f8fafc,#fff)" }}>
-                        <ImageSequence images={saltoImages} alt={label} delay={3000} className="w-full h-full object-contain" />
-                      </div>
+              <div className="flex justify-center gap-4">
+                {/* Card 1: Calibración — imagen fija */}
+                <div className="flex flex-col gap-2" style={{ width: 280 }}>
+                  <p className="text-[9px] font-bold uppercase tracking-widest text-center text-slate-400">Calibración</p>
+                  <div className="step-card bg-white overflow-hidden" style={{ borderRadius: 18, border: "2px solid #e2e8f0", boxShadow: "0 2px 8px rgba(148,163,184,.07)" }}>
+                    <div className="overflow-hidden relative" style={{ height: 360 }}>
+                      <img src="/calibraAlcance2.png" alt="Calibración"
+                        className="w-full h-full object-contain"
+                        style={{ background: "linear-gradient(160deg,#f8fafc,#fff)" }} />
                     </div>
                   </div>
-                ))}
+                </div>
+                {/* Card 2: Prueba — carrusel según tipo */}
+                <div className="flex flex-col gap-2" style={{ width: 280 }}>
+                  <p className="text-[9px] font-bold uppercase tracking-widest text-center text-slate-400">
+                    {tipoSalto === "salto conos" ? "Salto con Conos" : "Salto Simple"}
+                  </p>
+                  <div className="step-card bg-white overflow-hidden" style={{ borderRadius: 18, border: "2px solid #e2e8f0", boxShadow: "0 2px 8px rgba(148,163,184,.07)" }}>
+                    <div className="overflow-hidden relative" style={{ height: 360 }}>
+                      <Carrusel images={getPruebasCarrusel()} alt="Prueba" />
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
 
