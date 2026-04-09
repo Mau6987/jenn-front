@@ -53,7 +53,6 @@ const css = `
     border-top: none; border-radius: 0 0 14px 14px; padding: 2rem;
   }
 
-  /* ── Sensores ── */
   .sensors-grid {
     display: grid; grid-template-columns: 1fr 1px 1fr 1px 1fr; gap: 0;
   }
@@ -80,7 +79,6 @@ const css = `
   }
   .fgap { margin-top: 1.1rem; }
 
-  /* Pills */
   .pill {
     display: inline-flex; align-items: center; gap: 0.28rem;
     padding: 0.18rem 0.65rem; border-radius: 999px;
@@ -96,7 +94,6 @@ const css = `
   @keyframes pdot { 0%,100%{opacity:1} 50%{opacity:.2} }
   @keyframes pulseDot { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.45;transform:scale(.65)} }
 
-  /* Reading monitor */
   .reading-monitor {
     width: 100%; min-height: 100px; max-height: 150px;
     background: #fafafa; border: 1px solid #d8d5ea; border-radius: 8px;
@@ -129,7 +126,6 @@ const css = `
   .btn-stop:hover:not(:disabled) { border-color: #ef4444; color: #b91c1c; }
   .btn-start:disabled, .btn-stop:disabled { opacity: 0.3; cursor: not-allowed; }
 
-  /* ── Conexion tab ── */
   .conexion-grid {
     display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;
   }
@@ -166,18 +162,6 @@ const css = `
   .btn-probe:hover:not(:disabled) { border-color: #4338ca; color: #1a174d; }
   .btn-probe:disabled { opacity: 0.4; cursor: not-allowed; }
 
-  .btn-test-all {
-    width: 100%; margin-top: 1rem;
-    display: inline-flex; align-items: center; justify-content: center; gap: 0.4rem;
-    padding: 0.5rem 1rem; border-radius: 7px;
-    font-family: 'DM Sans', sans-serif; font-size: 0.65rem; font-weight: 600;
-    letter-spacing: 0.06em; text-transform: uppercase;
-    background: transparent; color: #555; border: 1px solid #d0cde8; cursor: pointer;
-    transition: border-color 0.15s, color 0.15s;
-  }
-  .btn-test-all:hover { border-color: #4338ca; color: #1a174d; }
-
-  /* ── Server status boxes ── */
   .server-box { border: 1px solid #d8d5ea; border-radius: 12px; overflow: hidden; }
   .server-box-head {
     background: #f5f4fc; border-bottom: 1px solid #d8d5ea;
@@ -213,7 +197,6 @@ const css = `
   .test-log-box.ok { color: #047857; }
   .test-log-box.fail { color: #dc2626; }
 
-  /* ── Log monitor ── */
   .log-section { margin-top: 2rem; }
   .log-header {
     display: flex; align-items: center; justify-content: space-between;
@@ -257,7 +240,6 @@ const css = `
   .log-empty       { color: #c4c2d4; font-size: 0.65rem; font-style: italic; }
 `
 
-/* ── SVG Icons ── */
 const IconServer = () => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" style={{width:14,height:14,color:"#6366f1"}}>
     <rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/>
@@ -274,11 +256,6 @@ const IconDatabase = () => (
 const IconZap = () => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" style={{width:14,height:14,color:"#6366f1"}}>
     <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
-  </svg>
-)
-const IconWifi = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" style={{width:13,height:13}}>
-    <path d="M5 12.55a11 11 0 0114.08 0M1.42 9a16 16 0 0121.16 0M8.53 16.11a6 6 0 016.95 0M12 20h.01" strokeLinecap="round"/>
   </svg>
 )
 
@@ -348,7 +325,7 @@ function StatusDot({ color, pulse }) {
   )
 }
 
-function ConexionTab({ espStates, pusherConnected, onTestESP, onTestAll, serverStatus, onTestServer, onTestDB, dbStatus }) {
+function ConexionTab({ espStates, pusherConnected, onTestESP, serverStatus, onTestServer, onTestDB, dbStatus }) {
   const statusColor = (s) =>
     s === "online"  ? "#10b981" :
     s === "testing" ? "#eab308" :
@@ -394,9 +371,6 @@ function ConexionTab({ espStates, pusherConnected, onTestESP, onTestAll, serverS
             </div>
           </div>
         ))}
-        <button className="btn-test-all" onClick={onTestAll}>
-          <IconWifi /> Probar Conexión de Todos
-        </button>
       </div>
 
       {/* Server + DB status */}
@@ -405,7 +379,6 @@ function ConexionTab({ espStates, pusherConnected, onTestESP, onTestAll, serverS
         <div className="server-box">
           <div className="server-box-head">Diagnóstico del sistema</div>
 
-          {/* API Backend */}
           <div className="server-section">
             <div className="server-section-row">
               <div className="server-icon-label">
@@ -429,7 +402,6 @@ function ConexionTab({ espStates, pusherConnected, onTestESP, onTestAll, serverS
             )}
           </div>
 
-          {/* Base de Datos — ahora con botón propio */}
           <div className="server-section">
             <div className="server-section-row">
               <div className="server-icon-label"><IconDatabase /> Base de Datos</div>
@@ -452,7 +424,6 @@ function ConexionTab({ espStates, pusherConnected, onTestESP, onTestAll, serverS
             <div className="server-section-sub">PostgreSQL · SSL habilitado</div>
           </div>
 
-          {/* Pusher */}
           <div className="server-section">
             <div className="server-section-row">
               <div className="server-icon-label"><IconZap /> Pusher WebSocket</div>
@@ -465,7 +436,6 @@ function ConexionTab({ espStates, pusherConnected, onTestESP, onTestAll, serverS
           </div>
         </div>
 
-        {/* Logs de último test — API y DB por separado */}
         <div style={{ display:"flex", flexDirection:"column", gap:"0.5rem", marginTop:"0.8rem" }}>
           <div className={`test-log-box ${serverStatus.lastTest?.startsWith("✓") ? "ok" : serverStatus.lastTest?.startsWith("✗") ? "fail" : ""}`}>
             <span style={{fontSize:"0.58rem", fontWeight:700, letterSpacing:"0.1em", textTransform:"uppercase", opacity:0.6}}>API · </span>
@@ -481,9 +451,6 @@ function ConexionTab({ espStates, pusherConnected, onTestESP, onTestAll, serverS
   )
 }
 
-/* ══════════════════════════════════════════════════════════════
-   MAIN
-══════════════════════════════════════════════════════════════ */
 export default function ESP6Monitor() {
   const [activeTab, setActiveTab] = useState("sensores")
   const [pusherConnected, setPusherConnected] = useState(false)
@@ -493,7 +460,6 @@ export default function ESP6Monitor() {
   const [serverStatus, setServerStatus] = useState({
     api: "unknown", apiLatency: null, apiMsg: null, lastTest: null,
   })
-  // Estado de DB separado
   const [dbStatus, setDbStatus] = useState({
     status: "unknown", latency: null, dialect: null, lastTest: null,
   })
@@ -636,9 +602,6 @@ export default function ESP6Monitor() {
     sendCommand("STATE")
   }
 
-  const handleTestAll = () => { Object.keys(espStates).forEach(id => handleTestESP(Number(id))) }
-
-  // ── Verificar API Backend ────────────────────────────────────────────────
   const handleTestServer = async () => {
     setServerStatus(prev => ({ ...prev, api: "testing", apiLatency: null, apiMsg: null }))
     const start = Date.now()
@@ -655,7 +618,6 @@ export default function ESP6Monitor() {
       }))
       addLog("status", `API activa · ${latency}ms`, "success")
     } catch (err) {
-      // Fallback al endpoint anterior si el nuevo no existe aún
       try {
         const start2  = Date.now()
         const res2    = await fetch(`${BACKEND_URL}/api/pusher/test`)
@@ -680,7 +642,6 @@ export default function ESP6Monitor() {
     }
   }
 
-  // ── Verificar Base de Datos ──────────────────────────────────────────────
   const handleTestDB = async () => {
     setDbStatus(prev => ({ ...prev, status: "testing", latency: null }))
     const start = Date.now()
@@ -757,7 +718,6 @@ export default function ESP6Monitor() {
                 espStates={espStates}
                 pusherConnected={pusherConnected}
                 onTestESP={handleTestESP}
-                onTestAll={handleTestAll}
                 serverStatus={serverStatus}
                 onTestServer={handleTestServer}
                 dbStatus={dbStatus}
@@ -766,7 +726,6 @@ export default function ESP6Monitor() {
             )}
           </div>
 
-          {/* Monitor de mensajes */}
           <div className="log-section">
             <div className="log-header">
               <div className="log-title">
