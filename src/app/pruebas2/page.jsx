@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
 import {
-  AlertCircle, CheckCircle, X, ChevronDown, Copy, User, Award, Activity, Target,
+  AlertCircle, CheckCircle, X, ChevronDown, Save, User, Award, Activity, Target,
 } from "lucide-react"
 import { getPositionIcon, getPositionName } from "../../lib/position-icons"
 
@@ -29,6 +29,8 @@ const C = {
   redBg:       "#FAEAEA",
   blue:        "#2563EB",
   blueBg:      "#EFF6FF",
+  orange:      "#C2620A",
+  orangeBg:    "#FEF3E8",
 }
 
 const styles = {
@@ -48,6 +50,7 @@ export default function PruebasPage() {
   const [selectedESPs, setSelectedESPs] = useState([1, 2, 3, 4, 5])
   const [showSummary, setShowSummary] = useState(false)
   const [summaryData, setSummaryData] = useState(null)
+  const [isSaving, setIsSaving] = useState(false)
 
   // Secuencial
   const [testActiveSequential, setTestActiveSequential] = useState(false)
@@ -79,13 +82,17 @@ export default function PruebasPage() {
   const [modoActual, setModoActual] = useState("secuencial")
   const [tiempoReaccion, setTiempoReaccion] = useState(3.0)
 
-  // ── CORRECCIÓN: usar Date.now() para medir duración real ─────────────────
-  // En lugar de un setInterval con contador, guardamos el timestamp de inicio
-  // y calculamos la diferencia al finalizar.
-  const testStartTimeRef   = useRef(null)   // timestamp cuando inicia la prueba
-  const [tiempoTranscurrido, setTiempoTranscurrido] = useState(0) // segundos display
+  // Cronómetro
+  const testStartTimeRef   = useRef(null)
+  const [tiempoTranscurrido, setTiempoTranscurrido] = useState(0)
   const [timerGeneralInterval, setTimerGeneralInterval] = useState(null)
-  const finalDurationRef = useRef(0) // duración final en segundos (calculada al detener)
+  const finalDurationRef = useRef(0)
+
+  // ── NUEVO: cápsulas deshabilitadas durante la prueba por timeout ─────────
+  const [disabledDuringTest, setDisabledDuringTest] = useState([]) // ids de ESP deshabilitados temporalmente
+  const disabledDuringTestRef = useRef([])
+  // Health check timeouts: espId → timeoutId
+  const healthCheckTimeoutsRef = useRef({})
 
   const [microControllers, setMicroControllers] = useState([
     { id: 1, active: false, connected: false, lastSeen: null, lastResponse: null, status: "" },
@@ -123,6 +130,9 @@ export default function PruebasPage() {
   const estadisticasRandomRef = useRef({ intentos: 0, aciertos: 0, errores: 0 })
   const estadisticasManualRef = useRef({ intentos: 0, aciertos: 0, errores: 0 })
 
+  // ref para el pusher channel (necesario para enviar health)
+  const pusherChannelsRef = useRef({})
+
   useEffect(() => {
     testActiveSequentialRef.current = testActiveSequential
     currentActiveESPSequentialRef.current = currentActiveESPSequential
@@ -139,6 +149,10 @@ export default function PruebasPage() {
     testActiveRandom, currentActiveESPRandom, waitingForResponseRandom,
     testActiveManual, currentActiveESPManual, waitingForResponseManual, selectedESPs,
   ])
+
+  useEffect(() => {
+    disabledDuringTestRef.current = disabledDuringTest
+  }, [disabledDuringTest])
 
   useEffect(() => {
     fetchJugadores()
@@ -163,7 +177,6 @@ export default function PruebasPage() {
     })
   }
 
-  // ── NOTIFICACIÓN MÁS GRANDE ────────────────────────────────────────────────
   const showNotification = (type, message) => {
     setNotification({ type, message })
     setTimeout(() => setNotification(null), 4000)
@@ -207,20 +220,88 @@ export default function PruebasPage() {
     pusher.connection.bind("disconnected", () => setPusherConnected(false))
   }
 
+  // ── NUEVO: enviar comando health a una cápsula ──────────────────────────
+  const sendHealthCheck = async (espId) => {
+    try {
+      await fetch(`${BACKEND_URL}/api/pusher/send-command`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ deviceId: `ESP-${espId}`, command: "health" }),
+      })
+    } catch (e) { console.error("Health check error:", e) }
+  }
+
+  // ── NUEVO: verificar conexión de cápsulas al seleccionar / antes de iniciar ──
+  const checkAllCapsuleHealth = async () => {
+    for (const espId of [1, 2, 3, 4, 5]) {
+      await sendHealthCheck(espId)
+    }
+  }
+
+  // ── NUEVO: iniciar health check de una cápsula que falló por timeout ─────
+  // Si responde con "ok" → se reintegra. Si no responde en 5s → queda fuera.
+  const initiateHealthCheckForDisabled = (espId) => {
+    // Marcar como "checking health"
+    setMicroControllers((prev) => prev.map((mc) =>
+      mc.id === espId ? { ...mc, status: "Verificando...", connected: false } : mc
+    ))
+    sendHealthCheck(espId)
+
+    // Si en 5 segundos no hay respuesta "ok", la dejamos deshabilitada permanentemente
+    if (healthCheckTimeoutsRef.current[espId]) {
+      clearTimeout(healthCheckTimeoutsRef.current[espId])
+    }
+    healthCheckTimeoutsRef.current[espId] = setTimeout(() => {
+      // No hubo respuesta → dejar fuera
+      setMicroControllers((prev) => prev.map((mc) =>
+        mc.id === espId ? { ...mc, connected: false, status: "Sin conexión" } : mc
+      ))
+      // Ya está en disabledDuringTest, no hacemos nada más
+      delete healthCheckTimeoutsRef.current[espId]
+    }, 5000)
+  }
+
   const subscribeToMicrocontrollerChannels = (pusher) => {
     for (let i = 1; i <= 5; i++) {
       const channelName = `private-device-ESP-${i}`
       const channel = pusher.subscribe(channelName)
+      pusherChannelsRef.current[i] = channel
+
       channel.bind("client-response", (data) => {
         const espId = i
         const message = data.message?.toLowerCase() || ""
 
         if (message === "ok") {
-          setMicroControllers((prev) => prev.map((mc) => mc.id === espId ? { ...mc, connected: true, lastSeen: new Date() } : mc))
+          // Si este ESP estaba deshabilitado por timeout y estábamos esperando su health → reintegrarlo
+          if (disabledDuringTestRef.current.includes(espId)) {
+            if (healthCheckTimeoutsRef.current[espId]) {
+              clearTimeout(healthCheckTimeoutsRef.current[espId])
+              delete healthCheckTimeoutsRef.current[espId]
+            }
+            setDisabledDuringTest((prev) => prev.filter((id) => id !== espId))
+            setMicroControllers((prev) => prev.map((mc) =>
+              mc.id === espId ? { ...mc, connected: true, lastSeen: new Date(), status: "Reconectado" } : mc
+            ))
+            showNotification("success", `Cápsula ${espId} reconectada`)
+            // Limpiar el status de reconectado después de 2s
+            setTimeout(() => {
+              setMicroControllers((prev) => prev.map((mc) =>
+                mc.id === espId ? { ...mc, status: "" } : mc
+              ))
+            }, 2000)
+          } else {
+            // Health check normal o ping de conexión
+            setMicroControllers((prev) => prev.map((mc) =>
+              mc.id === espId ? { ...mc, connected: true, lastSeen: new Date() } : mc
+            ))
+          }
           return
         }
 
-        setMicroControllers((prev) => prev.map((mc) => mc.id === espId ? { ...mc, connected: true, lastSeen: new Date() } : mc))
+        // Respuesta de prueba (acierto/error)
+        setMicroControllers((prev) => prev.map((mc) =>
+          mc.id === espId ? { ...mc, connected: true, lastSeen: new Date() } : mc
+        ))
 
         const isAcierto = message.includes("acierto") || message.includes("success")
         if (testActiveSequentialRef.current && waitingForResponseSequentialRef.current && currentActiveESPSequentialRef.current === espId) {
@@ -238,6 +319,9 @@ export default function PruebasPage() {
         }
       })
     }
+
+    // Verificar health de todas las cápsulas al conectar
+    setTimeout(() => checkAllCapsuleHealth(), 500)
   }
 
   const sendCommandToESP = async (espId, command) => {
@@ -251,8 +335,12 @@ export default function PruebasPage() {
     } catch (e) { console.error(e) }
   }
 
-  // ── CRONÓMETRO CORREGIDO ─────────────────────────────────────────────────
-  // Guardamos el timestamp exacto de inicio y recalculamos cada segundo
+  // ── NUEVO: obtener ESPs activos (seleccionados y no deshabilitados) ───────
+  const getActiveESPs = () => {
+    return selectedESPsRef.current.filter((id) => !disabledDuringTestRef.current.includes(id))
+  }
+
+  // ── CRONÓMETRO ─────────────────────────────────────────────────────────────
   const iniciarCronometroGeneral = () => {
     testStartTimeRef.current = Date.now()
     setTiempoTranscurrido(0)
@@ -265,7 +353,6 @@ export default function PruebasPage() {
 
   const detenerCronometroGeneral = () => {
     if (timerGeneralInterval) { clearInterval(timerGeneralInterval); setTimerGeneralInterval(null) }
-    // Calcular duración final exacta en el momento de detener
     if (testStartTimeRef.current) {
       finalDurationRef.current = Math.floor((Date.now() - testStartTimeRef.current) / 1000)
       testStartTimeRef.current = null
@@ -283,14 +370,49 @@ export default function PruebasPage() {
     return "/gris.png"
   }
 
-  // ── RESUMEN SIN HORA ─────────────────────────────────────────────────────
+  // ── GUARDAR RESULTADO ─────────────────────────────────────────────────────
+  // Botón "Guardar" reemplaza a "Copiar"
+  const handleGuardar = async () => {
+    if (!summaryData || isSaving) return
+    setIsSaving(true)
+    try {
+      const token = localStorage.getItem("token")
+      const response = await fetch(`${BACKEND_URL}/api/reacciones/guardar-resumen`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(summaryData),
+      })
+      const data = await response.json()
+      if (response.ok && data.success) {
+        showNotification("success", "Resultado guardado correctamente")
+        setShowSummary(false)
+      } else {
+        // Si el endpoint no existe aún, guardar en localStorage como fallback
+        const key = `prueba_${summaryData.tipo}_${Date.now()}`
+        localStorage.setItem(key, JSON.stringify(summaryData))
+        showNotification("success", "Guardado localmente")
+        setShowSummary(false)
+      }
+    } catch (e) {
+      // Fallback: guardar en localStorage
+      const key = `prueba_${summaryData.tipo}_${Date.now()}`
+      localStorage.setItem(key, JSON.stringify(summaryData))
+      showNotification("success", "Guardado localmente")
+      setShowSummary(false)
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
   const abrirResumen = (tipo, stats) => {
     setSummaryData({
       tipo,
       jugador: selectedPlayer
         ? { id: selectedPlayer.id, nombres: selectedPlayer.nombres, apellidos: selectedPlayer.apellidos, posicion: selectedPlayer.posicion_principal, cuentaId: selectedPlayer.cuentaId }
         : null,
-      // Usar finalDurationRef para duración exacta
       tiempo_transcurrido: finalDurationRef.current,
       esp_seleccionadas: selectedESPs,
       parametros: { tiempo_reaccion: tiempoReaccion, rondas: tipo === "secuencial" ? totalRounds : undefined, duracion: tipo !== "secuencial" ? tiempoPrueba : undefined },
@@ -300,14 +422,18 @@ export default function PruebasPage() {
     setShowSummary(true)
   }
 
-  const copySummary = async () => {
-    try { await navigator.clipboard.writeText(JSON.stringify(summaryData, null, 2)); showNotification("success", "Copiado") }
-    catch { showNotification("error", "No se pudo copiar") }
-  }
-
   // ── SECUENCIAL ──────────────────────────────────────────────────────────────
   const iniciarPruebaSecuencial = async () => {
     if (!selectedPlayer) { showNotification("error", "Selecciona un jugador"); return }
+
+    // Verificar que al menos una cápsula seleccionada esté conectada
+    const connectedSelected = selectedESPs.filter((id) =>
+      microControllers.find((mc) => mc.id === id)?.connected
+    )
+    if (connectedSelected.length === 0) {
+      showNotification("error", "Ninguna cápsula seleccionada está conectada"); return
+    }
+
     try {
       const res = await fetch(`${BACKEND_URL}/api/reacciones/iniciar`, {
         method: "POST", headers: { "Content-Type": "application/json" },
@@ -318,22 +444,54 @@ export default function PruebasPage() {
         localStorage.setItem("prueba_secuencial_id", data.data.id.toString())
         setPruebaActualSequential(data.data); setTestActiveSequential(true); setModoActual("secuencial")
         setCurrentRound(1); setCurrentSequence(1)
+        // Reset disabled list
+        setDisabledDuringTest([])
+        disabledDuringTestRef.current = []
         const initStats = { intentos: 0, aciertos: 0, errores: 0 }
         setEstadisticasSequential(initStats); estadisticasSequentialRef.current = initStats
         iniciarCronometroGeneral()
         showNotification("success", `Prueba secuencial iniciada · ${totalRounds} rondas`)
-        setTimeout(() => activateNextMicrocontrollerSequential(selectedESPs[0]), 1000)
+        // Usar primera cápsula conectada
+        const firstConnected = selectedESPs.find((id) =>
+          microControllers.find((mc) => mc.id === id)?.connected
+        )
+        setTimeout(() => activateNextMicrocontrollerSequential(firstConnected || connectedSelected[0]), 1000)
       } else showNotification("error", data.message)
     } catch { showNotification("error", "Error iniciando prueba") }
   }
 
   const activateNextMicrocontrollerSequential = (espId) => {
-    if (!selectedESPsRef.current.includes(espId)) return
+    const active = getActiveESPs()
+    if (!active.includes(espId)) {
+      // Buscar siguiente disponible
+      const fallback = active[0]
+      if (!fallback) { showNotification("error", "No hay cápsulas disponibles"); finalizarPruebaSecuencial(); return }
+      activateNextMicrocontrollerSequential(fallback); return
+    }
     if (responseTimeoutSequentialRef.current) { clearTimeout(responseTimeoutSequentialRef.current); responseTimeoutSequentialRef.current = null }
     setCurrentActiveESPSequential(espId); setWaitingForResponseSequential(true)
     setMicroControllers((prev) => prev.map((mc) => ({ ...mc, active: mc.id === espId, status: mc.id === espId ? "Esperando respuesta" : mc.status })))
     sendCommandToESP(espId, { command: "ON" })
-    responseTimeoutSequentialRef.current = setTimeout(() => handleSequentialResponse(espId, "error"), (tiempoReaccion + 1) * 1000)
+    responseTimeoutSequentialRef.current = setTimeout(() => handleSequentialTimeoutDisable(espId), (tiempoReaccion + 1) * 1000)
+  }
+
+  // ── NUEVO: timeout handler que deshabilita la cápsula ───────────────────
+  const handleSequentialTimeoutDisable = (espId) => {
+    // Deshabilitar la cápsula
+    setDisabledDuringTest((prev) => {
+      if (prev.includes(espId)) return prev
+      const next = [...prev, espId]
+      disabledDuringTestRef.current = next
+      return next
+    })
+    setMicroControllers((prev) => prev.map((mc) =>
+      mc.id === espId ? { ...mc, active: false, connected: false, status: "Timeout" } : mc
+    ))
+    showNotification("error", `Cápsula ${espId} sin respuesta, verificando conexión...`)
+    // Enviar health check
+    initiateHealthCheckForDisabled(espId)
+    // Continuar prueba con el error contabilizado
+    handleSequentialResponse(espId, "error")
   }
 
   const handleSequentialResponse = (espId, responseType) => {
@@ -351,16 +509,23 @@ export default function PruebasPage() {
       setMicroControllers((prev) => prev.map((mc) => mc.id === espId ? { ...mc, lastResponse: null } : mc))
     }, 1000)
     setTimeout(() => {
-      const idx = selectedESPsRef.current.indexOf(espId)
-      const next = idx + 1
-      if (next < selectedESPsRef.current.length) {
-        setCurrentSequence(next + 1); activateNextMicrocontrollerSequential(selectedESPsRef.current[next])
+      const allESPs = selectedESPsRef.current
+      const idx = allESPs.indexOf(espId)
+      // Buscar siguiente que no esté deshabilitado
+      let nextESP = null
+      for (let i = idx + 1; i < allESPs.length; i++) {
+        if (!disabledDuringTestRef.current.includes(allESPs[i])) { nextESP = allESPs[i]; break }
+      }
+      if (nextESP !== null) {
+        setCurrentSequence(allESPs.indexOf(nextESP) + 1); activateNextMicrocontrollerSequential(nextESP)
       } else {
         setCurrentRound((prevRound) => {
           if (prevRound < totalRounds) {
             limpiarEntreRondasSequential()
             showNotification("success", `Iniciando ronda ${prevRound + 1}`)
-            setTimeout(() => { setCurrentSequence(1); activateNextMicrocontrollerSequential(selectedESPsRef.current[0]) }, 2000)
+            const firstAvail = allESPs.find((id) => !disabledDuringTestRef.current.includes(id))
+            if (!firstAvail) { setTimeout(() => finalizarPruebaSecuencial(), 500); return prevRound }
+            setTimeout(() => { setCurrentSequence(1); activateNextMicrocontrollerSequential(firstAvail) }, 2000)
             return prevRound + 1
           } else {
             showNotification("success", "Rondas completadas"); setTimeout(() => finalizarPruebaSecuencial(), 1000); return prevRound
@@ -395,6 +560,9 @@ export default function PruebasPage() {
     if (responseTimeoutSequentialRef.current) { clearTimeout(responseTimeoutSequentialRef.current); responseTimeoutSequentialRef.current = null }
     setMicroControllers((prev) => prev.map((mc) => ({ ...mc, active: false, status: "", lastResponse: null })))
     processingResponseSequentialRef.current = false
+    setDisabledDuringTest([]); disabledDuringTestRef.current = []
+    Object.values(healthCheckTimeoutsRef.current).forEach(clearTimeout)
+    healthCheckTimeoutsRef.current = {}
   }
 
   const limpiarEntreRondasSequential = () => {
@@ -407,6 +575,12 @@ export default function PruebasPage() {
   // ── ALEATORIO ──────────────────────────────────────────────────────────────
   const iniciarPruebaAleatoria = async () => {
     if (!selectedPlayer) { showNotification("error", "Selecciona un jugador"); return }
+    const connectedSelected = selectedESPs.filter((id) =>
+      microControllers.find((mc) => mc.id === id)?.connected
+    )
+    if (connectedSelected.length === 0) {
+      showNotification("error", "Ninguna cápsula seleccionada está conectada"); return
+    }
     try {
       const res = await fetch(`${BACKEND_URL}/api/reacciones/iniciar`, {
         method: "POST", headers: { "Content-Type": "application/json" },
@@ -416,6 +590,7 @@ export default function PruebasPage() {
       if (data.success) {
         localStorage.setItem("prueba_aleatoria_id", data.data.id.toString())
         setPruebaActualRandom(data.data); setTestActiveRandom(true); setModoActual("aleatorio"); setTiempoRestante(tiempoPrueba)
+        setDisabledDuringTest([]); disabledDuringTestRef.current = []
         const initStats = { intentos: 0, aciertos: 0, errores: 0 }
         setEstadisticasRandom(initStats); estadisticasRandomRef.current = initStats
         iniciarCronometroGeneral()
@@ -427,13 +602,29 @@ export default function PruebasPage() {
   }
 
   const activateRandomMicrocontroller = () => {
-    const esps = selectedESPsRef.current
+    const esps = getActiveESPs()
+    if (esps.length === 0) { showNotification("error", "No hay cápsulas disponibles"); finalizarPruebaAleatoria(); return }
     const espId = esps[Math.floor(Math.random() * esps.length)]
     if (responseTimeoutRandomRef.current) { clearTimeout(responseTimeoutRandomRef.current); responseTimeoutRandomRef.current = null }
     setCurrentActiveESPRandom(espId); setWaitingForResponseRandom(true)
     setMicroControllers((prev) => prev.map((mc) => ({ ...mc, active: mc.id === espId, status: mc.id === espId ? "Esperando respuesta" : mc.status })))
     sendCommandToESP(espId, { command: "ON" })
-    responseTimeoutRandomRef.current = setTimeout(() => handleRandomResponse(espId, "error"), (tiempoReaccion + 1) * 1000)
+    responseTimeoutRandomRef.current = setTimeout(() => handleRandomTimeoutDisable(espId), (tiempoReaccion + 1) * 1000)
+  }
+
+  const handleRandomTimeoutDisable = (espId) => {
+    setDisabledDuringTest((prev) => {
+      if (prev.includes(espId)) return prev
+      const next = [...prev, espId]
+      disabledDuringTestRef.current = next
+      return next
+    })
+    setMicroControllers((prev) => prev.map((mc) =>
+      mc.id === espId ? { ...mc, active: false, connected: false, status: "Timeout" } : mc
+    ))
+    showNotification("error", `Cápsula ${espId} sin respuesta, verificando conexión...`)
+    initiateHealthCheckForDisabled(espId)
+    handleRandomResponse(espId, "error")
   }
 
   const handleRandomResponse = (espId, responseType) => {
@@ -478,11 +669,20 @@ export default function PruebasPage() {
     if (responseTimeoutRandomRef.current) { clearTimeout(responseTimeoutRandomRef.current); responseTimeoutRandomRef.current = null }
     setMicroControllers((prev) => prev.map((mc) => ({ ...mc, active: false, status: "", lastResponse: null })))
     processingResponseRandomRef.current = false
+    setDisabledDuringTest([]); disabledDuringTestRef.current = []
+    Object.values(healthCheckTimeoutsRef.current).forEach(clearTimeout)
+    healthCheckTimeoutsRef.current = {}
   }
 
   // ── MANUAL ─────────────────────────────────────────────────────────────────
   const iniciarPruebaManual = async () => {
     if (!selectedPlayer) { showNotification("error", "Selecciona un jugador"); return }
+    const connectedSelected = selectedESPs.filter((id) =>
+      microControllers.find((mc) => mc.id === id)?.connected
+    )
+    if (connectedSelected.length === 0) {
+      showNotification("error", "Ninguna cápsula seleccionada está conectada"); return
+    }
     try {
       const res = await fetch(`${BACKEND_URL}/api/reacciones/iniciar`, {
         method: "POST", headers: { "Content-Type": "application/json" },
@@ -492,6 +692,7 @@ export default function PruebasPage() {
       if (data.success) {
         localStorage.setItem("prueba_manual_id", data.data.id.toString())
         setPruebaActualManual(data.data); setTestActiveManual(true); setModoActual("manual"); setTiempoRestante(tiempoPrueba)
+        setDisabledDuringTest([]); disabledDuringTestRef.current = []
         const initStats = { intentos: 0, aciertos: 0, errores: 0 }
         setEstadisticasManual(initStats); estadisticasManualRef.current = initStats
         const interval = setInterval(() => setTiempoRestante((p) => { if (p <= 1) { clearInterval(interval); finalizarPruebaManual(); return 0 } return p - 1 }), 1000)
@@ -502,12 +703,28 @@ export default function PruebasPage() {
   }
 
   const activateManualMicrocontroller = (espId) => {
-    if (!selectedESPsRef.current.includes(espId) || !testActiveManualRef.current || waitingForResponseManualRef.current) return
+    const active = getActiveESPs()
+    if (!active.includes(espId) || !testActiveManualRef.current || waitingForResponseManualRef.current) return
     if (responseTimeoutManualRef.current) { clearTimeout(responseTimeoutManualRef.current); responseTimeoutManualRef.current = null }
     setCurrentActiveESPManual(espId); setWaitingForResponseManual(true)
     setMicroControllers((prev) => prev.map((mc) => ({ ...mc, active: mc.id === espId, status: mc.id === espId ? "Esperando respuesta" : mc.status })))
     sendCommandToESP(espId, { command: "ON" })
-    responseTimeoutManualRef.current = setTimeout(() => handleManualResponse(espId, "error"), (tiempoReaccion + 1) * 1000)
+    responseTimeoutManualRef.current = setTimeout(() => handleManualTimeoutDisable(espId), (tiempoReaccion + 1) * 1000)
+  }
+
+  const handleManualTimeoutDisable = (espId) => {
+    setDisabledDuringTest((prev) => {
+      if (prev.includes(espId)) return prev
+      const next = [...prev, espId]
+      disabledDuringTestRef.current = next
+      return next
+    })
+    setMicroControllers((prev) => prev.map((mc) =>
+      mc.id === espId ? { ...mc, active: false, connected: false, status: "Timeout" } : mc
+    ))
+    showNotification("error", `Cápsula ${espId} sin respuesta, verificando conexión...`)
+    initiateHealthCheckForDisabled(espId)
+    handleManualResponse(espId, "error")
   }
 
   const handleManualResponse = (espId, responseType) => {
@@ -552,6 +769,9 @@ export default function PruebasPage() {
     if (responseTimeoutManualRef.current) { clearTimeout(responseTimeoutManualRef.current); responseTimeoutManualRef.current = null }
     setMicroControllers((prev) => prev.map((mc) => ({ ...mc, active: false, status: "", lastResponse: null })))
     processingResponseManualRef.current = false
+    setDisabledDuringTest([]); disabledDuringTestRef.current = []
+    Object.values(healthCheckTimeoutsRef.current).forEach(clearTimeout)
+    healthCheckTimeoutsRef.current = {}
   }
 
   // ── Computed ────────────────────────────────────────────────────────────────
@@ -576,6 +796,19 @@ export default function PruebasPage() {
     else finalizarPruebaManual()
   }
 
+  // ── NUEVO: qué cápsulas mostrar ──────────────────────────────────────────
+  // Durante prueba: solo las seleccionadas. Fuera: las 5.
+  const capsulasToShow = testActive
+    ? microControllers.filter((mc) => selectedESPs.includes(mc.id))
+    : microControllers
+
+  // Columnas del grid según cantidad
+  const gridCols = capsulasToShow.length <= 3
+    ? `repeat(${capsulasToShow.length}, 1fr)`
+    : capsulasToShow.length === 4
+      ? "repeat(4, 1fr)"
+      : "repeat(5, 1fr)"
+
   // ══════════════════════════════════════════════════════════════════════════
   // RENDER
   // ══════════════════════════════════════════════════════════════════════════
@@ -595,14 +828,12 @@ export default function PruebasPage() {
           .config-left { width: 100% !important; }
           .config-right-col { width: 100% !important; min-width: unset !important; }
           .v-divider { display: none !important; }
-          .capsulas-grid { grid-template-columns: repeat(3, 1fr) !important; }
           .results-grid { grid-template-columns: 1fr 1fr 1fr !important; }
         }
         @media (max-width: 540px) {
           .pruebas-root { padding: 14px 10px; }
           .player-panel { flex-direction: column !important; align-items: flex-start !important; }
           .player-right { width: 100% !important; }
-          .capsulas-grid { grid-template-columns: repeat(2, 1fr) !important; }
           .results-grid { grid-template-columns: 1fr !important; }
           .tipo-tabs { flex-wrap: wrap !important; }
           .capsulas-selector { flex-wrap: wrap !important; }
@@ -617,6 +848,7 @@ export default function PruebasPage() {
         .micro-card.clickable { cursor: pointer; }
         .micro-card.clickable:hover { border-color: #334155; box-shadow: 0 4px 14px rgba(51,65,85,0.18); transform: translateY(-1px); }
         .micro-card.dimmed { opacity: 0.35; }
+        .micro-card.disabled-timeout { border-color: #C2620A !important; opacity: 0.55; }
 
         @keyframes pulse-guindo {
           0%, 100% { box-shadow: 0 0 0 0 rgba(51,65,85,0.4); }
@@ -658,7 +890,6 @@ export default function PruebasPage() {
           backdrop-filter: blur(4px);
         }
 
-        /* ── NOTIFICACIÓN MÁS GRANDE ── */
         .notif-toast {
           position: fixed; top: 28px; right: 28px; z-index: 200;
           display: flex; align-items: center; gap: 14px;
@@ -675,12 +906,21 @@ export default function PruebasPage() {
         .notif-icon { flex-shrink: 0; }
         .notif-text { font-size: 15px; font-weight: 600; color: #1f2937; flex: 1; line-height: 1.35; }
         .notif-close { flex-shrink: 0; background: none; border: none; cursor: pointer; padding: 2px; display: flex; align-items: center; }
+
+        /* Botón de cápsula deshabilitada */
+        .capsula-btn-disabled {
+          opacity: 0.4 !important;
+          cursor: not-allowed !important;
+          border-color: #E8E8E8 !important;
+          background: #F4F4F4 !important;
+          color: #6B6B6B !important;
+        }
       `}</style>
 
       <div className="pruebas-root">
       <div className="pruebas-inner">
 
-        {/* ── NOTIFICACIÓN GRANDE ── */}
+        {/* ── NOTIFICACIÓN ── */}
         {notification && (
           <div className="notif-toast" style={{
             borderLeft: `5px solid ${notification.type === "success" ? C.emerald : C.red}`,
@@ -699,6 +939,7 @@ export default function PruebasPage() {
 
         <div className="top-row" style={{ display: "flex", gap: 16, marginBottom: 24, alignItems: "stretch" }}>
 
+          {/* Player panel */}
           <div className="player-panel" style={{
             background: C.white, border: `1.5px solid ${C.grayLight}`, borderRadius: 10,
             padding: "10px 14px", display: "flex", flexDirection: "column", gap: 8,
@@ -762,6 +1003,7 @@ export default function PruebasPage() {
             </div>
           </div>
 
+          {/* Config panel */}
           <div style={{
             background: C.white, border: `1.5px solid ${C.grayLight}`, borderRadius: 10,
             padding: "20px 24px", flex: 1, display: "flex", alignItems: "center", gap: 0,
@@ -783,28 +1025,60 @@ export default function PruebasPage() {
                 </div>
               </div>
 
+              {/* Cápsulas con indicador de conexión y deshabilitado */}
               <div>
                 <span style={styles.label}>Cápsulas activas</span>
                 <div className="capsulas-selector" style={{ display: "flex", gap: 10, alignItems: "center" }}>
                   {[1, 2, 3, 4, 5].map((num) => {
                     const selected = selectedESPs.includes(num)
+                    const mc = microControllers.find((m) => m.id === num)
+                    const isConnected = mc?.connected
+                    // Fuera de prueba: deshabilitar si no está conectada
+                    const isDisabledByConnection = !testActive && !isConnected
+                    const isDisabledByTimeout = testActive && disabledDuringTest.includes(num)
+
                     return (
-                      <button key={num} onClick={() => !testActive && toggleESPSelection(num)} disabled={testActive} style={{
-                        width: 32, height: 32, borderRadius: "50%",
-                        border: `2px solid ${selected ? C.slate : C.grayLight}`,
-                        background: selected ? C.slate : C.white,
-                        cursor: testActive ? "not-allowed" : "pointer",
-                        display: "flex", alignItems: "center", justifyContent: "center",
-                        transition: "all 0.15s",
-                        fontSize: 11, fontWeight: 700,
-                        color: selected ? C.white : C.grayMed,
-                        fontFamily: "'DM Mono', monospace",
-                      }}>
+                      <button
+                        key={num}
+                        onClick={() => {
+                          if (testActive || isDisabledByConnection) return
+                          toggleESPSelection(num)
+                        }}
+                        disabled={testActive || isDisabledByConnection}
+                        title={isDisabledByConnection ? "Sin conexión" : isDisabledByTimeout ? "Deshabilitada por timeout" : `Cápsula ${num}`}
+                        style={{
+                          width: 32, height: 32, borderRadius: "50%",
+                          border: `2px solid ${isDisabledByTimeout ? C.orange : isDisabledByConnection ? C.grayLight : selected ? C.slate : C.grayLight}`,
+                          background: isDisabledByTimeout ? C.orangeBg : isDisabledByConnection ? C.grayUltra : selected ? C.slate : C.white,
+                          cursor: (testActive || isDisabledByConnection) ? "not-allowed" : "pointer",
+                          display: "flex", alignItems: "center", justifyContent: "center",
+                          transition: "all 0.15s",
+                          fontSize: 11, fontWeight: 700,
+                          color: isDisabledByTimeout ? C.orange : isDisabledByConnection ? C.grayLight : selected ? C.white : C.grayMed,
+                          fontFamily: "'DM Mono', monospace",
+                          opacity: isDisabledByConnection ? 0.45 : 1,
+                          position: "relative",
+                        }}
+                      >
                         {num}
+                        {/* Dot de estado de conexión */}
+                        {!testActive && (
+                          <span style={{
+                            position: "absolute", bottom: -2, right: -2,
+                            width: 8, height: 8, borderRadius: "50%",
+                            background: isConnected ? C.emerald : C.grayLight,
+                            border: `1.5px solid ${C.white}`,
+                          }} />
+                        )}
                       </button>
                     )
                   })}
                 </div>
+                {!testActive && (
+                  <p style={{ margin: "6px 0 0", fontSize: 10, color: C.grayMed, fontFamily: "'DM Sans', sans-serif" }}>
+                    Solo se pueden seleccionar cápsulas conectadas
+                  </p>
+                )}
               </div>
             </div>
 
@@ -869,7 +1143,7 @@ export default function PruebasPage() {
           </div>
         </div>
 
-        {/* Cápsulas */}
+        {/* ── CÁPSULAS: solo las usadas durante la prueba, todas fuera ── */}
         <div style={{ marginBottom: 24 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
             <div style={{ width: 3, height: 16, background: C.slate, borderRadius: 2 }} />
@@ -880,44 +1154,59 @@ export default function PruebasPage() {
               <div style={{ display: "flex", alignItems: "center", gap: 6, marginLeft: "auto" }}>
                 <div style={{ width: 6, height: 6, borderRadius: "50%", background: C.slate }} className="dot-active" />
                 <span style={{ fontSize: 11, color: C.slate, fontWeight: 600, fontFamily: "'DM Sans', sans-serif" }}>EN CURSO</span>
+                {disabledDuringTest.length > 0 && (
+                  <span style={{ fontSize: 10, color: C.orange, fontWeight: 600, fontFamily: "'DM Sans', sans-serif", marginLeft: 8 }}>
+                    {disabledDuringTest.length} deshabilitada{disabledDuringTest.length > 1 ? "s" : ""}
+                  </span>
+                )}
               </div>
             )}
           </div>
 
-          <div className="capsulas-grid" style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 12 }}>
-            {microControllers.map((mc) => {
+          <div style={{
+            display: "grid",
+            gridTemplateColumns: gridCols,
+            gap: 12,
+            maxWidth: capsulasToShow.length <= 3 ? `${capsulasToShow.length * 220}px` : "100%",
+          }}>
+            {capsulasToShow.map((mc) => {
               const isSelected = selectedESPs.includes(mc.id)
-              const isClickable = testActiveManual && mc.connected && !waitingForResponseManual && isSelected
+              const isDisabledTimeout = disabledDuringTest.includes(mc.id)
+              const isClickable = testActiveManual && mc.connected && !waitingForResponseManual && isSelected && !isDisabledTimeout
               const isActive = mc.active
               const wasHit = mc.lastResponse === "acierto"
               const wasMissed = mc.lastResponse === "error"
 
               let cardClass = "micro-card"
-              if (isActive) cardClass += " active"
+              if (isDisabledTimeout) cardClass += " disabled-timeout"
+              else if (isActive) cardClass += " active"
               else if (wasHit) cardClass += " hit"
               else if (wasMissed) cardClass += " missed"
               if (isClickable) cardClass += " clickable"
-              if (!isSelected && testActive) cardClass += " dimmed"
 
               let dotColor = C.grayLight
               if (!testActive) {
                 dotColor = mc.connected ? C.emerald : C.grayLight
               } else {
-                dotColor = isActive ? C.slate : wasHit ? C.emerald : wasMissed ? C.red : C.grayLight
+                dotColor = isDisabledTimeout ? C.orange : isActive ? C.slate : wasHit ? C.emerald : wasMissed ? C.red : C.grayLight
               }
 
               return (
                 <div key={mc.id} className={cardClass}
                   onClick={() => { if (isClickable) activateManualMicrocontroller(mc.id) }}>
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 12px 6px" }}>
-                    <span style={{ fontSize: 11, fontWeight: 700, color: C.grayDark, fontFamily: "'DM Mono', monospace", letterSpacing: "0.04em" }}>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: isDisabledTimeout ? C.orange : C.grayDark, fontFamily: "'DM Mono', monospace", letterSpacing: "0.04em" }}>
                       CAP-{mc.id}
                     </span>
                     <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
                       <div style={{ width: 8, height: 8, borderRadius: "50%", background: dotColor, transition: "background 0.3s" }}
                         className={isActive ? "dot-active" : ""} />
                       {mc.status && (
-                        <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.04em", color: isActive ? C.slate : wasHit ? C.emerald : wasMissed ? C.red : C.grayMed, fontFamily: "'DM Sans', sans-serif" }}>
+                        <span style={{
+                          fontSize: 10, fontWeight: 700, letterSpacing: "0.04em",
+                          color: isDisabledTimeout ? C.orange : isActive ? C.slate : wasHit ? C.emerald : wasMissed ? C.red : C.grayMed,
+                          fontFamily: "'DM Sans', sans-serif",
+                        }}>
                           {mc.status === "Esperando respuesta" ? "ACTIVO" : mc.status.toUpperCase()}
                         </span>
                       )}
@@ -926,13 +1215,13 @@ export default function PruebasPage() {
 
                   <div style={{
                     margin: "0 8px 8px",
-                    background: isActive ? "#EFF3F7" : wasHit ? "#eaf5f1" : wasMissed ? "#faeaea" : C.grayUltra,
+                    background: isDisabledTimeout ? C.orangeBg : isActive ? "#EFF3F7" : wasHit ? "#eaf5f1" : wasMissed ? "#faeaea" : C.grayUltra,
                     borderRadius: 6, aspectRatio: "1/1",
                     display: "flex", alignItems: "center", justifyContent: "center",
                     transition: "background 0.3s", overflow: "hidden",
                   }}>
                     <img src={getMicroImage(mc)} alt={`Cápsula ${mc.id}`}
-                      style={{ width: "88%", height: "88%", objectFit: "contain" }}
+                      style={{ width: "88%", height: "88%", objectFit: "contain", opacity: isDisabledTimeout ? 0.5 : 1 }}
                       onError={(e) => { e.currentTarget.style.display = "none" }} />
                   </div>
                 </div>
@@ -1053,7 +1342,7 @@ export default function PruebasPage() {
         </div>
         </div>
 
-        {/* ── MODAL RESUMEN — sin hora en subtítulo ── */}
+        {/* ── MODAL RESUMEN con botón GUARDAR ── */}
         {showSummary && summaryData && (
           <div className="modal-backdrop" onClick={() => setShowSummary(false)}>
             <div onClick={e => e.stopPropagation()} style={{
@@ -1069,7 +1358,6 @@ export default function PruebasPage() {
                   </div>
                   <div>
                     <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: C.white }}>Prueba Finalizada</h3>
-                    {/* ── SUBTÍTULO SIN HORA ── solo modalidad */}
                     <p style={{ margin: 0, fontSize: 11, color: "rgba(255,255,255,0.65)", textTransform: "capitalize", marginTop: 1 }}>
                       {summaryData.tipo}
                     </p>
@@ -1113,14 +1401,27 @@ export default function PruebasPage() {
                   ))}
                 </div>
 
+                {/* ── BOTÓN GUARDAR (reemplaza Copiar) ── */}
                 <div style={{ display: "flex", gap: 10, paddingTop: 4, borderTop: `1px solid ${C.grayLight}` }}>
-                  <button onClick={copySummary} style={{
-                    flex: 1, padding: "10px 0", background: C.grayUltra, border: `1px solid ${C.grayLight}`,
-                    borderRadius: 6, fontSize: 12, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase",
-                    color: C.grayDark, cursor: "pointer", fontFamily: "'DM Sans', sans-serif",
-                    display: "flex", alignItems: "center", justifyContent: "center", gap: 8, transition: "background 0.15s",
-                  }}>
-                    <Copy size={13} /> Copiar
+                  <button
+                    onClick={handleGuardar}
+                    disabled={isSaving}
+                    style={{
+                      flex: 1, padding: "10px 0",
+                      background: isSaving ? C.grayUltra : C.slate,
+                      border: `1px solid ${isSaving ? C.grayLight : C.slate}`,
+                      borderRadius: 6, fontSize: 12, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase",
+                      color: isSaving ? C.grayMed : C.white,
+                      cursor: isSaving ? "not-allowed" : "pointer",
+                      fontFamily: "'DM Sans', sans-serif",
+                      display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+                      transition: "all 0.15s",
+                    }}
+                    onMouseEnter={e => { if (!isSaving) { e.currentTarget.style.background = C.slateDark; e.currentTarget.style.borderColor = C.slateDark } }}
+                    onMouseLeave={e => { if (!isSaving) { e.currentTarget.style.background = C.slate; e.currentTarget.style.borderColor = C.slate } }}
+                  >
+                    <Save size={13} />
+                    {isSaving ? "Guardando…" : "Guardar"}
                   </button>
                   <button onClick={() => setShowSummary(false)} style={{
                     flex: 1, padding: "10px 0", background: C.guindo, border: "none",

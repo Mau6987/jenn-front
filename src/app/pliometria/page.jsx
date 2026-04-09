@@ -248,7 +248,8 @@ function CalibrationModal({ isOpen, calibrationStatus, onClose, onCancel }) {
               <img src="/calibrarbien.png" alt="Calibrado correctamente" className="w-full h-full object-contain" />
             </div>
             <h3 className="text-xl font-bold text-green-700 mb-1">¡Calibrado!</h3>
-            <p className="text-sm text-gray-600">MPU6050 y celdas HX711 listas</p>
+            {/* CHANGED: removed "MPU6050 y celdas HX711 listas" → "Sensores listos" */}
+            <p className="text-sm text-gray-600">Sensores listos</p>
           </>
         )}
         {isCalibrationFailed && (
@@ -377,14 +378,14 @@ export default function SistemaUnificadoPage() {
 
   const alcanceTimerRef = useRef(null)
 
-  const [tiempoPliometria, setTiempoPliometria]         = useState("60")
+  const [tiempoPrueba, setTiempoPrueba]                 = useState("60")
   const [tipoSalto, setTipoSalto]                       = useState("salto simple")
-  const [pliometriaId, setPliometriaId]                 = useState(null)
-  const [pliometriaCalibrada, setPliometriaCalibrada]   = useState(false)
-  const [pliometriaIniciada, setPliometriaIniciada]     = useState(false)
+  const [pruebaId, setPruebaId]                         = useState(null)
+  const [pruebaCalibrada, setPruebaCalibrada]           = useState(false)
+  const [pruebaIniciada, setPruebaIniciada]             = useState(false)
   const [ejercicioEnCurso, setEjercicioEnCurso]         = useState(false)
-  const [pliometriaGuardada, setPliometriaGuardada]     = useState(null)
-  const [modalPliometriaOpen, setModalPliometriaOpen]   = useState(false)
+  const [pruebaGuardada, setPruebaGuardada]             = useState(null)
+  const [modalPruebaOpen, setModalPruebaOpen]           = useState(false)
   const [progresoSegundos, setProgresoSegundos]         = useState(0)
   const [saltoRTActual, setSaltoRTActual]               = useState(null)
   const [saltoFlash, setSaltoFlash]                     = useState(false)
@@ -394,6 +395,10 @@ export default function SistemaUnificadoPage() {
   const [primerSaltoSesion, setPrimerSaltoSesion]       = useState(null)
   const [ultimoSaltoSesion, setUltimoSaltoSesion]       = useState(null)
   const [totalSaltosSesion, setTotalSaltosSesion]       = useState(0)
+
+  // CHANGED: track calibration done per tab to turn button green
+  const [alcanceCalibracionDone, setAlcanceCalibracionDone] = useState(false)
+  const [pruebaCalibracionDone, setPruebaCalibracionDone]   = useState(false)
 
   const saltoConosContadorRef = useRef(0)
   const progresoTimerRef      = useRef(null)
@@ -444,8 +449,10 @@ export default function SistemaUnificadoPage() {
     if (calibracionOrigen === "alcance") {
       setIsCalibrated(true)
       setFaseAlcance("calibrated")
+      setAlcanceCalibracionDone(true)  // CHANGED: mark alcance calibration done
     } else if (calibracionOrigen === "pruebas") {
-      setPliometriaCalibrada(true)
+      setPruebaCalibrada(true)
+      setPruebaCalibracionDone(true)   // CHANGED: mark prueba calibration done
     }
 
     setCalibrationModalOpen(true)
@@ -468,8 +475,10 @@ export default function SistemaUnificadoPage() {
     if (calibracionOrigen === "alcance") {
       setIsCalibrated(false)
       setFaseAlcance("idle")
+      setAlcanceCalibracionDone(false)
     } else if (calibracionOrigen === "pruebas") {
-      setPliometriaCalibrada(false)
+      setPruebaCalibrada(false)
+      setPruebaCalibracionDone(false)
     }
 
     setCalibrationModalOpen(true)
@@ -508,8 +517,8 @@ export default function SistemaUnificadoPage() {
         if (msg.includes("ERROR_CALIBRACION")) {
           triggerCalibrationFailed()
         } else {
-          if (calibracionOrigen === "alcance") { setFaseAlcance("idle"); setIsCalibrated(false) }
-          else if (calibracionOrigen === "pruebas") { setPliometriaCalibrada(false) }
+          if (calibracionOrigen === "alcance") { setFaseAlcance("idle"); setIsCalibrated(false); setAlcanceCalibracionDone(false) }
+          else if (calibracionOrigen === "pruebas") { setPruebaCalibrada(false); setPruebaCalibracionDone(false) }
           setCalibrationModalOpen(false)
           setCalibrationStatus("calibrating")
           notify("error", "Calibración cancelada")
@@ -657,8 +666,10 @@ export default function SistemaUnificadoPage() {
       setResultadoFinal(null)
       setIncrementoAnterior("")
       setIsCalibrated(false)
+      setAlcanceCalibracionDone(false)
     } else if (origen === "pruebas") {
-      setPliometriaCalibrada(false)
+      setPruebaCalibrada(false)
+      setPruebaCalibracionDone(false)
       setEjercicioEnCurso(false)
       setResultadoFinal(null)
       setSaltoRTActual(null)
@@ -683,8 +694,8 @@ export default function SistemaUnificadoPage() {
     calibrandoRef.current = false
 
     setCalibrationModalOpen(false)
-    if (calibracionOrigen === "alcance") { setIsCalibrated(false); setFaseAlcance("idle") }
-    else if (calibracionOrigen === "pruebas") { setPliometriaCalibrada(false) }
+    if (calibracionOrigen === "alcance") { setIsCalibrated(false); setFaseAlcance("idle"); setAlcanceCalibracionDone(false) }
+    else if (calibracionOrigen === "pruebas") { setPruebaCalibrada(false); setPruebaCalibracionDone(false) }
     setCalibrationStatus("calibrating")
 
     await sendCommand(CMD.CANCELAR, setMessages)
@@ -741,13 +752,11 @@ export default function SistemaUnificadoPage() {
       })
       const d = await res.json()
       if (d.success) {
+        // CHANGED: only show alcance-relevant fields in result modal
         setAlcanceGuardado({
-          "Alcance registrado":         `${resultadoFinal.alcanceTotal} cm`,
-          "Altura del salto (ESP)":     `${resultadoFinal.alt_max_cm} cm`,
-          "Alcance estático":           `${resultadoFinal.alcanceEstaticoCm} cm`,
-          "Saltos válidos":             `${resultadoFinal.saltos_validos}`,
-          "Fuerza máx. izquierda (kgf)": `${resultadoFinal.pico_izq_kg}`,
-          "Fuerza máx. derecha (kgf)":   `${resultadoFinal.pico_der_kg}`,
+          "Alcance registrado": `${resultadoFinal.alcanceTotal} cm`,
+          "Altura del salto":   `${resultadoFinal.alt_max_cm} cm`,
+          "Alcance estático":   `${resultadoFinal.alcanceEstaticoCm} cm`,
         })
         setModalAlcanceOpen(true)
         notify("success", "Guardado correctamente")
@@ -763,6 +772,7 @@ export default function SistemaUnificadoPage() {
     setAlcanceGuardado(null)
     setFaseAlcance("idle")
     setIsCalibrated(false)
+    setAlcanceCalibracionDone(false)
     setSaltoRTActual(null)
     setResultadoFinal(null)
     setIncrementoAnterior("")
@@ -778,10 +788,11 @@ export default function SistemaUnificadoPage() {
     }
   }
 
-  const iniciarPliometria = async () => {
+  // CHANGED: renamed pliometria → prueba throughout
+  const iniciarPrueba = async () => {
     if (!cuentaSeleccionada)  { notify("error", "Selecciona un jugador primero"); return }
-    const duracion = Math.round(Number.parseFloat(tiempoPliometria))
-    if (!tiempoPliometria || duracion <= 0) { notify("error", "Ingresa un tiempo válido"); return }
+    const duracion = Math.round(Number.parseFloat(tiempoPrueba))
+    if (!tiempoPrueba || duracion <= 0) { notify("error", "Ingresa un tiempo válido"); return }
 
     try {
       const res = await fetch(`${BACKEND_URL}/api/saltos/iniciar`, {
@@ -790,7 +801,7 @@ export default function SistemaUnificadoPage() {
         body: JSON.stringify({ cuentaId: Number(cuentaSeleccionada), tipo: tipoSalto, tiempo: duracion }),
       })
       const d = await res.json()
-      if (d.success) setPliometriaId(d.data.id)
+      if (d.success) setPruebaId(d.data.id)
     } catch (e) { console.error(e) }
 
     setSaltoRTActual(null)
@@ -801,7 +812,7 @@ export default function SistemaUnificadoPage() {
     saltoConosContadorRef.current = 0
     resetFatiga()
     setEjercicioEnCurso(true)
-    setPliometriaIniciada(true)
+    setPruebaIniciada(true)
 
     const comando = tipoSaltoRef.current === "salto conos"
       ? CMD.CONO_TIMED(duracion)
@@ -823,17 +834,17 @@ export default function SistemaUnificadoPage() {
     notify("success", `Prueba de ${duracion}s iniciada`)
   }
 
-  const detenerPliometria = async () => {
-    if (!pliometriaIniciada && !ejercicioEnCurso) { notify("error", "No hay prueba activa"); return }
+  const detenerPrueba = async () => {
+    if (!pruebaIniciada && !ejercicioEnCurso) { notify("error", "No hay prueba activa"); return }
     if (progresoTimerRef.current) { clearInterval(progresoTimerRef.current); progresoTimerRef.current = null }
     await sendCommand(CMD.STOP, setMessages)
   }
 
-  const finalizarPliometria = async () => {
-    if (!pliometriaId || !resultadoFinal) { notify("error", "No hay datos para guardar"); return }
+  const finalizarPrueba = async () => {
+    if (!pruebaId || !resultadoFinal) { notify("error", "No hay datos para guardar"); return }
     const IF = calcularIndiceFatiga(primerSaltoSesion, ultimoSaltoSesion)
     try {
-      const res = await fetch(`${BACKEND_URL}/api/saltos/finalizar/${pliometriaId}`, {
+      const res = await fetch(`${BACKEND_URL}/api/saltos/finalizar/${pruebaId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -847,29 +858,30 @@ export default function SistemaUnificadoPage() {
       })
       const d = await res.json()
       if (d.success) {
-        setPliometriaGuardada({
-          "Tipo de salto":      tipoSalto,
-          "Saltos válidos":     `${resultadoFinal.saltos_validos}`,
-          "Altura máxima":      `${resultadoFinal.alt_max_cm} cm`,
+        // CHANGED: only show salto-relevant fields — no alcance shown here
+        setPruebaGuardada({
+          "Tipo de salto":          tipoSalto,
+          "Saltos válidos":         `${resultadoFinal.saltos_validos}`,
+          "Altura máxima":          `${resultadoFinal.alt_max_cm} cm`,
           "Fuerza pico izq. (kgf)": `${resultadoFinal.pico_izq_kg}`,
           "Fuerza pico der. (kgf)": `${resultadoFinal.pico_der_kg}`,
           ...(IF !== null && { "Índice de fatiga": `${IF}%` }),
-          ...(resultadoFinal.alcanceTotal && { "Alcance total": `${resultadoFinal.alcanceTotal} cm` }),
         })
-        setModalPliometriaOpen(true)
-        notify("success", "Pliometría guardada")
+        setModalPruebaOpen(true)
+        notify("success", "Prueba guardada")
       }
     } catch (e) { console.error(e) }
   }
 
-  const cerrarModalPliometria = () => {
-    setModalPliometriaOpen(false)
-    setPliometriaId(null)
-    setPliometriaIniciada(false)
-    setPliometriaGuardada(null)
+  const cerrarModalPrueba = () => {
+    setModalPruebaOpen(false)
+    setPruebaId(null)
+    setPruebaIniciada(false)
+    setPruebaGuardada(null)
+    setPruebaCalibracionDone(false)
     setEjercicioEnCurso(false)
     setProgresoSegundos(0)
-    setTiempoPliometria("60")
+    setTiempoPrueba("60")
     if (progresoTimerRef.current) { clearInterval(progresoTimerRef.current); progresoTimerRef.current = null }
     setSaltoRTActual(null)
     setResultadoFinal(null)
@@ -883,6 +895,13 @@ export default function SistemaUnificadoPage() {
     if (step === 1) return faseAlcance === "calibrating" ? "active" : ["calibrated","jumping","done"].includes(faseAlcance) ? "done" : "idle"
     if (step === 2) return faseAlcance === "jumping" ? "active" : faseAlcance === "done" ? "done" : "idle"
     return faseAlcance === "done" ? "done" : faseAlcance === "jumping" ? "active" : "idle"
+  }
+
+  // CHANGED: step state for pruebas tab using prueba calibration state
+  const pruebaStepState = (step) => {
+    if (step === 1) return pruebaCalibracionDone ? "done" : ejercicioEnCurso ? "idle" : "idle"
+    if (step === 2) return ejercicioEnCurso ? "active" : resultadoFinal ? "done" : "idle"
+    return "idle"
   }
 
   const card = { background: "rgba(255,255,255,.82)", backdropFilter: "blur(16px)", border: "1px solid rgba(148,163,184,.2)", boxShadow: "0 4px 24px rgba(148,163,184,.1)", borderRadius: 24 }
@@ -913,8 +932,9 @@ export default function SistemaUnificadoPage() {
       `}</style>
 
       <Toast notification={notification} onClose={() => setNotification(null)} />
-      <ResultModal isOpen={modalAlcanceOpen}    onClose={cerrarModalAlcance}    title="Alcance Guardado"    data={alcanceGuardado    || {}} />
-      <ResultModal isOpen={modalPliometriaOpen} onClose={cerrarModalPliometria} title="Pliometría Guardada" data={pliometriaGuardada  || {}} />
+      {/* CHANGED: renamed modal titles */}
+      <ResultModal isOpen={modalAlcanceOpen}  onClose={cerrarModalAlcance} title="Test de Alcance Guardado" data={alcanceGuardado || {}} />
+      <ResultModal isOpen={modalPruebaOpen}   onClose={cerrarModalPrueba}  title="Prueba de Salto Guardada" data={pruebaGuardada  || {}} />
       <CalibrationModal
         isOpen={calibrationModalOpen}
         calibrationStatus={calibrationStatus}
@@ -937,7 +957,9 @@ export default function SistemaUnificadoPage() {
                     setCuentaSeleccionada(e.target.value)
                     setFaseAlcance("idle")
                     setIsCalibrated(false)
-                    setPliometriaCalibrada(false)
+                    setAlcanceCalibracionDone(false)
+                    setPruebaCalibrada(false)
+                    setPruebaCalibracionDone(false)
                     setSaltoRTActual(null)
                     setResultadoFinal(null)
                     setIncrementoAnterior("")
@@ -987,7 +1009,8 @@ export default function SistemaUnificadoPage() {
           <div style={card} className="p-5">
             {activeTab === "alcance" && (
               <>
-                <span className="text-[9px] uppercase tracking-widest font-bold text-slate-400 block mb-3">Inicio de test</span>
+                {/* CHANGED: label → "Inicio de test de alcance" */}
+                <span className="text-[9px] uppercase tracking-widest font-bold text-slate-400 block mb-3">Test de Alcance</span>
                 <div className="flex gap-2.5 mb-3">
                   <button
                     onClick={() => handleCalibrar("alcance")}
@@ -996,12 +1019,13 @@ export default function SistemaUnificadoPage() {
                     style={
                       faseAlcance === "calibrating"
                         ? { borderRadius: 50, background: "#fef3c7", color: "#92400e", border: "1.5px solid #fde68a", cursor: "default" }
-                        : faseAlcance === "calibrated"
+                        : alcanceCalibracionDone  // CHANGED: use alcanceCalibracionDone for green state
                         ? { borderRadius: 50, background: "linear-gradient(135deg,#059669,#10b981)", color: "#fff", boxShadow: "0 4px 14px rgba(5,150,105,.25)" }
                         : pillBtn(!cuentaSeleccionada || faseAlcance === "jumping" ? false : true, !cuentaSeleccionada || faseAlcance === "jumping")
                     }
                   >
-                    {faseAlcance === "calibrating" ? "Calibrando…" : faseAlcance === "calibrated" ? "✓ Recalibrar" : "Calibrar"}
+                    {/* CHANGED: button text never shows "Calibrando…" after success */}
+                    {faseAlcance === "calibrating" ? "Calibrando…" : alcanceCalibracionDone ? "✓ Recalibrar" : "Calibrar"}
                   </button>
 
                   {faseAlcance !== "jumping" ? (
@@ -1043,7 +1067,8 @@ export default function SistemaUnificadoPage() {
 
             {activeTab === "pruebas" && (
               <>
-                <span className="text-[9px] uppercase tracking-widest font-bold text-slate-400 block mb-3">Configuración</span>
+                {/* CHANGED: label → "Prueba de Salto" */}
+                <span className="text-[9px] uppercase tracking-widest font-bold text-slate-400 block mb-3">Prueba de Salto</span>
                 <div className="flex items-center gap-3 flex-wrap">
                   <div className="flex gap-1.5">
                     {[{ key: "salto simple", label: "Salto simple" }, { key: "salto conos", label: "Salto cono" }].map(({ key, label }) => (
@@ -1060,8 +1085,8 @@ export default function SistemaUnificadoPage() {
                   </div>
                   <input
                     type="number"
-                    value={tiempoPliometria}
-                    onChange={(e) => setTiempoPliometria(e.target.value)}
+                    value={tiempoPrueba}
+                    onChange={(e) => setTiempoPrueba(e.target.value)}
                     placeholder="Seg."
                     min="10"
                     max="300"
@@ -1075,17 +1100,19 @@ export default function SistemaUnificadoPage() {
                       disabled={!cuentaSeleccionada || ejercicioEnCurso}
                       className="pill-btn py-2 px-4 text-sm font-semibold"
                       style={
-                        pliometriaCalibrada
+                        // CHANGED: use pruebaCalibracionDone for green state
+                        pruebaCalibracionDone
                           ? { borderRadius: 50, background: "linear-gradient(135deg,#059669,#10b981)", color: "#fff", boxShadow: "0 4px 14px rgba(5,150,105,.25)" }
                           : pillBtn(true, !cuentaSeleccionada || ejercicioEnCurso)
                       }
                     >
-                      {pliometriaCalibrada ? "✓ Calibrado" : "Calibrar"}
+                      {/* CHANGED: button text uses pruebaCalibracionDone */}
+                      {pruebaCalibracionDone ? "✓ Calibrado" : "Calibrar"}
                     </button>
 
                     {!ejercicioEnCurso ? (
                       <button
-                        onClick={iniciarPliometria}
+                        onClick={iniciarPrueba}
                         className="pill-btn py-2 px-4 text-sm font-semibold"
                         style={pillBtn(true, false)}
                       >
@@ -1093,7 +1120,7 @@ export default function SistemaUnificadoPage() {
                       </button>
                     ) : (
                       <button
-                        onClick={detenerPliometria}
+                        onClick={detenerPrueba}
                         className="pill-btn py-2 px-4 text-sm font-semibold animate-pulse"
                         style={{ borderRadius: 50, background: "linear-gradient(135deg,#dc2626,#ef4444)", color: "#fff", boxShadow: "0 4px 14px rgba(220,38,38,.25)" }}
                       >
@@ -1111,7 +1138,8 @@ export default function SistemaUnificadoPage() {
         <div className="flex justify-center">
           <div className="flex p-1 gap-1"
             style={{ background: "rgba(255,255,255,.9)", border: "1px solid rgba(148,163,184,.2)", borderRadius: 50, boxShadow: "0 2px 12px rgba(148,163,184,.1)" }}>
-            {[["alcance", "Test de Alcance"], ["pruebas", "Pruebas"]].map(([key, label]) => (
+            {/* CHANGED: tab labels → "Test Alcance" and "Prueba Salto" */}
+            {[["alcance", "Test Alcance"], ["pruebas", "Prueba Salto"]].map(([key, label]) => (
               <button
                 key={key}
                 onClick={() => setActiveTab(key)}
@@ -1132,11 +1160,11 @@ export default function SistemaUnificadoPage() {
         {/* ══════════════════ TAB ALCANCE ══════════════════ */}
         {activeTab === "alcance" && (
           <div className="space-y-6">
-            {/* Pasos — 2 cards pequeños */}
+            {/* Pasos */}
             <div className="space-y-3">
               <p className="text-center text-[10px] font-bold uppercase tracking-widest text-slate-400">Pasos a seguir para el jugador</p>
               <div className="flex justify-center gap-4">
-                {/* Card 1: Calibración — imagen fija */}
+                {/* Card 1: Calibración */}
                 {(() => {
                   const s = stepState(1)
                   const border = s === "done" ? "#10b981" : s === "active" ? "#818cf8" : "#e2e8f0"
@@ -1155,7 +1183,7 @@ export default function SistemaUnificadoPage() {
                     </div>
                   )
                 })()}
-                {/* Card 2: Prueba — carrusel */}
+                {/* Card 2: Prueba */}
                 {(() => {
                   const s = stepState(2)
                   const border = s === "done" ? "#10b981" : s === "active" ? "#818cf8" : "#e2e8f0"
@@ -1175,7 +1203,7 @@ export default function SistemaUnificadoPage() {
               </div>
             </div>
 
-            {/* Resultados */}
+            {/* Resultados — CHANGED: only alcance field shown */}
             <div className="flex justify-center">
               <div className="w-full max-w-md p-6" style={card}>
                 <p className="text-[10px] uppercase tracking-widest font-bold text-slate-400 text-center mb-5">Resultados</p>
@@ -1230,32 +1258,48 @@ export default function SistemaUnificadoPage() {
         {/* ══════════════════ TAB PRUEBAS ══════════════════ */}
         {activeTab === "pruebas" && (
           <div className="space-y-6">
-            {/* Pasos — 2 cards pequeños */}
+            {/* Pasos — CHANGED: step cards now use pruebaStepState for color borders */}
             <div className="space-y-3">
               <p className="text-center text-[10px] font-bold uppercase tracking-widest text-slate-400">Pasos a seguir para el jugador</p>
               <div className="flex justify-center gap-4">
-                {/* Card 1: Calibración — imagen fija */}
-                <div className="flex flex-col gap-2" style={{ width: 280 }}>
-                  <p className="text-[9px] font-bold uppercase tracking-widest text-center text-slate-400">Calibración</p>
-                  <div className="step-card bg-white overflow-hidden" style={{ borderRadius: 18, border: "2px solid #e2e8f0", boxShadow: "0 2px 8px rgba(148,163,184,.07)" }}>
-                    <div className="overflow-hidden relative" style={{ height: 360 }}>
-                      <img src="/calibraAlcance2.png" alt="Calibración"
-                        className="w-full h-full object-contain"
-                        style={{ background: "linear-gradient(160deg,#f8fafc,#fff)" }} />
+                {/* Card 1: Calibración */}
+                {(() => {
+                  const s = pruebaCalibracionDone ? "done" : "idle"
+                  const border = s === "done" ? "#10b981" : "#e2e8f0"
+                  const shadow = s === "done" ? "0 6px 24px rgba(16,185,129,.15)" : "0 2px 8px rgba(148,163,184,.07)"
+                  const lc     = s === "done" ? "#059669" : "#94a3b8"
+                  return (
+                    <div className="flex flex-col gap-2" style={{ width: 280 }}>
+                      <p className="text-[9px] font-bold uppercase tracking-widest text-center" style={{ color: lc }}>Calibración</p>
+                      <div className="step-card bg-white overflow-hidden" style={{ borderRadius: 18, border: `2px solid ${border}`, boxShadow: shadow }}>
+                        <div className="overflow-hidden relative" style={{ height: 360 }}>
+                          <img src="/calibraAlcance2.png" alt="Calibración"
+                            className="w-full h-full object-contain"
+                            style={{ background: "linear-gradient(160deg,#f8fafc,#fff)" }} />
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                </div>
-                {/* Card 2: Prueba — carrusel según tipo */}
-                <div className="flex flex-col gap-2" style={{ width: 280 }}>
-                  <p className="text-[9px] font-bold uppercase tracking-widest text-center text-slate-400">
-                    {tipoSalto === "salto conos" ? "Salto con Conos" : "Salto Simple"}
-                  </p>
-                  <div className="step-card bg-white overflow-hidden" style={{ borderRadius: 18, border: "2px solid #e2e8f0", boxShadow: "0 2px 8px rgba(148,163,184,.07)" }}>
-                    <div className="overflow-hidden relative" style={{ height: 360 }}>
-                      <Carrusel images={getPruebasCarrusel()} alt="Prueba" />
+                  )
+                })()}
+                {/* Card 2: Tipo de salto */}
+                {(() => {
+                  const s = resultadoFinal ? "done" : ejercicioEnCurso ? "active" : "idle"
+                  const border = s === "done" ? "#10b981" : s === "active" ? "#818cf8" : "#e2e8f0"
+                  const shadow = s === "done" ? "0 6px 24px rgba(16,185,129,.15)" : s === "active" ? "0 6px 24px rgba(99,102,241,.15)" : "0 2px 8px rgba(148,163,184,.07)"
+                  const lc     = s === "done" ? "#059669" : s === "active" ? "#4f46e5" : "#94a3b8"
+                  return (
+                    <div className="flex flex-col gap-2" style={{ width: 280 }}>
+                      <p className="text-[9px] font-bold uppercase tracking-widest text-center" style={{ color: lc }}>
+                        {tipoSalto === "salto conos" ? "Salto con Conos" : "Salto Simple"}
+                      </p>
+                      <div className="step-card bg-white overflow-hidden" style={{ borderRadius: 18, border: `2px solid ${border}`, boxShadow: shadow }}>
+                        <div className="overflow-hidden relative" style={{ height: 360 }}>
+                          <Carrusel images={getPruebasCarrusel()} alt="Prueba" />
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                </div>
+                  )
+                })()}
               </div>
             </div>
 
@@ -1264,21 +1308,21 @@ export default function SistemaUnificadoPage() {
               <div className="flex items-center justify-between">
                 <p className="text-[9px] uppercase tracking-widest font-bold text-slate-400">Tiempo transcurrido</p>
                 <p className="text-[10px] font-mono text-slate-400">
-                  {progresoSegundos}s{tiempoPliometria ? ` / ${tiempoPliometria}s` : ""}
+                  {progresoSegundos}s{tiempoPrueba ? ` / ${tiempoPrueba}s` : ""}
                 </p>
               </div>
               <div className="w-full h-2 rounded-full overflow-hidden" style={{ background: "#e2e8f0" }}>
                 <div className="h-full rounded-full transition-all duration-1000"
                   style={{
-                    width: tiempoPliometria && progresoSegundos > 0
-                      ? `${Math.min((progresoSegundos / parseFloat(tiempoPliometria)) * 100, 100)}%`
+                    width: tiempoPrueba && progresoSegundos > 0
+                      ? `${Math.min((progresoSegundos / parseFloat(tiempoPrueba)) * 100, 100)}%`
                       : "0%",
                     background: "linear-gradient(90deg,#6366f1,#8b5cf6)",
                   }} />
               </div>
             </div>
 
-            {/* Resultados */}
+            {/* Resultados — CHANGED: no alcance shown; only salto fields */}
             <div className="flex justify-center">
               <div className="w-full max-w-md p-6" style={card}>
                 <p className="text-[10px] uppercase tracking-widest font-bold text-slate-400 text-center mb-5">Resultados</p>
@@ -1290,11 +1334,6 @@ export default function SistemaUnificadoPage() {
                       isLive: !!saltoRTActual && !resultadoFinal,
                     },
                     {
-                      label: "Índice de fatiga (%)",
-                      value: (() => { const IF = calcularIndiceFatiga(primerSaltoSesion, ultimoSaltoSesion); return IF !== null ? `${IF}%` : "" })(),
-                      isLive: false,
-                    },
-                    {
                       label: "Fuerza máxima alcanzada",
                       value: resultadoFinal
                         ? `Izq: ${resultadoFinal.pico_izq_kg} kgf  /  Der: ${resultadoFinal.pico_der_kg} kgf`
@@ -1304,7 +1343,7 @@ export default function SistemaUnificadoPage() {
                       isLive: !!saltoRTActual && !resultadoFinal,
                     },
                     {
-                      label: "Altura promedio",
+                      label: "Altura máxima",
                       value: resultadoFinal
                         ? `${resultadoFinal.alt_max_cm} cm`
                         : saltoRTActual
@@ -1331,10 +1370,10 @@ export default function SistemaUnificadoPage() {
                 </div>
                 <div className="flex justify-center mt-6">
                   <button
-                    onClick={finalizarPliometria}
-                    disabled={!resultadoFinal || !pliometriaId}
+                    onClick={finalizarPrueba}
+                    disabled={!resultadoFinal || !pruebaId}
                     className="pill-btn px-10 py-2.5 text-sm font-bold"
-                    style={pillBtn(!!resultadoFinal && !!pliometriaId, !resultadoFinal || !pliometriaId)}
+                    style={pillBtn(!!resultadoFinal && !!pruebaId, !resultadoFinal || !pruebaId)}
                   >
                     Guardar
                   </button>
