@@ -167,7 +167,7 @@ export default function Navbar() {
       <header className="sticky top-0 z-50 px-6 py-6 bg-white shadow-md border-b border-gray-200">
         <nav className="flex items-center justify-between max-w-7xl mx-auto">
           <div className="flex items-center space-x-3">
-            <Image src="/logo.png" alt="logo" width={56} height={56} />
+            <Image src="/logo2.png" alt="logo" width={64} height={64} />
             <span className="text-[#800020] font-bold text-2xl">Tech Volley UNV</span>
           </div>
           <Link
@@ -199,7 +199,7 @@ export default function Navbar() {
       <header className="sticky top-0 z-50 flex h-24 items-center gap-4 border-b bg-white px-6 shadow-lg">
 
         <div className="flex items-center space-x-3">
-          <Image src="/logo.png" alt="logo" width={48} height={48} />
+          <Image src="/logo2.png" alt="logo" width={56} height={56} />
           <h1 className="text-[#800020] font-bold text-xl">Tech Volley UNV</h1>
         </div>
 

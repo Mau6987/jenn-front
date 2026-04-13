@@ -248,7 +248,6 @@ function CalibrationModal({ isOpen, calibrationStatus, onClose, onCancel }) {
               <img src="/calibrarbien.png" alt="Calibrado correctamente" className="w-full h-full object-contain" />
             </div>
             <h3 className="text-xl font-bold text-green-700 mb-1">¡Calibrado!</h3>
-            {/* CHANGED: removed "MPU6050 y celdas HX711 listas" → "Sensores listos" */}
             <p className="text-sm text-gray-600">Sensores listos</p>
           </>
         )}
@@ -278,6 +277,51 @@ function CalibrationModal({ isOpen, calibrationStatus, onClose, onCancel }) {
           </>
         )}
       </div>
+    </div>
+  )
+}
+
+// ── BATTERY ICON ───────────────────────────────────────────────────────────
+function BatteryIcon({ nivel, porcentaje, voltaje }) {
+  // nivel: "normal" | "alerta" | "critico" | null (desconocido)
+  const barColors = {
+    normal:  ["#1A7A5E", "#1A7A5E", "#1A7A5E"],
+    alerta:  ["#C2620A", "#C2620A", "#E8E8E8"],
+    critico: ["#B03030", "#E8E8E8", "#E8E8E8"],
+    null:    ["#E8E8E8", "#E8E8E8", "#E8E8E8"],
+  }
+  const colors = barColors[nivel] || barColors[null]
+  const labelColor = nivel === "normal" ? "#1A7A5E" : nivel === "alerta" ? "#C2620A" : nivel === "critico" ? "#B03030" : "#6B6B6B"
+
+  return (
+    <div
+      title={voltaje ? `${voltaje.toFixed(2)}V · ${porcentaje}%` : "Sin datos de batería"}
+      style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2, cursor: "default" }}
+    >
+      <div style={{ display: "flex", alignItems: "center", gap: 1 }}>
+        <div style={{
+          width: 18, height: 10,
+          border: `1.5px solid ${colors[0] === "#E8E8E8" ? "#d1d5db" : colors[0]}`,
+          borderRadius: 2, padding: "1px 2px",
+          display: "flex", alignItems: "center", gap: 1, background: "#fff",
+        }}>
+          {colors.map((c, i) => (
+            <div key={i} style={{ flex: 1, height: "100%", borderRadius: 1, background: c, transition: "background 0.4s" }} />
+          ))}
+        </div>
+        {/* Terminal positivo */}
+        <div style={{
+          width: 2, height: 5,
+          background: colors[0] === "#E8E8E8" ? "#d1d5db" : colors[0],
+          borderRadius: "0 1px 1px 0", transition: "background 0.4s",
+        }} />
+      </div>
+      <span style={{
+        fontSize: 9, fontWeight: 700, letterSpacing: "0.06em",
+        color: labelColor, fontFamily: "monospace", lineHeight: 1,
+      }}>
+        {porcentaje !== null ? `${porcentaje}%` : "—"}
+      </span>
     </div>
   )
 }
@@ -357,6 +401,7 @@ export default function SistemaUnificadoPage() {
   const [jugadoresDisponibles, setJugadoresDisponibles] = useState([])
   const [cuentaSeleccionada, setCuentaSeleccionada]     = useState("")
   const [espConnected, setEspConnected]                 = useState(false)
+  const [espBattery, setEspBattery]                     = useState(null)
   const [messages, setMessages]                         = useState([])
   const [notification, setNotification]                 = useState(null)
   const [activeTab, setActiveTab]                       = useState("alcance")
@@ -395,8 +440,8 @@ export default function SistemaUnificadoPage() {
   const [primerSaltoSesion, setPrimerSaltoSesion]       = useState(null)
   const [ultimoSaltoSesion, setUltimoSaltoSesion]       = useState(null)
   const [totalSaltosSesion, setTotalSaltosSesion]       = useState(0)
+  const [alturasSesion, setAlturasSesion]               = useState([])
 
-  // CHANGED: track calibration done per tab to turn button green
   const [alcanceCalibracionDone, setAlcanceCalibracionDone] = useState(false)
   const [pruebaCalibracionDone, setPruebaCalibracionDone]   = useState(false)
 
@@ -439,6 +484,7 @@ export default function SistemaUnificadoPage() {
     setPrimerSaltoSesion(null)
     setUltimoSaltoSesion(null)
     setTotalSaltosSesion(0)
+    setAlturasSesion([])
   }
 
   const onCalibrationSuccess = () => {
@@ -449,10 +495,10 @@ export default function SistemaUnificadoPage() {
     if (calibracionOrigen === "alcance") {
       setIsCalibrated(true)
       setFaseAlcance("calibrated")
-      setAlcanceCalibracionDone(true)  // CHANGED: mark alcance calibration done
+      setAlcanceCalibracionDone(true)
     } else if (calibracionOrigen === "pruebas") {
       setPruebaCalibrada(true)
-      setPruebaCalibracionDone(true)   // CHANGED: mark prueba calibration done
+      setPruebaCalibracionDone(true)
     }
 
     setCalibrationModalOpen(true)
@@ -495,6 +541,21 @@ export default function SistemaUnificadoPage() {
     })
     channel.bind("pusher:subscription_error", (err) => {
       addMessage("SISTEMA", `Error: ${JSON.stringify(err)}`, "error", setMessages)
+    })
+
+    // ── Evento de batería ──────────────────────────────────────────────────
+    channel.bind("client-bateria_estado", (data) => {
+      let payload = data
+      if (typeof data.data === "string") {
+        try { payload = JSON.parse(data.data) } catch { payload = data }
+      }
+      const { nivel, porcentaje, voltaje } = payload
+      if (nivel) {
+        setEspBattery({ nivel, porcentaje: porcentaje ?? null, voltaje: voltaje ?? null })
+        if (nivel === "critico") {
+          notify("error", `🔋 Batería crítica en ESP-6 (${voltaje?.toFixed(2)}V)`)
+        }
+      }
     })
 
     channel.bind("client-response", (data) => {
@@ -559,6 +620,7 @@ export default function SistemaUnificadoPage() {
           setPrimerSaltoSesion((prev) => prev ?? saltoFatiga)
           setUltimoSaltoSesion(saltoFatiga)
           setTotalSaltosSesion((prev) => prev + 1)
+          setAlturasSesion((prev) => [...prev, json.altura_cm])
           saltoConosContadorRef.current += 1
           const numSalto = saltoConosContadorRef.current
 
@@ -611,11 +673,15 @@ export default function SistemaUnificadoPage() {
           )
 
           const numSaltos = json.saltos ?? json.saltos_validos ?? saltoConosContadorRef.current
+          const altPromedio = alturasSesion.length > 0
+            ? (alturasSesion.reduce((a, b) => a + b, 0) / alturasSesion.length).toFixed(1)
+            : altMax.toFixed(1)
 
           const resultado = {
             _tipo: json.modo ?? (currentTipo === "salto conos" ? "cono" : "vertical"),
             saltos_validos: numSaltos,
             alt_max_cm:    altMax.toFixed(1),
+            alt_promedio_cm: altPromedio,
             pico_izq_kg:   picoIzq.toFixed(2),
             pico_der_kg:   picoDer.toFixed(2),
             alcanceEstaticoCm: parseFloat(alcanceEstaticoCm.toFixed(1)),
@@ -708,6 +774,9 @@ export default function SistemaUnificadoPage() {
       calibrationAutoCloseRef.current = null
     }
     setCalibrationModalOpen(false)
+    if (calibrationStatus !== "success") {
+      setCalibrationStatus("calibrating")
+    }
   }
 
   const handleIniciarSalto = async () => {
@@ -744,19 +813,24 @@ export default function SistemaUnificadoPage() {
   const handleGuardarAlcance = async () => {
     if (!resultadoFinal || !cuentaSeleccionada) return
     if (resultadoFinal._tipo === "cono") { notify("error", "El salto con conos no guarda alcance"); return }
+    const IF = calcularIndiceFatiga(primerSaltoSesion, ultimoSaltoSesion)
     try {
       const res = await fetch(`${BACKEND_URL}/api/alcances`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ cuentaId: Number(cuentaSeleccionada), alcance: resultadoFinal.alcanceTotal }),
+        body: JSON.stringify({
+          cuentaId: Number(cuentaSeleccionada),
+          alcance: resultadoFinal.alcanceTotal,
+          indice_fatiga: IF,
+        }),
       })
       const d = await res.json()
       if (d.success) {
-        // CHANGED: only show alcance-relevant fields in result modal
         setAlcanceGuardado({
-          "Alcance registrado": `${resultadoFinal.alcanceTotal} cm`,
-          "Altura del salto":   `${resultadoFinal.alt_max_cm} cm`,
-          "Alcance estático":   `${resultadoFinal.alcanceEstaticoCm} cm`,
+          "Alcance registrado":      `${resultadoFinal.alcanceTotal} cm`,
+          "Altura promedio":         `${resultadoFinal.alt_promedio_cm} cm`,
+          "Alcance estático":        `${resultadoFinal.alcanceEstaticoCm} cm`,
+          ...(IF !== null && { "Índice de fatiga": `${IF}%` }),
         })
         setModalAlcanceOpen(true)
         notify("success", "Guardado correctamente")
@@ -788,7 +862,6 @@ export default function SistemaUnificadoPage() {
     }
   }
 
-  // CHANGED: renamed pliometria → prueba throughout
   const iniciarPrueba = async () => {
     if (!cuentaSeleccionada)  { notify("error", "Selecciona un jugador primero"); return }
     const duracion = Math.round(Number.parseFloat(tiempoPrueba))
@@ -840,6 +913,26 @@ export default function SistemaUnificadoPage() {
     await sendCommand(CMD.STOP, setMessages)
   }
 
+  const cancelarPrueba = async () => {
+    if (!pruebaIniciada && !ejercicioEnCurso) { notify("error", "No hay prueba activa"); return }
+    if (progresoTimerRef.current) { clearInterval(progresoTimerRef.current); progresoTimerRef.current = null }
+    await sendCommand(CMD.STOP, setMessages)
+    setPruebaId(null)
+    setPruebaIniciada(false)
+    setPruebaGuardada(null)
+    setPruebaCalibracionDone(false)
+    setEjercicioEnCurso(false)
+    setProgresoSegundos(0)
+    setTiempoPrueba("60")
+    setSaltoRTActual(null)
+    setResultadoFinal(null)
+    setIncrementoAnterior("")
+    setFaseAlcance("idle")
+    saltoConosContadorRef.current = 0
+    resetFatiga()
+    notify("error", "Prueba cancelada")
+  }
+
   const finalizarPrueba = async () => {
     if (!pruebaId || !resultadoFinal) { notify("error", "No hay datos para guardar"); return }
     const IF = calcularIndiceFatiga(primerSaltoSesion, ultimoSaltoSesion)
@@ -849,6 +942,7 @@ export default function SistemaUnificadoPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           saltos_validos:  resultadoFinal.saltos_validos,
+          alt_promedio_cm: resultadoFinal.alt_promedio_cm,
           alt_max_cm:      resultadoFinal.alt_max_cm,
           pico_izq_kg:     resultadoFinal.pico_izq_kg,
           pico_der_kg:     resultadoFinal.pico_der_kg,
@@ -858,13 +952,12 @@ export default function SistemaUnificadoPage() {
       })
       const d = await res.json()
       if (d.success) {
-        // CHANGED: only show salto-relevant fields — no alcance shown here
         setPruebaGuardada({
-          "Tipo de salto":          tipoSalto,
-          "Saltos válidos":         `${resultadoFinal.saltos_validos}`,
-          "Altura máxima":          `${resultadoFinal.alt_max_cm} cm`,
-          "Fuerza pico izq. (kgf)": `${resultadoFinal.pico_izq_kg}`,
-          "Fuerza pico der. (kgf)": `${resultadoFinal.pico_der_kg}`,
+          "Tipo de salto":           tipoSalto,
+          "Saltos válidos":          `${resultadoFinal.saltos_validos}`,
+          "Altura promedio":         `${resultadoFinal.alt_promedio_cm} cm`,
+          "Fuerza pico izq. (kgf)":  `${resultadoFinal.pico_izq_kg}`,
+          "Fuerza pico der. (kgf)":  `${resultadoFinal.pico_der_kg}`,
           ...(IF !== null && { "Índice de fatiga": `${IF}%` }),
         })
         setModalPruebaOpen(true)
@@ -897,7 +990,6 @@ export default function SistemaUnificadoPage() {
     return faseAlcance === "done" ? "done" : faseAlcance === "jumping" ? "active" : "idle"
   }
 
-  // CHANGED: step state for pruebas tab using prueba calibration state
   const pruebaStepState = (step) => {
     if (step === 1) return pruebaCalibracionDone ? "done" : ejercicioEnCurso ? "idle" : "idle"
     if (step === 2) return ejercicioEnCurso ? "active" : resultadoFinal ? "done" : "idle"
@@ -919,6 +1011,14 @@ export default function SistemaUnificadoPage() {
   const getPruebasCarrusel = () =>
     tipoSalto === "salto conos" ? SALTO_CONOS_IMAGES : SALTO_SIMPLE_IMAGES
 
+  // ── Helpers de batería ─────────────────────────────────────────────────
+  const batteryBorderColor = espBattery
+    ? espBattery.nivel === "normal"  ? "#10b981"
+    : espBattery.nivel === "alerta"  ? "#f59e0b"
+    : espBattery.nivel === "critico" ? "#ef4444"
+    : "#e2e8f0"
+    : "#e2e8f0"
+
   return (
     <div className="min-h-screen" style={{ background: "linear-gradient(160deg,#f8fafc 0%,#f0f4f8 60%,#e8eef5 100%)", fontFamily: "'DM Sans', sans-serif" }}>
       <style>{`
@@ -929,10 +1029,11 @@ export default function SistemaUnificadoPage() {
         @keyframes glow-green { from { box-shadow: 0 0 0 0 rgba(16,185,129,.08); } to { box-shadow: 0 0 0 6px rgba(16,185,129,.06); } }
         .step-card { transition: border-color .3s ease, box-shadow .3s ease; }
         select { -webkit-appearance: none; }
+        @keyframes battery-pulse-crit { 0%,100%{opacity:1} 50%{opacity:.45} }
+        .battery-critico { animation: battery-pulse-crit 1s ease-in-out infinite; }
       `}</style>
 
       <Toast notification={notification} onClose={() => setNotification(null)} />
-      {/* CHANGED: renamed modal titles */}
       <ResultModal isOpen={modalAlcanceOpen}  onClose={cerrarModalAlcance} title="Test de Alcance Guardado" data={alcanceGuardado || {}} />
       <ResultModal isOpen={modalPruebaOpen}   onClose={cerrarModalPrueba}  title="Prueba de Salto Guardada" data={pruebaGuardada  || {}} />
       <CalibrationModal
@@ -946,7 +1047,8 @@ export default function SistemaUnificadoPage() {
 
         {/* ── Selector jugador + controles de tab ── */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {/* Jugador */}
+
+          {/* ── Card jugador ── */}
           <div style={card} className="p-5 flex items-center gap-4">
             <div className="flex flex-col gap-1.5 shrink-0">
               <span className="text-[9px] uppercase tracking-widest font-bold text-slate-400">Jugador</span>
@@ -977,11 +1079,44 @@ export default function SistemaUnificadoPage() {
                 </select>
                 <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
               </div>
+
+              {/* ── Estado ESP-6 + Batería ── */}
+              <div className="flex items-center gap-2 mt-1">
+                <div className="flex items-center gap-1.5">
+                  <span
+                    className="w-2 h-2 rounded-full shrink-0"
+                    style={{ background: espConnected ? "#10b981" : "#cbd5e1" }}
+                  />
+                  <span className="text-[9px] font-semibold uppercase tracking-widest text-slate-400">
+                    {espConnected ? "Online" : "Offline"}
+                  </span>
+                </div>
+                {espConnected && espBattery && (
+                  <div className={espBattery.nivel === "critico" ? "battery-critico" : ""}>
+                    <BatteryIcon
+                      nivel={espBattery.nivel}
+                      porcentaje={espBattery.porcentaje}
+                      voltaje={espBattery.voltaje}
+                    />
+                  </div>
+                )}
+              </div>
             </div>
+
             <div className="w-px self-stretch bg-slate-100 shrink-0" />
+
             <div className="flex items-center gap-3 min-w-0">
-              <div className="w-12 h-12 shrink-0 overflow-hidden"
-                style={{ borderRadius: 16, background: "#f1f5f9", border: "1.5px solid #e2e8f0" }}>
+              <div
+                className="w-12 h-12 shrink-0 overflow-hidden"
+                style={{
+                  borderRadius: 16,
+                  background: "#f1f5f9",
+                  border: espBattery
+                    ? `1.5px solid ${batteryBorderColor}`
+                    : "1.5px solid #e2e8f0",
+                  transition: "border-color .4s",
+                }}
+              >
                 {jugadorSeleccionado?.jugador?.posicion_principal
                   ? <img src={getPositionIcon(jugadorSeleccionado.jugador.posicion_principal)} alt=""
                       className="w-full h-full object-cover" onError={(e) => { e.currentTarget.src = "/oso.png" }} />
@@ -1005,11 +1140,10 @@ export default function SistemaUnificadoPage() {
             </div>
           </div>
 
-          {/* Controles según tab */}
+          {/* ── Controles según tab ── */}
           <div style={card} className="p-5">
             {activeTab === "alcance" && (
               <>
-                {/* CHANGED: label → "Inicio de test de alcance" */}
                 <span className="text-[9px] uppercase tracking-widest font-bold text-slate-400 block mb-3">Test de Alcance</span>
                 <div className="flex gap-2.5 mb-3">
                   <button
@@ -1017,15 +1151,14 @@ export default function SistemaUnificadoPage() {
                     disabled={!cuentaSeleccionada || faseAlcance === "jumping"}
                     className="pill-btn flex-1 py-2.5 px-5 text-sm font-semibold"
                     style={
-                      faseAlcance === "calibrating"
+                      faseAlcance === "calibrating" && calibrationStatus === "calibrating"
                         ? { borderRadius: 50, background: "#fef3c7", color: "#92400e", border: "1.5px solid #fde68a", cursor: "default" }
-                        : alcanceCalibracionDone  // CHANGED: use alcanceCalibracionDone for green state
+                        : alcanceCalibracionDone
                         ? { borderRadius: 50, background: "linear-gradient(135deg,#059669,#10b981)", color: "#fff", boxShadow: "0 4px 14px rgba(5,150,105,.25)" }
                         : pillBtn(!cuentaSeleccionada || faseAlcance === "jumping" ? false : true, !cuentaSeleccionada || faseAlcance === "jumping")
                     }
                   >
-                    {/* CHANGED: button text never shows "Calibrando…" after success */}
-                    {faseAlcance === "calibrating" ? "Calibrando…" : alcanceCalibracionDone ? "✓ Recalibrar" : "Calibrar"}
+                    {faseAlcance === "calibrating" && calibrationStatus === "calibrating" ? "Calibrando…" : alcanceCalibracionDone ? "✓ Recalibrar" : "Calibrar"}
                   </button>
 
                   {faseAlcance !== "jumping" ? (
@@ -1067,7 +1200,6 @@ export default function SistemaUnificadoPage() {
 
             {activeTab === "pruebas" && (
               <>
-                {/* CHANGED: label → "Prueba de Salto" */}
                 <span className="text-[9px] uppercase tracking-widest font-bold text-slate-400 block mb-3">Prueba de Salto</span>
                 <div className="flex items-center gap-3 flex-wrap">
                   <div className="flex gap-1.5">
@@ -1100,13 +1232,11 @@ export default function SistemaUnificadoPage() {
                       disabled={!cuentaSeleccionada || ejercicioEnCurso}
                       className="pill-btn py-2 px-4 text-sm font-semibold"
                       style={
-                        // CHANGED: use pruebaCalibracionDone for green state
                         pruebaCalibracionDone
                           ? { borderRadius: 50, background: "linear-gradient(135deg,#059669,#10b981)", color: "#fff", boxShadow: "0 4px 14px rgba(5,150,105,.25)" }
                           : pillBtn(true, !cuentaSeleccionada || ejercicioEnCurso)
                       }
                     >
-                      {/* CHANGED: button text uses pruebaCalibracionDone */}
                       {pruebaCalibracionDone ? "✓ Calibrado" : "Calibrar"}
                     </button>
 
@@ -1119,13 +1249,22 @@ export default function SistemaUnificadoPage() {
                         Iniciar
                       </button>
                     ) : (
-                      <button
-                        onClick={detenerPrueba}
-                        className="pill-btn py-2 px-4 text-sm font-semibold animate-pulse"
-                        style={{ borderRadius: 50, background: "linear-gradient(135deg,#dc2626,#ef4444)", color: "#fff", boxShadow: "0 4px 14px rgba(220,38,38,.25)" }}
-                      >
-                        Detener
-                      </button>
+                      <>
+                        <button
+                          onClick={detenerPrueba}
+                          className="pill-btn py-2 px-4 text-sm font-semibold animate-pulse"
+                          style={{ borderRadius: 50, background: "linear-gradient(135deg,#dc2626,#ef4444)", color: "#fff", boxShadow: "0 4px 14px rgba(220,38,38,.25)" }}
+                        >
+                          Detener
+                        </button>
+                        <button
+                          onClick={cancelarPrueba}
+                          className="pill-btn py-2 px-4 text-sm font-semibold"
+                          style={{ borderRadius: 50, background: "#fee2e2", color: "#991b1b", border: "1.5px solid #fecaca", cursor: "pointer" }}
+                        >
+                          Cancelar
+                        </button>
+                      </>
                     )}
                   </div>
                 </div>
@@ -1138,7 +1277,6 @@ export default function SistemaUnificadoPage() {
         <div className="flex justify-center">
           <div className="flex p-1 gap-1"
             style={{ background: "rgba(255,255,255,.9)", border: "1px solid rgba(148,163,184,.2)", borderRadius: 50, boxShadow: "0 2px 12px rgba(148,163,184,.1)" }}>
-            {/* CHANGED: tab labels → "Test Alcance" and "Prueba Salto" */}
             {[["alcance", "Test Alcance"], ["pruebas", "Prueba Salto"]].map(([key, label]) => (
               <button
                 key={key}
@@ -1160,7 +1298,6 @@ export default function SistemaUnificadoPage() {
         {/* ══════════════════ TAB ALCANCE ══════════════════ */}
         {activeTab === "alcance" && (
           <div className="space-y-6">
-            {/* Pasos */}
             <div className="space-y-3">
               <p className="text-center text-[10px] font-bold uppercase tracking-widest text-slate-400">Pasos a seguir para el jugador</p>
               <div className="flex justify-center gap-4">
@@ -1203,7 +1340,7 @@ export default function SistemaUnificadoPage() {
               </div>
             </div>
 
-            {/* Resultados — CHANGED: only alcance field shown */}
+            {/* Resultados */}
             <div className="flex justify-center">
               <div className="w-full max-w-md p-6" style={card}>
                 <p className="text-[10px] uppercase tracking-widest font-bold text-slate-400 text-center mb-5">Resultados</p>
@@ -1258,7 +1395,6 @@ export default function SistemaUnificadoPage() {
         {/* ══════════════════ TAB PRUEBAS ══════════════════ */}
         {activeTab === "pruebas" && (
           <div className="space-y-6">
-            {/* Pasos — CHANGED: step cards now use pruebaStepState for color borders */}
             <div className="space-y-3">
               <p className="text-center text-[10px] font-bold uppercase tracking-widest text-slate-400">Pasos a seguir para el jugador</p>
               <div className="flex justify-center gap-4">
@@ -1322,7 +1458,7 @@ export default function SistemaUnificadoPage() {
               </div>
             </div>
 
-            {/* Resultados — CHANGED: no alcance shown; only salto fields */}
+            {/* Resultados */}
             <div className="flex justify-center">
               <div className="w-full max-w-md p-6" style={card}>
                 <p className="text-[10px] uppercase tracking-widest font-bold text-slate-400 text-center mb-5">Resultados</p>
@@ -1343,9 +1479,9 @@ export default function SistemaUnificadoPage() {
                       isLive: !!saltoRTActual && !resultadoFinal,
                     },
                     {
-                      label: "Altura máxima",
+                      label: "Altura promedio",
                       value: resultadoFinal
-                        ? `${resultadoFinal.alt_max_cm} cm`
+                        ? `${resultadoFinal.alt_promedio_cm} cm`
                         : saltoRTActual
                         ? `${saltoRTActual.altura_cm} cm`
                         : "",

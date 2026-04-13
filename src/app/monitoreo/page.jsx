@@ -3,13 +3,11 @@
 import { useState, useEffect, useRef, useCallback } from "react"
 import { useAuth } from "../../contexts/auth-context"
 
-// ── Config ─────────────────────────────────────────────────────────────────
 const BACKEND_URL    = "https://jenn-back-reac.onrender.com"
 const PUSHER_KEY     = "4f85ef5c792df94cebc9"
 const PUSHER_CLUSTER = "us2"
 const ESP_LIST       = [1, 2, 3, 4, 5]
 
-// ── Icons ──────────────────────────────────────────────────────────────────
 const IconUser = () => (
   <svg viewBox="0 0 24 24" fill="none" stroke="#6366f1" strokeWidth="1.5" style={{width:40,height:40}}>
     <circle cx="12" cy="8" r="4" />
@@ -68,7 +66,6 @@ const IconTrash = ({ style }) => (
   </svg>
 )
 
-// ── Design tokens ──────────────────────────────────────────────────────────
 const C = {
   brand:      "#1e1b4b",
   brandMid:   "#312e81",
@@ -106,18 +103,64 @@ const btnOutline = {
   cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
 }
 
-// ── Status Maps ────────────────────────────────────────────────────────────
 const STATUS_MAP = {
   unknown: { label: "Desconocido", dotColor: C.textSoft, textColor: C.textSoft },
-  testing: { label: "Probando…",   dotColor: C.accent,   textColor: C.accent,  pulse: true },
+  testing: { label: "Probando",   dotColor: C.accent,   textColor: C.accent,  pulse: true },
   online:  { label: "Activo",      dotColor: C.success,  textColor: C.success },
   failed:  { label: "Inactivo",    dotColor: C.danger,   textColor: C.danger },
 }
 const SENSOR_MAP = {
   idle:    { label: "Listo",     dotColor: C.textSoft, textColor: C.textSoft },
-  waiting: { label: "Probando…", dotColor: C.accent,   textColor: C.accent,  pulse: true },
+  waiting: { label: "Probando",  dotColor: C.accent,   textColor: C.accent,  pulse: true },
   success: { label: "OK",        dotColor: C.success,  textColor: C.success },
   error:   { label: "Error",     dotColor: C.danger,   textColor: C.danger },
+}
+
+// ── BatteryIcon ─────────────────────────────────────────────────────────────
+function BatteryIcon({ nivel, porcentaje, voltaje, showVoltage = false }) {
+  const barColors = {
+    normal:  ["#10b981", "#10b981", "#10b981"],
+    alerta:  ["#f59e0b", "#f59e0b", C.border],
+    critico: ["#f43f5e", C.border,  C.border],
+    null:    [C.border,  C.border,  C.border],
+  }
+  const colors     = barColors[nivel] || barColors.null
+  const labelColor =
+    nivel === "normal"  ? "#10b981" :
+    nivel === "alerta"  ? "#f59e0b" :
+    nivel === "critico" ? "#f43f5e" : C.textSoft
+
+  const labelText = showVoltage
+    ? (voltaje    != null ? `${voltaje.toFixed(1)}V` : "—")
+    : (porcentaje != null ? `${porcentaje}%`          : "—")
+
+  return (
+    <div
+      title={voltaje != null ? `${voltaje.toFixed(2)}V · ${porcentaje ?? "?"}%` : "Sin datos de batería"}
+      style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2, cursor: "default" }}
+    >
+      <div style={{ display: "flex", alignItems: "center", gap: 1 }}>
+        <div style={{
+          width: 18, height: 10,
+          border: `1.5px solid ${colors[0] === C.border ? C.border : colors[0]}`,
+          borderRadius: 2, padding: "1px 2px",
+          display: "flex", alignItems: "center", gap: 1, background: C.white,
+        }}>
+          {colors.map((c, i) => (
+            <div key={i} style={{ flex: 1, height: "100%", borderRadius: 1, background: c, transition: "background 0.4s" }} />
+          ))}
+        </div>
+        <div style={{
+          width: 2, height: 5,
+          background: colors[0] === C.border ? C.border : colors[0],
+          borderRadius: "0 1px 1px 0", transition: "background 0.4s",
+        }} />
+      </div>
+      <span style={{ fontSize: 10, fontWeight: 700, color: labelColor, fontFamily: "monospace", lineHeight: 1 }}>
+        {labelText}
+      </span>
+    </div>
+  )
 }
 
 function StatusDot({ color, pulse }) {
@@ -130,7 +173,7 @@ function StatusDot({ color, pulse }) {
   )
 }
 
-function EspRow({ label, statusKey, statusMap, onAction, actionDisabled, actionLabel = "Probar", extra }) {
+function EspRow({ label, statusKey, statusMap, onAction, actionDisabled, actionLabel = "Probar", extra, battery, showVoltage = false }) {
   const s = statusMap[statusKey] || Object.values(statusMap)[0]
   return (
     <div style={{
@@ -145,6 +188,14 @@ function EspRow({ label, statusKey, statusMap, onAction, actionDisabled, actionL
         </div>
       </div>
       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        {battery && (
+          <BatteryIcon
+            nivel={battery.nivel}
+            porcentaje={battery.porcentaje}
+            voltaje={battery.voltaje}
+            showVoltage={showVoltage}
+          />
+        )}
         <span style={{ fontSize: 12, fontWeight: 600, color: s.textColor }}>{s.label}</span>
         {onAction && (
           <button onClick={onAction} disabled={actionDisabled} style={{
@@ -160,8 +211,7 @@ function EspRow({ label, statusKey, statusMap, onAction, actionDisabled, actionL
   )
 }
 
-// ── SensoresTab ───────────────────────────────────────────────────────────
-function SensoresTab({ sensorTestStates, onTestSensor, onTestAll, onStopAll, espMessages }) {
+function SensoresTab({ sensorTestStates, onTestSensor, onTestAll, onStopAll, espMessages, microControllers }) {
   const [selectedCapsule, setSelectedCapsule] = useState(null)
   const capsulesToTest = selectedCapsule ? [selectedCapsule] : ESP_LIST
 
@@ -170,8 +220,9 @@ function SensoresTab({ sensorTestStates, onTestSensor, onTestAll, onStopAll, esp
       <div style={card}>
         <span style={sectionLabel}>Estado de Sensores</span>
         {ESP_LIST.map((id) => {
-          const sState = sensorTestStates[id] || "idle"
+          const sState  = sensorTestStates[id] || "idle"
           const lastMsg = espMessages.filter(m => m.device === `ESP-${id}`).slice(-1)[0]
+          const battery = microControllers.find(mc => mc.id === id)?.battery
           return (
             <EspRow
               key={id}
@@ -179,6 +230,8 @@ function SensoresTab({ sensorTestStates, onTestSensor, onTestAll, onStopAll, esp
               statusKey={sState}
               statusMap={SENSOR_MAP}
               extra={lastMsg ? `Último: ${lastMsg.message}` : null}
+              battery={battery}
+              showVoltage={true}
               onAction={() => onTestSensor(id)}
               actionDisabled={sState === "waiting"}
               actionLabel={sState === "waiting" ? "Esperando…" : "Probar"}
@@ -263,7 +316,6 @@ function SensoresTab({ sensorTestStates, onTestSensor, onTestAll, onStopAll, esp
   )
 }
 
-// ── ActuadoresTab — SOLO LEDs (sin buzzers) ───────────────────────────────
 function ActuadoresTab({ microControllers, onToggleLed, onToggleAllLeds, pendingLed }) {
   return (
     <div style={card}>
@@ -271,22 +323,37 @@ function ActuadoresTab({ microControllers, onToggleLed, onToggleAllLeds, pending
         <IconBulb style={{ color: C.accent }} />
         <span style={{ ...sectionLabel, marginBottom: 0 }}>Anillos LED</span>
       </div>
-
       <span style={sectionLabel}>Control Individual</span>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))", gap: 12, marginBottom: 20 }}>
+      <div style={{ 
+        display: "flex", 
+        justifyContent: "center", 
+        alignItems: "center",
+        flexWrap: "wrap", 
+        gap: 12, 
+        marginBottom: 20 
+      }}>
         {microControllers.map((mc) => {
           const isPending = !!pendingLed?.[mc.id]
           return (
-            <button key={mc.id} onClick={() => onToggleLed(mc.id)} disabled={isPending} style={{
-              display: "flex", flexDirection: "column", alignItems: "center", gap: 8,
-              padding: "18px 12px", borderRadius: 12,
-              border: `2px solid ${mc.ledOn ? C.brand : C.border}`,
-              background: mc.ledOn ? C.brand : C.white,
-              cursor: isPending ? "not-allowed" : "pointer",
-              opacity: isPending ? 0.65 : 1,
-              boxShadow: mc.ledOn ? "0 4px 18px rgba(99,102,241,0.22)" : "none",
-              transition: "all 0.2s",
-            }}>
+            <button 
+              key={mc.id} 
+              onClick={() => onToggleLed(mc.id)} 
+              disabled={isPending} 
+              style={{
+                display: "flex", 
+                flexDirection: "column", 
+                alignItems: "center", 
+                gap: 8,
+                padding: "18px 12px", 
+                borderRadius: 12,
+                minWidth: 120,
+                border: `2px solid ${mc.ledOn ? C.brand : C.border}`,
+                background: mc.ledOn ? C.brand : C.white,
+                cursor: isPending ? "not-allowed" : "pointer",
+                opacity: isPending ? 0.65 : 1,
+                boxShadow: mc.ledOn ? "0 4px 18px rgba(99,102,241,0.22)" : "none",
+                transition: "all 0.2s",
+              }}>
               <IconBulb style={{ color: mc.ledOn ? "#fbbf24" : C.textSoft }} />
               <span style={{ fontSize: 12, fontWeight: 700, color: mc.ledOn ? C.white : C.text }}>{mc.label}</span>
               <span style={{ fontSize: 11, color: mc.ledOn ? "rgba(255,255,255,0.6)" : C.textSoft }}>
@@ -296,7 +363,11 @@ function ActuadoresTab({ microControllers, onToggleLed, onToggleAllLeds, pending
           )
         })}
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+      <div style={{ 
+        display: "flex", 
+        justifyContent: "center", 
+        gap: 12 
+      }}>
         <button onClick={() => onToggleAllLeds(false)} style={btnOutline}>Apagar Todos</button>
         <button onClick={() => onToggleAllLeds(true)}  style={btnBrand}>Encender Todos</button>
       </div>
@@ -304,7 +375,6 @@ function ActuadoresTab({ microControllers, onToggleLed, onToggleAllLeds, pending
   )
 }
 
-// ── ConexionTab ───────────────────────────────────────────────────────────
 function ConexionTab({ microControllers, pusherConnected, pusherStatus, onTestConnection, onTestAll, serverStatus, onTestServer, dbStatus, onTestDB }) {
   const statusColor = (s) =>
     s === "online"  ? C.success :
@@ -312,9 +382,9 @@ function ConexionTab({ microControllers, pusherConnected, pusherStatus, onTestCo
     s === "failed"  ? C.danger  : C.textSoft
 
   const statusLabel = (s) =>
-    s === "online"  ? "Activo"       :
-    s === "testing" ? "Probando..."  :
-    s === "failed"  ? "Inactivo"     : "Sin verificar"
+    s === "online"  ? "Activo"      :
+    s === "testing" ? "Probando..." :
+    s === "failed"  ? "Inactivo"    : "Sin verificar"
 
   return (
     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 20 }}>
@@ -344,7 +414,6 @@ function ConexionTab({ microControllers, pusherConnected, pusherStatus, onTestCo
       <div style={{ ...card, display: "flex", flexDirection: "column", gap: 0 }}>
         <span style={sectionLabel}>Estado del Servidor</span>
 
-        {/* API Backend */}
         <div style={{ padding: "12px 0", borderBottom: `1px solid ${C.borderSoft}` }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -376,7 +445,6 @@ function ConexionTab({ microControllers, pusherConnected, pusherStatus, onTestCo
           )}
         </div>
 
-        {/* Base de Datos — controlador independiente */}
         <div style={{ padding: "12px 0", borderBottom: `1px solid ${C.borderSoft}` }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -409,7 +477,6 @@ function ConexionTab({ microControllers, pusherConnected, pusherStatus, onTestCo
           <div style={{ fontSize: 11, color: C.textSoft, marginTop: 4 }}>PostgreSQL · SSL habilitado</div>
         </div>
 
-        {/* Pusher */}
         <div style={{ padding: "12px 0", borderBottom: `1px solid ${C.borderSoft}` }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -426,7 +493,6 @@ function ConexionTab({ microControllers, pusherConnected, pusherStatus, onTestCo
           </div>
         </div>
 
-        {/* Logs de test separados */}
         <div style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 8 }}>
           <span style={sectionLabel}>Últimos Tests</span>
           <div style={{
@@ -455,12 +521,14 @@ function ConexionTab({ microControllers, pusherConnected, pusherStatus, onTestCo
   )
 }
 
-// ── Main ──────────────────────────────────────────────────────────────────
 export default function ESPMonitoringDashboard() {
   const { nombre, rol, posicion, idUser, logout } = useAuth()
   const [mainTab, setMainTab] = useState("sensores")
   const [microControllers, setMicroControllers] = useState(
-    ESP_LIST.map((id) => ({ id, label: `ESP-${id}`, connected: false, lastSeen: null, ledOn: false, connectionStatus: "unknown" }))
+    ESP_LIST.map((id) => ({
+      id, label: `ESP-${id}`, connected: false, lastSeen: null,
+      ledOn: false, connectionStatus: "unknown", battery: null,
+    }))
   )
   const [pusherConnected, setPusherConnected] = useState(false)
   const [pusherStatus,    setPusherStatus]    = useState("Desconectado")
@@ -471,7 +539,6 @@ export default function ESPMonitoringDashboard() {
   const [serverStatus, setServerStatus] = useState({
     api: "unknown", apiLatency: null, apiMsg: null, lastTest: null,
   })
-  // DB state separado
   const [dbStatus, setDbStatus] = useState({
     status: "unknown", latency: null, dialect: null, lastTest: null,
   })
@@ -501,7 +568,6 @@ export default function ESPMonitoringDashboard() {
     }
   }, [addMessage])
 
-  // ── Pusher init ─────────────────────────────────────────────────────────
   useEffect(() => {
     const script = document.createElement("script")
     script.src   = "https://js.pusher.com/8.2.0/pusher.min.js"
@@ -558,6 +624,24 @@ export default function ESPMonitoringDashboard() {
 
           addMessage(`ESP-${id}`, "response", msg, msgLower.includes("error") ? "error" : "success")
         })
+
+        channel.bind("client-bateria_estado", (data) => {
+          let payload = data
+          if (typeof data.data === "string") {
+            try { payload = JSON.parse(data.data) } catch { payload = data }
+          }
+          const { nivel, porcentaje, voltaje } = payload
+          if (nivel) {
+            setMicroControllers(prev => prev.map(mc =>
+              mc.id === id
+                ? { ...mc, battery: { nivel, porcentaje: porcentaje ?? null, voltaje: voltaje ?? null } }
+                : mc
+            ))
+            if (nivel === "critico") {
+              addMessage(`ESP-${id}`, "error", `🔋 Batería crítica (${voltaje?.toFixed(2)}V)`, "error")
+            }
+          }
+        })
       })
     }
   }, [addMessage])
@@ -566,7 +650,6 @@ export default function ESPMonitoringDashboard() {
     if (monitorRef.current) monitorRef.current.scrollTop = monitorRef.current.scrollHeight
   }, [espMessages])
 
-  // ── Handlers ────────────────────────────────────────────────────────────
   const handleTestSensor = useCallback(async (id) => {
     setSensorTestStates(prev => ({ ...prev, [id]: "waiting" }))
     const tid = setTimeout(() => {
@@ -625,7 +708,6 @@ export default function ESPMonitoringDashboard() {
     ESP_LIST.forEach(id => handleTestConnection(id))
   }, [handleTestConnection])
 
-  // ── Verificar API Backend ────────────────────────────────────────────────
   const handleTestServer = useCallback(async () => {
     setServerStatus(prev => ({ ...prev, api: "testing", apiLatency: null, apiMsg: null }))
     const start = Date.now()
@@ -634,40 +716,24 @@ export default function ESPMonitoringDashboard() {
       const latency = Date.now() - start
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const data = await res.json()
-      setServerStatus(prev => ({
-        ...prev, api: "online",
-        apiLatency: latency,
-        apiMsg:     data.message || "OK",
-        lastTest:   `✓ ${latency}ms · ${data.message || "OK"}`,
-      }))
+      setServerStatus(prev => ({ ...prev, api: "online", apiLatency: latency, apiMsg: data.message || "OK", lastTest: `✓ ${latency}ms · ${data.message || "OK"}` }))
       addMessage("SISTEMA", "status", `API activa · ${latency}ms`, "success")
     } catch (err) {
-      // Fallback al endpoint anterior
       try {
         const start2  = Date.now()
         const res2    = await fetch(`${BACKEND_URL}/api/pusher/test`)
         const latency = Date.now() - start2
         if (!res2.ok) throw new Error(`HTTP ${res2.status}`)
         const data = await res2.json()
-        setServerStatus(prev => ({
-          ...prev, api: "online",
-          apiLatency: latency,
-          apiMsg:     data.message || "OK",
-          lastTest:   `✓ ${latency}ms · ${data.message || "OK"}`,
-        }))
+        setServerStatus(prev => ({ ...prev, api: "online", apiLatency: latency, apiMsg: data.message || "OK", lastTest: `✓ ${latency}ms · ${data.message || "OK"}` }))
         addMessage("SISTEMA", "status", `API activa · ${latency}ms`, "success")
       } catch (err2) {
-        setServerStatus(prev => ({
-          ...prev, api: "failed",
-          apiLatency: null, apiMsg: err2.message,
-          lastTest: `✗ ${err2.message}`,
-        }))
+        setServerStatus(prev => ({ ...prev, api: "failed", apiLatency: null, apiMsg: err2.message, lastTest: `✗ ${err2.message}` }))
         addMessage("SISTEMA", "error", `API inaccesible: ${err2.message}`, "error")
       }
     }
   }, [addMessage])
 
-  // ── Verificar Base de Datos ──────────────────────────────────────────────
   const handleTestDB = useCallback(async () => {
     setDbStatus(prev => ({ ...prev, status: "testing", latency: null }))
     const start = Date.now()
@@ -676,20 +742,10 @@ export default function ESPMonitoringDashboard() {
       const latency = Date.now() - start
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const data = await res.json()
-      setDbStatus({
-        status:   "online",
-        latency:  data.latency ?? latency,
-        dialect:  data.dialect || "postgresql",
-        lastTest: `✓ ${data.latency ?? latency}ms · ${data.message || "OK"}`,
-      })
+      setDbStatus({ status: "online", latency: data.latency ?? latency, dialect: data.dialect || "postgresql", lastTest: `✓ ${data.latency ?? latency}ms · ${data.message || "OK"}` })
       addMessage("SISTEMA", "status", `DB activa · ${data.latency ?? latency}ms`, "success")
     } catch (err) {
-      setDbStatus({
-        status:   "failed",
-        latency:  null,
-        dialect:  null,
-        lastTest: `✗ ${err.message}`,
-      })
+      setDbStatus({ status: "failed", latency: null, dialect: null, lastTest: `✗ ${err.message}` })
       addMessage("SISTEMA", "error", `DB inaccesible: ${err.message}`, "error")
     }
   }, [addMessage])
@@ -720,7 +776,6 @@ export default function ESPMonitoringDashboard() {
 
       <div style={{ maxWidth: 900, margin: "0 auto", padding: "40px 20px", display: "flex", flexDirection: "column", gap: 32 }}>
 
-        {/* Profile */}
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }}>
           <div style={{
             width: 64, height: 64, borderRadius: "50%",
@@ -743,7 +798,6 @@ export default function ESPMonitoringDashboard() {
           </div>
         </div>
 
-        {/* Main Tabs */}
         <div style={{ display: "flex", justifyContent: "center" }}>
           <div style={{
             display: "inline-flex", background: C.white, border: `1.5px solid ${C.border}`,
@@ -761,7 +815,6 @@ export default function ESPMonitoringDashboard() {
           </div>
         </div>
 
-        {/* Content */}
         <div>
           {mainTab === "sensores" && (
             <SensoresTab
@@ -770,6 +823,7 @@ export default function ESPMonitoringDashboard() {
               onTestAll={handleTestAllSensors}
               onStopAll={handleStopAllSensors}
               espMessages={espMessages}
+              microControllers={microControllers}
             />
           )}
           {mainTab === "actuadores" && (
@@ -795,7 +849,6 @@ export default function ESPMonitoringDashboard() {
           )}
         </div>
 
-        {/* Monitor de Comunicación */}
         <div style={card}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
             <IconActivity style={{ color: C.accent }} />
