@@ -45,12 +45,11 @@ const styles = {
 
 /* ─── BatteryIcon: 3 barras (verde / naranja / rojo) ────────────────────── */
 function BatteryIcon({ nivel, porcentaje, voltaje }) {
-  // nivel: "normal" | "alerta" | "critico" | null (desconocido)
   const barColors = {
-    normal:  ["#1A7A5E", "#1A7A5E", "#1A7A5E"],   // 3 barras verdes
-    alerta:  ["#C2620A", "#C2620A", "#E8E8E8"],    // 2 barras naranjas
-    critico: ["#B03030", "#E8E8E8", "#E8E8E8"],    // 1 barra roja
-    null:    ["#E8E8E8", "#E8E8E8", "#E8E8E8"],    // sin datos
+    normal:  ["#1A7A5E", "#1A7A5E", "#1A7A5E"],
+    alerta:  ["#C2620A", "#C2620A", "#E8E8E8"],
+    critico: ["#B03030", "#E8E8E8", "#E8E8E8"],
+    null:    ["#E8E8E8", "#E8E8E8", "#E8E8E8"],
   }
   const colors = barColors[nivel] || barColors[null]
   const label  = nivel === "normal" ? "OK" : nivel === "alerta" ? "LOW" : nivel === "critico" ? "CRIT" : "—"
@@ -59,7 +58,6 @@ function BatteryIcon({ nivel, porcentaje, voltaje }) {
   return (
     <div title={voltaje ? `${voltaje.toFixed(2)}V · ${porcentaje}%` : "Sin datos de batería"}
       style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2, cursor: "default" }}>
-      {/* Batería: cuerpo + terminal */}
       <div style={{ display: "flex", alignItems: "center", gap: 1 }}>
         <div style={{
           width: 18, height: 10, border: `1.5px solid ${colors[0] === "#E8E8E8" ? C.grayLight : colors[0]}`,
@@ -70,7 +68,6 @@ function BatteryIcon({ nivel, porcentaje, voltaje }) {
             <div key={i} style={{ flex: 1, height: "100%", borderRadius: 1, background: c, transition: "background 0.4s" }} />
           ))}
         </div>
-        {/* Terminal positivo */}
         <div style={{ width: 2, height: 5, background: colors[0] === "#E8E8E8" ? C.grayLight : colors[0], borderRadius: "0 1px 1px 0", transition: "background 0.4s" }} />
       </div>
       <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.06em", color: labelColor, fontFamily: "'DM Mono', monospace", lineHeight: 1 }}>
@@ -125,24 +122,19 @@ export default function PruebasPage() {
   const [timerGeneralInterval, setTimerGeneralInterval] = useState(null)
   const finalDurationRef = useRef(0)
 
-  const [disabledDuringTest, setDisabledDuringTest] = useState([])
-  const disabledDuringTestRef = useRef([])
-  const healthCheckTimeoutsRef = useRef({})
-
   const [microControllers, setMicroControllers] = useState([
     { id: 1, active: false, connected: false, lastSeen: null, lastResponse: null, status: "", battery: null },
     { id: 2, active: false, connected: false, lastSeen: null, lastResponse: null, status: "", battery: null },
     { id: 3, active: false, connected: false, lastSeen: null, lastResponse: null, status: "", battery: null },
     { id: 4, active: false, connected: false, lastSeen: null, lastResponse: null, status: "", battery: null },
     { id: 5, active: false, connected: false, lastSeen: null, lastResponse: null, status: "", battery: null },
-    // battery: { nivel: "normal"|"alerta"|"critico", porcentaje: 0-100, voltaje: float }
   ])
 
   const [pusherConnected, setPusherConnected] = useState(false)
   const [selectedPlayer, setSelectedPlayer] = useState(null)
   const [jugadores, setJugadores] = useState([])
 
-  // ── Refs ───────────────────────────���──────────────────────────────────────
+  // ── Refs ───────────────────────────────────────────────────────────────────
   const testActiveSequentialRef = useRef(false)
   const currentActiveESPSequentialRef = useRef(null)
   const waitingForResponseSequentialRef = useRef(false)
@@ -186,14 +178,11 @@ export default function PruebasPage() {
     testActiveManual, currentActiveESPManual, waitingForResponseManual, selectedESPs,
   ])
 
-  useEffect(() => { disabledDuringTestRef.current = disabledDuringTest }, [disabledDuringTest])
-
   useEffect(() => {
     fetchJugadores()
     loadPusher()
   }, [])
 
-  // Preseleccionar cápsulas conectadas después de Pusher
   useEffect(() => {
     if (pusherConnected && selectedESPs.length === 0) {
       const connectedIds = microControllers
@@ -295,20 +284,6 @@ export default function PruebasPage() {
     }, 6000)
   }
 
-  const initiateHealthCheckForDisabled = (espId) => {
-    setMicroControllers((prev) => prev.map((mc) =>
-      mc.id === espId ? { ...mc, status: "Verificando...", connected: false } : mc
-    ))
-    sendHealthCheck(espId)
-    if (healthCheckTimeoutsRef.current[espId]) clearTimeout(healthCheckTimeoutsRef.current[espId])
-    healthCheckTimeoutsRef.current[espId] = setTimeout(() => {
-      setMicroControllers((prev) => prev.map((mc) =>
-        mc.id === espId ? { ...mc, connected: false, status: "Sin conexión" } : mc
-      ))
-      delete healthCheckTimeoutsRef.current[espId]
-    }, 5000)
-  }
-
   const subscribeToMicrocontrollerChannels = (pusher) => {
     for (let i = 1; i <= 5; i++) {
       const channelName = `private-device-ESP-${i}`
@@ -321,41 +296,11 @@ export default function PruebasPage() {
 
         if (message === "ok") {
           connectedESPsRef.current.add(espId)
-
-          if (disabledDuringTestRef.current.includes(espId)) {
-            // Cápsula se reconectó después de un timeout durante la prueba
-            if (healthCheckTimeoutsRef.current[espId]) {
-              clearTimeout(healthCheckTimeoutsRef.current[espId])
-              delete healthCheckTimeoutsRef.current[espId]
-            }
-            setDisabledDuringTest((prev) => prev.filter((id) => id !== espId))
-            setMicroControllers((prev) => prev.map((mc) =>
-              mc.id === espId ? { ...mc, connected: true, lastSeen: new Date(), status: "Reconectado" } : mc
-            ))
-            // Solo re-agregar a selectedESPs si estaba seleccionada antes del timeout
-            // (sigue estando en selectedESPsRef porque limpiar solo ocurre al finalizar)
-            showNotification("success", `Cápsula ${espId} reconectada`)
-            setTimeout(() => {
-              setMicroControllers((prev) => prev.map((mc) =>
-                mc.id === espId ? { ...mc, status: "" } : mc
-              ))
-            }, 2000)
-          } else {
-            // Health check normal: solo marcar como conectada, NO tocar selectedESPs
-            // El usuario elige manualmente qué cápsulas usar
-            setMicroControllers((prev) => prev.map((mc) =>
-              mc.id === espId ? { ...mc, connected: true, lastSeen: new Date(), status: "" } : mc
-            ))
-          }
+          setMicroControllers((prev) => prev.map((mc) =>
+            mc.id === espId ? { ...mc, connected: true, lastSeen: new Date(), status: "" } : mc
+          ))
           return
         }
-
-        // ── Evento de batería ──────────────────────────────────────────────
-        // El firmware envía client-bateria_estado como evento separado, pero
-        // por si acaso llega codificado en el message también lo parseamos aquí
-        // (el canal es el mismo private-device-ESP-N)
-        // ver: channel.bind("client-bateria_estado") más abajo
-        // ──────────────────────────────────────────────────────────────────
 
         // Test response (acierto/error)
         setMicroControllers((prev) => prev.map((mc) =>
@@ -377,11 +322,9 @@ export default function PruebasPage() {
         }
       })
 
-      // ── Escuchar evento de batería por canal privado ──────────────────────
       channel.bind("client-bateria_estado", (data) => {
         const espId = i
         let payload = data
-        // El firmware serializa el data como string JSON dentro del objeto
         if (typeof data.data === "string") {
           try { payload = JSON.parse(data.data) } catch { payload = data }
         }
@@ -413,8 +356,9 @@ export default function PruebasPage() {
     } catch (e) { console.error(e) }
   }
 
+  // Siempre retorna todos los ESPs seleccionados, sin excluir ninguno
   const getActiveESPs = () => {
-    return selectedESPsRef.current.filter((id) => !disabledDuringTestRef.current.includes(id))
+    return selectedESPsRef.current
   }
 
   // ── CRONÓMETRO ─────────────────────────────────────────────────────────────
@@ -476,8 +420,6 @@ export default function PruebasPage() {
     } finally { setIsSaving(false) }
   }
 
-  // FIX: recibe jugador y capsulas como parámetros explícitos para no depender
-  // del estado en el momento en que limpiarPrueba ya lo reseteó
   const abrirResumen = (tipo, stats, jugadorSnapshot, capsulasSnapshot) => {
     setSummaryData({
       tipo,
@@ -508,37 +450,34 @@ export default function PruebasPage() {
         localStorage.setItem("prueba_secuencial_id", data.data.id.toString())
         setPruebaActualSequential(data.data); setTestActiveSequential(true); setModoActual("secuencial")
         setCurrentRound(1); setCurrentSequence(1)
-        setDisabledDuringTest([]); disabledDuringTestRef.current = []
         const initStats = { intentos: 0, aciertos: 0, errores: 0 }
         setEstadisticasSequential(initStats); estadisticasSequentialRef.current = initStats
         iniciarCronometroGeneral()
         showNotification("success", `Prueba secuencial iniciada · ${totalRounds} rondas`)
-        const firstSelected = connectedSelected[0]
+        const firstSelected = selectedESPs[0]
         setTimeout(() => activateNextMicrocontrollerSequential(firstSelected), 1000)
       } else showNotification("error", data.message)
     } catch { showNotification("error", "Error iniciando prueba") }
   }
 
   const activateNextMicrocontrollerSequential = (espId) => {
-    const active = getActiveESPs()
-    if (!active.includes(espId)) {
-      const fallback = active[0]
-      if (!fallback) { showNotification("error", "No hay cápsulas disponibles"); finalizarPruebaSecuencial(); return }
+    const allESPs = selectedESPsRef.current
+    if (!allESPs.includes(espId)) {
+      const fallback = allESPs[0]
+      if (!fallback) { showNotification("error", "No hay cápsulas seleccionadas"); finalizarPruebaSecuencial(); return }
       activateNextMicrocontrollerSequential(fallback); return
     }
     if (responseTimeoutSequentialRef.current) { clearTimeout(responseTimeoutSequentialRef.current); responseTimeoutSequentialRef.current = null }
     setCurrentActiveESPSequential(espId); setWaitingForResponseSequential(true)
     setMicroControllers((prev) => prev.map((mc) => ({ ...mc, active: mc.id === espId, status: mc.id === espId ? "Esperando respuesta" : mc.status })))
     sendCommandToESP(espId, { command: "ON" })
-    responseTimeoutSequentialRef.current = setTimeout(() => handleSequentialTimeoutDisable(espId), (tiempoReaccion + 1) * 1000)
-  }
-
-  const handleSequentialTimeoutDisable = (espId) => {
-    setDisabledDuringTest((prev) => { if (prev.includes(espId)) return prev; const next = [...prev, espId]; disabledDuringTestRef.current = next; return next })
-    setMicroControllers((prev) => prev.map((mc) => mc.id === espId ? { ...mc, active: false, connected: false, status: "Timeout" } : mc))
-    showNotification("error", `Cápsula ${espId} sin respuesta, verificando conexión...`)
-    initiateHealthCheckForDisabled(espId)
-    handleSequentialResponse(espId, "error")
+    // Timeout: registra error y continúa, pero NO deshabilita la cápsula
+    responseTimeoutSequentialRef.current = setTimeout(() => {
+      showNotification("error", `Cápsula ${espId} sin respuesta, contando como fallo`)
+      if (processingResponseSequentialRef.current) return
+      processingResponseSequentialRef.current = true
+      handleSequentialResponse(espId, "error")
+    }, (tiempoReaccion + 1) * 1000)
   }
 
   const handleSequentialResponse = (espId, responseType) => {
@@ -556,7 +495,7 @@ export default function PruebasPage() {
       const idx = allESPs.indexOf(espId)
       let nextESP = null
       for (let i = idx + 1; i < allESPs.length; i++) {
-        if (!disabledDuringTestRef.current.includes(allESPs[i])) { nextESP = allESPs[i]; break }
+        nextESP = allESPs[i]; break
       }
       if (nextESP !== null) {
         setCurrentSequence(allESPs.indexOf(nextESP) + 1); activateNextMicrocontrollerSequential(nextESP)
@@ -565,7 +504,7 @@ export default function PruebasPage() {
           if (prevRound < totalRounds) {
             limpiarEntreRondasSequential()
             showNotification("success", `Iniciando ronda ${prevRound + 1}`)
-            const firstAvail = allESPs.find((id) => !disabledDuringTestRef.current.includes(id))
+            const firstAvail = allESPs[0]
             if (!firstAvail) { setTimeout(() => finalizarPruebaSecuencial(), 500); return prevRound }
             setTimeout(() => { setCurrentSequence(1); activateNextMicrocontrollerSequential(firstAvail) }, 2000)
             return prevRound + 1
@@ -580,7 +519,6 @@ export default function PruebasPage() {
 
   const finalizarPruebaSecuencial = async () => {
     detenerCronometroGeneral()
-    // FIX: tomar snapshots ANTES de limpiar el estado
     const stats           = { ...estadisticasSequentialRef.current }
     const jugadorSnap     = selectedPlayer
     const capsulasSnap    = [...selectedESPsRef.current]
@@ -606,8 +544,6 @@ export default function PruebasPage() {
     if (responseTimeoutSequentialRef.current) { clearTimeout(responseTimeoutSequentialRef.current); responseTimeoutSequentialRef.current = null }
     setMicroControllers((prev) => prev.map((mc) => ({ ...mc, active: false, status: "", lastResponse: null })))
     processingResponseSequentialRef.current = false
-    setDisabledDuringTest([]); disabledDuringTestRef.current = []
-    Object.values(healthCheckTimeoutsRef.current).forEach(clearTimeout); healthCheckTimeoutsRef.current = {}
   }
 
   const limpiarEntreRondasSequential = () => {
@@ -617,7 +553,7 @@ export default function PruebasPage() {
     processingResponseSequentialRef.current = false
   }
 
-  // ── ALEATORIO ─────────────────────────────��────────────────────────────────
+  // ── ALEATORIO ─────────────────────────────────────────────────────────────
   const iniciarPruebaAleatoria = async () => {
     if (!selectedPlayer) { showNotification("error", "Selecciona un jugador"); return }
     const connectedSelected = selectedESPs.filter((id) => microControllers.find((mc) => mc.id === id)?.connected)
@@ -631,7 +567,6 @@ export default function PruebasPage() {
       if (data.success) {
         localStorage.setItem("prueba_aleatoria_id", data.data.id.toString())
         setPruebaActualRandom(data.data); setTestActiveRandom(true); setModoActual("aleatorio"); setTiempoRestante(tiempoPrueba)
-        setDisabledDuringTest([]); disabledDuringTestRef.current = []
         const initStats = { intentos: 0, aciertos: 0, errores: 0 }
         setEstadisticasRandom(initStats); estadisticasRandomRef.current = initStats
         iniciarCronometroGeneral()
@@ -644,21 +579,19 @@ export default function PruebasPage() {
 
   const activateRandomMicrocontroller = () => {
     const esps = getActiveESPs()
-    if (esps.length === 0) { showNotification("error", "No hay cápsulas disponibles"); finalizarPruebaAleatoria(); return }
+    if (esps.length === 0) { showNotification("error", "No hay cápsulas seleccionadas"); finalizarPruebaAleatoria(); return }
     const espId = esps[Math.floor(Math.random() * esps.length)]
     if (responseTimeoutRandomRef.current) { clearTimeout(responseTimeoutRandomRef.current); responseTimeoutRandomRef.current = null }
     setCurrentActiveESPRandom(espId); setWaitingForResponseRandom(true)
     setMicroControllers((prev) => prev.map((mc) => ({ ...mc, active: mc.id === espId, status: mc.id === espId ? "Esperando respuesta" : mc.status })))
     sendCommandToESP(espId, { command: "ON" })
-    responseTimeoutRandomRef.current = setTimeout(() => handleRandomTimeoutDisable(espId), (tiempoReaccion + 1) * 1000)
-  }
-
-  const handleRandomTimeoutDisable = (espId) => {
-    setDisabledDuringTest((prev) => { if (prev.includes(espId)) return prev; const next = [...prev, espId]; disabledDuringTestRef.current = next; return next })
-    setMicroControllers((prev) => prev.map((mc) => mc.id === espId ? { ...mc, active: false, connected: false, status: "Timeout" } : mc))
-    showNotification("error", `Cápsula ${espId} sin respuesta, verificando conexión...`)
-    initiateHealthCheckForDisabled(espId)
-    handleRandomResponse(espId, "error")
+    // Timeout: registra error y continúa, pero NO deshabilita la cápsula
+    responseTimeoutRandomRef.current = setTimeout(() => {
+      showNotification("error", `Cápsula ${espId} sin respuesta, contando como fallo`)
+      if (processingResponseRandomRef.current) return
+      processingResponseRandomRef.current = true
+      handleRandomResponse(espId, "error")
+    }, (tiempoReaccion + 1) * 1000)
   }
 
   const handleRandomResponse = (espId, responseType) => {
@@ -677,7 +610,6 @@ export default function PruebasPage() {
   const finalizarPruebaAleatoria = async () => {
     detenerCronometroGeneral()
     if (timerInterval) { clearInterval(timerInterval); setTimerInterval(null) }
-    // FIX: snapshot antes de limpiar
     const stats        = { ...estadisticasRandomRef.current }
     const jugadorSnap  = selectedPlayer
     const capsulasSnap = [...selectedESPsRef.current]
@@ -703,8 +635,6 @@ export default function PruebasPage() {
     if (responseTimeoutRandomRef.current) { clearTimeout(responseTimeoutRandomRef.current); responseTimeoutRandomRef.current = null }
     setMicroControllers((prev) => prev.map((mc) => ({ ...mc, active: false, status: "", lastResponse: null })))
     processingResponseRandomRef.current = false
-    setDisabledDuringTest([]); disabledDuringTestRef.current = []
-    Object.values(healthCheckTimeoutsRef.current).forEach(clearTimeout); healthCheckTimeoutsRef.current = {}
   }
 
   // ── MANUAL ─────────────────────────────────────────────────────────────────
@@ -721,7 +651,6 @@ export default function PruebasPage() {
       if (data.success) {
         localStorage.setItem("prueba_manual_id", data.data.id.toString())
         setPruebaActualManual(data.data); setTestActiveManual(true); setModoActual("manual"); setTiempoRestante(tiempoPrueba)
-        setDisabledDuringTest([]); disabledDuringTestRef.current = []
         const initStats = { intentos: 0, aciertos: 0, errores: 0 }
         setEstadisticasManual(initStats); estadisticasManualRef.current = initStats
         const interval = setInterval(() => setTiempoRestante((p) => { if (p <= 1) { clearInterval(interval); finalizarPruebaManual(); return 0 } return p - 1 }), 1000)
@@ -732,21 +661,19 @@ export default function PruebasPage() {
   }
 
   const activateManualMicrocontroller = (espId) => {
-    const active = getActiveESPs()
-    if (!active.includes(espId) || !testActiveManualRef.current || waitingForResponseManualRef.current) return
+    const allESPs = getActiveESPs()
+    if (!allESPs.includes(espId) || !testActiveManualRef.current || waitingForResponseManualRef.current) return
     if (responseTimeoutManualRef.current) { clearTimeout(responseTimeoutManualRef.current); responseTimeoutManualRef.current = null }
     setCurrentActiveESPManual(espId); setWaitingForResponseManual(true)
     setMicroControllers((prev) => prev.map((mc) => ({ ...mc, active: mc.id === espId, status: mc.id === espId ? "Esperando respuesta" : mc.status })))
     sendCommandToESP(espId, { command: "ON" })
-    responseTimeoutManualRef.current = setTimeout(() => handleManualTimeoutDisable(espId), (tiempoReaccion + 1) * 1000)
-  }
-
-  const handleManualTimeoutDisable = (espId) => {
-    setDisabledDuringTest((prev) => { if (prev.includes(espId)) return prev; const next = [...prev, espId]; disabledDuringTestRef.current = next; return next })
-    setMicroControllers((prev) => prev.map((mc) => mc.id === espId ? { ...mc, active: false, connected: false, status: "Timeout" } : mc))
-    showNotification("error", `Cápsula ${espId} sin respuesta, verificando conexión...`)
-    initiateHealthCheckForDisabled(espId)
-    handleManualResponse(espId, "error")
+    // Timeout: registra error y continúa, pero NO deshabilita la cápsula
+    responseTimeoutManualRef.current = setTimeout(() => {
+      showNotification("error", `Cápsula ${espId} sin respuesta, contando como fallo`)
+      if (processingResponseManualRef.current) return
+      processingResponseManualRef.current = true
+      handleManualResponse(espId, "error")
+    }, (tiempoReaccion + 1) * 1000)
   }
 
   const handleManualResponse = (espId, responseType) => {
@@ -765,7 +692,6 @@ export default function PruebasPage() {
   const finalizarPruebaManual = async () => {
     detenerCronometroGeneral()
     if (timerInterval) { clearInterval(timerInterval); setTimerInterval(null) }
-    // FIX: snapshot antes de limpiar
     const stats        = { ...estadisticasManualRef.current }
     const jugadorSnap  = selectedPlayer
     const capsulasSnap = [...selectedESPsRef.current]
@@ -791,8 +717,6 @@ export default function PruebasPage() {
     if (responseTimeoutManualRef.current) { clearTimeout(responseTimeoutManualRef.current); responseTimeoutManualRef.current = null }
     setMicroControllers((prev) => prev.map((mc) => ({ ...mc, active: false, status: "", lastResponse: null })))
     processingResponseManualRef.current = false
-    setDisabledDuringTest([]); disabledDuringTestRef.current = []
-    Object.values(healthCheckTimeoutsRef.current).forEach(clearTimeout); healthCheckTimeoutsRef.current = {}
   }
 
   // ── Computed ────────────────────────────────────────────────────────────────
@@ -863,8 +787,6 @@ export default function PruebasPage() {
         .micro-card.missed { border-color: #B03030; }
         .micro-card.clickable { cursor: pointer; }
         .micro-card.clickable:hover { border-color: #334155; box-shadow: 0 4px 14px rgba(51,65,85,0.18); transform: translateY(-1px); }
-        .micro-card.dimmed { opacity: 0.35; }
-        .micro-card.disabled-timeout { border-color: #C2620A !important; opacity: 0.55; }
 
         @keyframes pulse-guindo {
           0%, 100% { box-shadow: 0 0 0 0 rgba(51,65,85,0.4); }
@@ -1022,23 +944,22 @@ export default function PruebasPage() {
                     const mc = microControllers.find((m) => m.id === num)
                     const isConnected = mc?.connected
                     const isDisabledByConnection = !testActive && !isConnected
-                    const isDisabledByTimeout = testActive && disabledDuringTest.includes(num)
                     const batteryData = mc?.battery
-                    
+
                     return (
                       <div key={num} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
                         <button
                           onClick={() => { if (testActive || isDisabledByConnection) return; toggleESPSelection(num) }}
                           disabled={testActive || isDisabledByConnection}
-                          title={isDisabledByConnection ? "Sin conexión" : isDisabledByTimeout ? "Deshabilitada por timeout" : `Cápsula ${num}`}
+                          title={isDisabledByConnection ? "Sin conexión" : `Cápsula ${num}`}
                           style={{
                             width: 40, height: 40, borderRadius: "50%",
-                            border: `2px solid ${isDisabledByTimeout ? C.orange : isDisabledByConnection ? C.grayLight : selected ? C.slate : C.grayLight}`,
-                            background: isDisabledByTimeout ? C.orangeBg : isDisabledByConnection ? C.grayUltra : selected ? C.slate : C.white,
+                            border: `2px solid ${isDisabledByConnection ? C.grayLight : selected ? C.slate : C.grayLight}`,
+                            background: isDisabledByConnection ? C.grayUltra : selected ? C.slate : C.white,
                             cursor: (testActive || isDisabledByConnection) ? "not-allowed" : "pointer",
                             display: "flex", alignItems: "center", justifyContent: "center",
                             transition: "all 0.15s", fontSize: 13, fontWeight: 700,
-                            color: isDisabledByTimeout ? C.orange : isDisabledByConnection ? C.grayLight : selected ? C.white : C.grayMed,
+                            color: isDisabledByConnection ? C.grayLight : selected ? C.white : C.grayMed,
                             fontFamily: "'DM Mono', monospace", opacity: isDisabledByConnection ? 0.45 : 1,
                             position: "relative",
                           }}>
@@ -1052,52 +973,50 @@ export default function PruebasPage() {
                             }} />
                           )}
                         </button>
-                        
-                        {/* Battery icon - shown below capsule if connected and has battery data */}
+
                         {selected && isConnected && batteryData && (
-                          <BatteryIcon 
-                            nivel={batteryData.nivel} 
-                            porcentaje={batteryData.porcentaje} 
-                            voltaje={batteryData.voltaje} 
+                          <BatteryIcon
+                            nivel={batteryData.nivel}
+                            porcentaje={batteryData.porcentaje}
+                            voltaje={batteryData.voltaje}
                           />
                         )}
                       </div>
                     )
                   })}
-              </div>
-
-              {/* Manual mode control buttons - moved below capsule selection */}
-              {testActiveManual && (
-                <div style={{ display: "flex", gap: 12, marginTop: 16, paddingTop: 12, borderTop: `1px solid ${C.grayLight}`, justifyContent: "center" }}>
-                  <button
-                    onClick={() => { if (currentActiveESPManual) handleManualResponse(currentActiveESPManual, "acierto") }}
-                    disabled={!waitingForResponseManual}
-                    style={{
-                      padding: "8px 20px", borderRadius: 6, border: "none",
-                      background: waitingForResponseManual ? C.emerald : C.grayLight,
-                      color: waitingForResponseManual ? C.white : C.grayMed,
-                      fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase",
-                      cursor: waitingForResponseManual ? "pointer" : "not-allowed",
-                      fontFamily: "'DM Sans', sans-serif", transition: "all 0.15s",
-                    }}>
-                    ✓ Acierto
-                  </button>
-                  <button
-                    onClick={() => { if (currentActiveESPManual) handleManualResponse(currentActiveESPManual, "error") }}
-                    disabled={!waitingForResponseManual}
-                    style={{
-                      padding: "8px 20px", borderRadius: 6, border: "none",
-                      background: waitingForResponseManual ? C.red : C.grayLight,
-                      color: waitingForResponseManual ? C.white : C.grayMed,
-                      fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase",
-                      cursor: waitingForResponseManual ? "pointer" : "not-allowed",
-                      fontFamily: "'DM Sans', sans-serif", transition: "all 0.15s",
-                    }}>
-                    ✗ Fallo
-                  </button>
                 </div>
-              )}
 
+                {/* Manual mode control buttons */}
+                {testActiveManual && (
+                  <div style={{ display: "flex", gap: 12, marginTop: 16, paddingTop: 12, borderTop: `1px solid ${C.grayLight}`, justifyContent: "center" }}>
+                    <button
+                      onClick={() => { if (currentActiveESPManual) handleManualResponse(currentActiveESPManual, "acierto") }}
+                      disabled={!waitingForResponseManual}
+                      style={{
+                        padding: "8px 20px", borderRadius: 6, border: "none",
+                        background: waitingForResponseManual ? C.emerald : C.grayLight,
+                        color: waitingForResponseManual ? C.white : C.grayMed,
+                        fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase",
+                        cursor: waitingForResponseManual ? "pointer" : "not-allowed",
+                        fontFamily: "'DM Sans', sans-serif", transition: "all 0.15s",
+                      }}>
+                      ✓ Acierto
+                    </button>
+                    <button
+                      onClick={() => { if (currentActiveESPManual) handleManualResponse(currentActiveESPManual, "error") }}
+                      disabled={!waitingForResponseManual}
+                      style={{
+                        padding: "8px 20px", borderRadius: 6, border: "none",
+                        background: waitingForResponseManual ? C.red : C.grayLight,
+                        color: waitingForResponseManual ? C.white : C.grayMed,
+                        fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase",
+                        cursor: waitingForResponseManual ? "pointer" : "not-allowed",
+                        fontFamily: "'DM Sans', sans-serif", transition: "all 0.15s",
+                      }}>
+                      ✗ Fallo
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -1158,11 +1077,6 @@ export default function PruebasPage() {
               <div style={{ display: "flex", alignItems: "center", gap: 6, marginLeft: "auto" }}>
                 <div style={{ width: 6, height: 6, borderRadius: "50%", background: C.slate }} className="dot-active" />
                 <span style={{ fontSize: 11, color: C.slate, fontWeight: 600, fontFamily: "'DM Sans', sans-serif" }}>EN CURSO</span>
-                {disabledDuringTest.length > 0 && (
-                  <span style={{ fontSize: 10, color: C.orange, fontWeight: 600, fontFamily: "'DM Sans', sans-serif", marginLeft: 8 }}>
-                    {disabledDuringTest.length} deshabilitada{disabledDuringTest.length > 1 ? "s" : ""}
-                  </span>
-                )}
               </div>
             )}
           </div>
@@ -1173,15 +1087,13 @@ export default function PruebasPage() {
           }}>
             {capsulasToShow.map((mc) => {
               const isSelected = selectedESPs.includes(mc.id)
-              const isDisabledTimeout = disabledDuringTest.includes(mc.id)
-              const isClickable = testActiveManual && mc.connected && !waitingForResponseManual && isSelected && !isDisabledTimeout
               const isActive = mc.active
               const wasHit = mc.lastResponse === "acierto"
               const wasMissed = mc.lastResponse === "error"
+              const isClickable = testActiveManual && mc.connected && !waitingForResponseManual && isSelected
 
               let cardClass = "micro-card"
-              if (isDisabledTimeout) cardClass += " disabled-timeout"
-              else if (isActive) cardClass += " active"
+              if (isActive) cardClass += " active"
               else if (wasHit) cardClass += " hit"
               else if (wasMissed) cardClass += " missed"
               if (isClickable) cardClass += " clickable"
@@ -1190,26 +1102,24 @@ export default function PruebasPage() {
               if (!testActive) {
                 dotColor = mc.connected ? C.emerald : C.grayLight
               } else {
-                dotColor = isDisabledTimeout ? C.orange : isActive ? C.slate : wasHit ? C.emerald : wasMissed ? C.red : C.grayLight
+                dotColor = isActive ? C.slate : wasHit ? C.emerald : wasMissed ? C.red : C.grayLight
               }
 
               return (
                 <div key={mc.id} className={cardClass}
                   onClick={() => { if (isClickable) activateManualMicrocontroller(mc.id) }}>
-                  {/* ── Header: nombre + dot status + batería ── */}
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 12px 6px" }}>
-                    <span style={{ fontSize: 11, fontWeight: 700, color: isDisabledTimeout ? C.orange : C.grayDark, fontFamily: "'DM Mono', monospace", letterSpacing: "0.04em" }}>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: C.grayDark, fontFamily: "'DM Mono', monospace", letterSpacing: "0.04em" }}>
                       CAP-{mc.id}
                     </span>
                     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      {/* Dot de conexión/estado */}
                       <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
                         <div style={{ width: 8, height: 8, borderRadius: "50%", background: dotColor, transition: "background 0.3s" }}
                           className={isActive ? "dot-active" : ""} />
                         {mc.status && (
                           <span style={{
                             fontSize: 10, fontWeight: 700, letterSpacing: "0.04em",
-                            color: isDisabledTimeout ? C.orange : isActive ? C.slate : wasHit ? C.emerald : wasMissed ? C.red : C.grayMed,
+                            color: isActive ? C.slate : wasHit ? C.emerald : wasMissed ? C.red : C.grayMed,
                             fontFamily: "'DM Sans', sans-serif",
                           }}>
                             {mc.status === "Esperando respuesta" ? "ACTIVO" : mc.status.toUpperCase()}
@@ -1221,13 +1131,13 @@ export default function PruebasPage() {
 
                   <div style={{
                     margin: "0 8px 8px",
-                    background: isDisabledTimeout ? C.orangeBg : isActive ? "#EFF3F7" : wasHit ? "#eaf5f1" : wasMissed ? "#faeaea" : C.grayUltra,
+                    background: isActive ? "#EFF3F7" : wasHit ? "#eaf5f1" : wasMissed ? "#faeaea" : C.grayUltra,
                     borderRadius: 6, aspectRatio: "1/1",
                     display: "flex", alignItems: "center", justifyContent: "center",
                     transition: "background 0.3s", overflow: "hidden",
                   }}>
                     <img src={getMicroImage(mc)} alt={`Cápsula ${mc.id}`}
-                      style={{ width: "88%", height: "88%", objectFit: "contain", opacity: isDisabledTimeout ? 0.5 : 1 }}
+                      style={{ width: "88%", height: "88%", objectFit: "contain" }}
                       onError={(e) => { e.currentTarget.style.display = "none" }} />
                   </div>
                 </div>
@@ -1304,8 +1214,6 @@ export default function PruebasPage() {
                 <p style={{ margin: "6px 0 0", fontSize: 11, color: C.grayMed, fontFamily: "'DM Sans', sans-serif" }}>total</p>
               </div>
             </div>
-
-
           </div>
         </div>
         </div>
