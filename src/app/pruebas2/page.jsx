@@ -140,6 +140,7 @@ export default function PruebasPage() {
   const waitingForResponseSequentialRef = useRef(false)
   const processingResponseSequentialRef = useRef(false)
   const responseTimeoutSequentialRef = useRef(null)
+  const currentRoundRef = useRef(0)
 
   const testActiveRandomRef = useRef(false)
   const currentActiveESPRandomRef = useRef(null)
@@ -165,6 +166,7 @@ export default function PruebasPage() {
     testActiveSequentialRef.current = testActiveSequential
     currentActiveESPSequentialRef.current = currentActiveESPSequential
     waitingForResponseSequentialRef.current = waitingForResponseSequential
+    currentRoundRef.current = currentRound
     testActiveRandomRef.current = testActiveRandom
     currentActiveESPRandomRef.current = currentActiveESPRandom
     waitingForResponseRandomRef.current = waitingForResponseRandom
@@ -173,7 +175,7 @@ export default function PruebasPage() {
     waitingForResponseManualRef.current = waitingForResponseManual
     selectedESPsRef.current = selectedESPs
   }, [
-    testActiveSequential, currentActiveESPSequential, waitingForResponseSequential,
+    testActiveSequential, currentActiveESPSequential, waitingForResponseSequential, currentRound,
     testActiveRandom, currentActiveESPRandom, waitingForResponseRandom,
     testActiveManual, currentActiveESPManual, waitingForResponseManual, selectedESPs,
   ])
@@ -500,18 +502,18 @@ export default function PruebasPage() {
       if (nextESP !== null) {
         setCurrentSequence(allESPs.indexOf(nextESP) + 1); activateNextMicrocontrollerSequential(nextESP)
       } else {
-        setCurrentRound((prevRound) => {
-          if (prevRound < totalRounds) {
-            limpiarEntreRondasSequential()
-            showNotification("success", `Iniciando ronda ${prevRound + 1}`)
-            const firstAvail = allESPs[0]
-            if (!firstAvail) { setTimeout(() => finalizarPruebaSecuencial(), 500); return prevRound }
-            setTimeout(() => { setCurrentSequence(1); activateNextMicrocontrollerSequential(firstAvail) }, 2000)
-            return prevRound + 1
-          } else {
-            showNotification("success", "Rondas completadas"); setTimeout(() => finalizarPruebaSecuencial(), 1000); return prevRound
-          }
-        })
+        // End of current round - check if we need to continue with more rounds
+        const nextRound = currentRoundRef.current + 1
+        if (nextRound <= totalRounds) {
+          setCurrentRound(nextRound)
+          limpiarEntreRondasSequential()
+          showNotification("success", `Iniciando ronda ${nextRound}`)
+          const firstAvail = allESPs[0]
+          if (!firstAvail) { setTimeout(() => finalizarPruebaSecuencial(), 500) }
+          else { setTimeout(() => { setCurrentSequence(1); activateNextMicrocontrollerSequential(firstAvail) }, 2000) }
+        } else {
+          showNotification("success", "Rondas completadas"); setTimeout(() => finalizarPruebaSecuencial(), 1000)
+        }
       }
       processingResponseSequentialRef.current = false
     }, 1500)
@@ -875,13 +877,13 @@ export default function PruebasPage() {
               <select
                 value={selectedPlayer?.id || ""}
                 onChange={(e) => { const p = jugadores.find((j) => j.id === parseInt(e.target.value)); setSelectedPlayer(p || null) }}
-                disabled={testActive}
+                disabled={testActiveRandom || testActiveManual}
                 className="player-select field-input"
                 style={{
                   border: `1.5px solid ${C.grayLight}`, borderRadius: 6,
                   padding: "5px 26px 5px 9px", fontSize: 11, color: C.grayDark,
-                  background: C.white, cursor: testActive ? "not-allowed" : "pointer",
-                  fontFamily: "'DM Sans', sans-serif", opacity: testActive ? 0.5 : 1, width: "100%",
+                  background: C.white, cursor: (testActiveRandom || testActiveManual) ? "not-allowed" : "pointer",
+                  fontFamily: "'DM Sans', sans-serif", opacity: (testActiveRandom || testActiveManual) ? 0.5 : 1, width: "100%",
                 }}
               >
                 <option value="">Seleccionar…</option>
