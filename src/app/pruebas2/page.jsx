@@ -986,37 +986,7 @@ export default function PruebasPage() {
                   })}
                 </div>
 
-                {/* Manual mode control buttons */}
-                {testActiveManual && (
-                  <div style={{ display: "flex", gap: 12, marginTop: 16, paddingTop: 12, borderTop: `1px solid ${C.grayLight}`, justifyContent: "center" }}>
-                    <button
-                      onClick={() => { if (currentActiveESPManual) handleManualResponse(currentActiveESPManual, "acierto") }}
-                      disabled={!waitingForResponseManual}
-                      style={{
-                        padding: "8px 20px", borderRadius: 6, border: "none",
-                        background: waitingForResponseManual ? C.emerald : C.grayLight,
-                        color: waitingForResponseManual ? C.white : C.grayMed,
-                        fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase",
-                        cursor: waitingForResponseManual ? "pointer" : "not-allowed",
-                        fontFamily: "'DM Sans', sans-serif", transition: "all 0.15s",
-                      }}>
-                      ✓ Acierto
-                    </button>
-                    <button
-                      onClick={() => { if (currentActiveESPManual) handleManualResponse(currentActiveESPManual, "error") }}
-                      disabled={!waitingForResponseManual}
-                      style={{
-                        padding: "8px 20px", borderRadius: 6, border: "none",
-                        background: waitingForResponseManual ? C.red : C.grayLight,
-                        color: waitingForResponseManual ? C.white : C.grayMed,
-                        fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase",
-                        cursor: waitingForResponseManual ? "pointer" : "not-allowed",
-                        fontFamily: "'DM Sans', sans-serif", transition: "all 0.15s",
-                      }}>
-                      ✗ Fallo
-                    </button>
-                  </div>
-                )}
+
               </div>
             </div>
 
