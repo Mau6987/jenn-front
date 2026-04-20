@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
 import {
-  AlertCircle, CheckCircle, X, ChevronDown, Save, User, Award, Activity, Target,
+  AlertCircle, CheckCirclex, X, ChevronDown, Save, User, Award, Activity, Target,
 } from "lucide-react"
 import { getPositionIcon, getPositionName } from "../../lib/position-icons"
 
