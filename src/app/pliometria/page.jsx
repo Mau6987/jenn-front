@@ -10,14 +10,11 @@ const PUSHER_CLUSTER = "us2"
 const ALCANCE_DURACION_SEG = 15
 const CALIBRATION_TIMEOUT_MS = 15000
 
-// ── IMÁGENES POR SECCIÓN ──────────────────────────────────────────────────
 const ALCANCE_CALIBRACION_IMG    = "/calibraAlcance2.png"
 const ALCANCE_INICIO_IMAGES      = ["/alcance1ima.png", "/alcance3.png", "/alcance2.png"]
-
 const SALTO_SIMPLE_IMAGES = ["/saltosimple1.jpeg", "/saltosimple2.jpeg", "/saltosimple3.jpeg"]
 const SALTO_CONOS_IMAGES  = ["/cono1ima.jpeg", "/cono2ima.jpeg", "/cono3ima.jpeg"]
 
-// ── COMANDOS ──────────────────────────────────────────────────────────────
 const CMD = {
   CALIBRAR:       "CALIBRAR",
   CANCELAR:       "CANCELAR",
@@ -83,12 +80,149 @@ function initializePusher(subscribeToESP) {
   subscribeToESP(pusher)
 }
 
-function calcularIndiceFatiga(primerSalto, ultimoSalto) {
-  if (!primerSalto || !ultimoSalto) return null
-  const fInicial = parseFloat(primerSalto.pico_izq) + parseFloat(primerSalto.pico_der)
-  const fFinal   = parseFloat(ultimoSalto.pico_izq)  + parseFloat(ultimoSalto.pico_der)
-  if (fInicial <= 0) return null
-  return ((fInicial - fFinal) / fInicial * 100).toFixed(1)
+// ── BATTERY PANEL: componente destacado ───────────────────────────────────
+function BatteryPanel({ battery, espConnected }) {
+  if (!battery && !espConnected) return null
+
+  const cfg = {
+    normal:  { bar: "#10b981", bg: "#ecfdf5", border: "#a7f3d0", text: "#065f46", label: "Normal",   icon: "🔋" },
+    alerta:  { bar: "#f59e0b", bg: "#fffbeb", border: "#fde68a", text: "#78350f", label: "Bajo",     icon: "⚠️" },
+    critico: { bar: "#f43f5e", bg: "#fff1f2", border: "#fecaca", text: "#7f1d1d", label: "Crítico",  icon: "🪫" },
+    null:    { bar: "#d1d5db", bg: "#f9fafb", border: "#e5e7eb", text: "#9ca3af", label: "Sin datos", icon: "🔋" },
+  }
+
+  const nivel = battery?.nivel ?? null
+  const c     = cfg[nivel] || cfg.null
+  const pct   = battery?.porcentaje ?? null
+  const volt  = battery?.voltaje    ?? null
+
+  return (
+    <div style={{
+      background: c.bg,
+      border: `1.5px solid ${c.border}`,
+      borderRadius: 16,
+      padding: "14px 18px",
+      display: "flex",
+      flexDirection: "column",
+      gap: 10,
+      transition: "all 0.4s",
+      animation: nivel === "critico" ? "battCritPulse 1.2s ease-in-out infinite alternate" : "none",
+    }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 1 }}>
+            <div style={{
+              width: 28, height: 14, border: `2px solid ${c.bar}`,
+              borderRadius: 4, padding: "2px 3px",
+              display: "flex", alignItems: "center", gap: 2, background: "#fff",
+            }}>
+              {[0,1,2].map(i => {
+                const filled =
+                  nivel === "normal"  ? true :
+                  nivel === "alerta"  ? i < 2 :
+                  nivel === "critico" ? i < 1 : false
+                return (
+                  <div key={i} style={{
+                    flex: 1, height: "100%", borderRadius: 2,
+                    background: filled ? c.bar : "#e5e7eb",
+                    transition: "background 0.4s",
+                  }} />
+                )
+              })}
+            </div>
+            <div style={{ width: 3, height: 8, background: c.bar, borderRadius: "0 2px 2px 0" }} />
+          </div>
+          <span style={{ fontSize: 11, fontWeight: 700, color: c.text, letterSpacing: "0.06em", textTransform: "uppercase" }}>
+            Batería ESP-6
+          </span>
+        </div>
+        <span style={{
+          fontSize: 10, fontWeight: 700, color: c.text,
+          background: "#ffffff88", borderRadius: 99,
+          padding: "2px 10px", border: `1px solid ${c.border}`,
+          textTransform: "uppercase", letterSpacing: "0.08em",
+        }}>
+          {c.label}
+        </span>
+      </div>
+
+      <div style={{ height: 10, background: "#ffffff60", borderRadius: 99, overflow: "hidden", border: `1px solid ${c.border}` }}>
+        <div style={{
+          height: "100%",
+          width: pct != null ? `${pct}%` : "0%",
+          background: `linear-gradient(90deg, ${c.bar}cc, ${c.bar})`,
+          borderRadius: 99,
+          transition: "width 0.8s ease",
+        }} />
+      </div>
+
+      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between" }}>
+        <span style={{
+          fontFamily: "monospace", fontSize: 28, fontWeight: 700, color: c.text, lineHeight: 1,
+        }}>
+          {pct != null ? `${pct}%` : "—"}
+        </span>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 2 }}>
+          {volt != null && (
+            <span style={{ fontFamily: "monospace", fontSize: 13, fontWeight: 600, color: c.text, opacity: 0.8 }}>
+              {volt.toFixed(2)} V
+            </span>
+          )}
+          {!battery && (
+            <span style={{ fontSize: 11, color: "#9ca3af", fontStyle: "italic" }}>
+              Esperando datos…
+            </span>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── BATTERY ICON tiny (para header de card) ───────────────────────────────
+function BatteryIcon({ nivel, porcentaje, voltaje }) {
+  const barColors = {
+    normal:  ["#10b981", "#10b981", "#10b981"],
+    alerta:  ["#f59e0b", "#f59e0b", "#e5e7eb"],
+    critico: ["#f43f5e", "#e5e7eb", "#e5e7eb"],
+    null:    ["#e5e7eb", "#e5e7eb", "#e5e7eb"],
+  }
+  const colors = barColors[nivel] || barColors.null
+  const labelColor =
+    nivel === "normal"  ? "#10b981" :
+    nivel === "alerta"  ? "#f59e0b" :
+    nivel === "critico" ? "#f43f5e" : "#9ca3af"
+
+  return (
+    <div
+      title={voltaje ? `${voltaje.toFixed(2)}V · ${porcentaje}%` : "Sin datos de batería"}
+      style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2, cursor: "default" }}
+    >
+      <div style={{ display: "flex", alignItems: "center", gap: 1 }}>
+        <div style={{
+          width: 18, height: 10,
+          border: `1.5px solid ${colors[0] === "#e5e7eb" ? "#d1d5db" : colors[0]}`,
+          borderRadius: 2, padding: "1px 2px",
+          display: "flex", alignItems: "center", gap: 1, background: "#fff",
+        }}>
+          {colors.map((c, i) => (
+            <div key={i} style={{ flex: 1, height: "100%", borderRadius: 1, background: c, transition: "background 0.4s" }} />
+          ))}
+        </div>
+        <div style={{
+          width: 2, height: 5,
+          background: colors[0] === "#e5e7eb" ? "#d1d5db" : colors[0],
+          borderRadius: "0 1px 1px 0", transition: "background 0.4s",
+        }} />
+      </div>
+      <span style={{
+        fontSize: 9, fontWeight: 700, letterSpacing: "0.06em",
+        color: labelColor, fontFamily: "monospace", lineHeight: 1,
+      }}>
+        {porcentaje !== null ? `${porcentaje}%` : "—"}
+      </span>
+    </div>
+  )
 }
 
 // ── CARRUSEL ───────────────────────────────────────────────────────────────
@@ -281,118 +415,6 @@ function CalibrationModal({ isOpen, calibrationStatus, onClose, onCancel }) {
   )
 }
 
-// ── BATTERY ICON ───────────────────────────────────────────────────────────
-function BatteryIcon({ nivel, porcentaje, voltaje }) {
-  // nivel: "normal" | "alerta" | "critico" | null (desconocido)
-  const barColors = {
-    normal:  ["#1A7A5E", "#1A7A5E", "#1A7A5E"],
-    alerta:  ["#C2620A", "#C2620A", "#E8E8E8"],
-    critico: ["#B03030", "#E8E8E8", "#E8E8E8"],
-    null:    ["#E8E8E8", "#E8E8E8", "#E8E8E8"],
-  }
-  const colors = barColors[nivel] || barColors[null]
-  const labelColor = nivel === "normal" ? "#1A7A5E" : nivel === "alerta" ? "#C2620A" : nivel === "critico" ? "#B03030" : "#6B6B6B"
-
-  return (
-    <div
-      title={voltaje ? `${voltaje.toFixed(2)}V · ${porcentaje}%` : "Sin datos de batería"}
-      style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2, cursor: "default" }}
-    >
-      <div style={{ display: "flex", alignItems: "center", gap: 1 }}>
-        <div style={{
-          width: 18, height: 10,
-          border: `1.5px solid ${colors[0] === "#E8E8E8" ? "#d1d5db" : colors[0]}`,
-          borderRadius: 2, padding: "1px 2px",
-          display: "flex", alignItems: "center", gap: 1, background: "#fff",
-        }}>
-          {colors.map((c, i) => (
-            <div key={i} style={{ flex: 1, height: "100%", borderRadius: 1, background: c, transition: "background 0.4s" }} />
-          ))}
-        </div>
-        {/* Terminal positivo */}
-        <div style={{
-          width: 2, height: 5,
-          background: colors[0] === "#E8E8E8" ? "#d1d5db" : colors[0],
-          borderRadius: "0 1px 1px 0", transition: "background 0.4s",
-        }} />
-      </div>
-      <span style={{
-        fontSize: 9, fontWeight: 700, letterSpacing: "0.06em",
-        color: labelColor, fontFamily: "monospace", lineHeight: 1,
-      }}>
-        {porcentaje !== null ? `${porcentaje}%` : "—"}
-      </span>
-    </div>
-  )
-}
-
-// ── FATIGA ─────────────────────────────────────────────────────────────────
-function FatigaCard({ primerSalto, ultimoSalto, totalSaltos }) {
-  const IF = calcularIndiceFatiga(primerSalto, ultimoSalto)
-  const fInicial    = primerSalto ? (parseFloat(primerSalto.pico_izq) + parseFloat(primerSalto.pico_der)).toFixed(2) : "—"
-  const fFinal      = ultimoSalto ? (parseFloat(ultimoSalto.pico_izq) + parseFloat(ultimoSalto.pico_der)).toFixed(2) : "—"
-  const fInicialIzq = primerSalto ? parseFloat(primerSalto.pico_izq).toFixed(2) : "—"
-  const fInicialDer = primerSalto ? parseFloat(primerSalto.pico_der).toFixed(2) : "—"
-  const fFinalIzq   = ultimoSalto ? parseFloat(ultimoSalto.pico_izq).toFixed(2)  : "—"
-  const fFinalDer   = ultimoSalto ? parseFloat(ultimoSalto.pico_der).toFixed(2)  : "—"
-  const nivel = IF === null ? "slate" : parseFloat(IF) < 0 ? "blue" : parseFloat(IF) < 10 ? "emerald" : parseFloat(IF) < 20 ? "amber" : "red"
-  const palettes = {
-    slate:   { grad: "from-gray-50 to-white",   accent: "#78716c", bar: "#a89968", label: "Sin datos suficientes",                      badgeBg: "#f5f5f5", badgeText: "#5a5a5a" },
-    blue:    { grad: "from-red-50 to-white",    accent: "#a83a3a", bar: "#c85a5a", label: "↑ Fuerza en aumento — activación progresiva", badgeBg: "#ffe8e8", badgeText: "#8b3535" },
-    emerald: { grad: "from-green-50 to-white", accent: "#16a34a", bar: "#4ade80", label: "✓ Fatiga baja — rendimiento sostenido",       badgeBg: "#f0fdf4", badgeText: "#166534" },
-    amber:   { grad: "from-yellow-50 to-white",   accent: "#d97706", bar: "#fbbf24", label: "⚠ Fatiga moderada — monitorear",             badgeBg: "#fffbeb", badgeText: "#92400e" },
-    red:     { grad: "from-orange-50 to-white",     accent: "#dc2626", bar: "#f87171", label: "✗ Fatiga alta — considerar descanso",         badgeBg: "#fff1f2", badgeText: "#991b1b" },
-  }
-  const p = palettes[nivel]
-  const barPct = IF === null ? 0 : parseFloat(IF) < 0 ? Math.min(Math.abs(parseFloat(IF)) * 3, 30) : Math.min(parseFloat(IF) * 3, 100)
-  return (
-    <div className={`rounded-2xl bg-gradient-to-br ${p.grad} p-6 space-y-5`}
-      style={{ border: `1px solid ${p.accent}20`, boxShadow: `0 2px 12px ${p.accent}08` }}>
-      <div className="flex items-center justify-between">
-        <p className="text-[10px] uppercase tracking-wider font-semibold text-gray-600">Índice de Fatiga</p>
-        <span className="text-[9px] uppercase tracking-wider font-semibold px-3 py-1.5 rounded-lg"
-          style={{ background: p.badgeBg, color: p.badgeText }}>{totalSaltos} saltos</span>
-      </div>
-      <div className="bg-white/70 rounded-lg border border-gray-200 p-4 flex flex-col items-center gap-1.5">
-        <p className="text-[9px] uppercase tracking-wider text-gray-500 font-semibold">Fórmula</p>
-        <div className="flex items-center gap-2 text-gray-600 text-[11px] font-mono">
-          <span className="font-semibold text-gray-800 text-sm">IF</span>
-          <span className="text-gray-400 text-lg">=</span>
-          <div className="flex flex-col items-center">
-            <span className="font-semibold text-gray-700 whitespace-nowrap">F<sub>i</sub> − F<sub>f</sub></span>
-            <div className="w-full h-px bg-gray-300 my-0.5" />
-            <span className="text-gray-500 whitespace-nowrap">F<sub>i</sub></span>
-          </div>
-          <span className="text-gray-400">×</span><span className="font-medium text-gray-700">100</span>
-        </div>
-        <p className="text-[9px] text-gray-400 mt-0.5">F = pico izq. + pico der. (kgf)</p>
-      </div>
-      <div className="grid grid-cols-3 gap-3">
-        {[
-          { label: "F inicial", main: fInicial, sub: [`Izq: ${fInicialIzq}`, `Der: ${fInicialDer}`], hi: false },
-          { label: "F final",   main: fFinal,   sub: [`Izq: ${fFinalIzq}`,   `Der: ${fFinalDer}`],   hi: false },
-          { label: "IF (%)",    main: IF !== null ? `${IF}%` : "—",
-            sub: [IF === null ? "—" : parseFloat(IF) < 0 ? "↑ mejora" : parseFloat(IF) < 10 ? "baja" : parseFloat(IF) < 20 ? "moderada" : "alta"],
-            hi: true },
-        ].map(({ label, main, sub, hi }) => (
-          <div key={label} className="flex flex-col items-center bg-white rounded-lg p-3 gap-1"
-            style={{ border: hi ? `1.5px solid ${p.accent}30` : "1px solid #e5e5e5", boxShadow: hi ? `0 1px 8px ${p.accent}08` : "none" }}>
-            <p className="text-[9px] uppercase tracking-wide text-gray-500 text-center font-semibold">{label}</p>
-            <p className="text-base font-bold" style={{ color: hi ? p.accent : "#2d2d2d" }}>{main}</p>
-            {sub.map((s, i) => <p key={i} className="text-[9px] text-gray-500 text-center">{s}</p>)}
-          </div>
-        ))}
-      </div>
-      <div className="space-y-2">
-        <div className="w-full h-1.5 bg-gray-300 rounded-full overflow-hidden">
-          <div className="h-full rounded-full transition-all duration-700" style={{ width: `${barPct}%`, background: p.bar }} />
-        </div>
-        <p className="text-[10px] font-medium text-center text-gray-700" style={{ color: p.accent }}>{p.label}</p>
-      </div>
-    </div>
-  )
-}
-
 // ═════════════════════════════════════════════════════════════════════════════
 //  COMPONENTE PRINCIPAL
 // ═════════════════════════════════════════════════════════════════════════════
@@ -437,9 +459,7 @@ export default function SistemaUnificadoPage() {
   const [ultimaAlturaCono, setUltimaAlturaCono]         = useState(null)
   const [resultadoFinal, setResultadoFinal]             = useState(null)
 
-  const [primerSaltoSesion, setPrimerSaltoSesion]       = useState(null)
-  const [ultimoSaltoSesion, setUltimoSaltoSesion]       = useState(null)
-  const [totalSaltosSesion, setTotalSaltosSesion]       = useState(0)
+  // Ya no necesitamos las variables de fatiga
   const [alturasSesion, setAlturasSesion]               = useState([])
 
   const [alcanceCalibracionDone, setAlcanceCalibracionDone] = useState(false)
@@ -480,10 +500,7 @@ export default function SistemaUnificadoPage() {
     return parseFloat(j?.jugador?.alcance_estatico ?? j?.alcance_estatico ?? 0) * 100
   }
 
-  const resetFatiga = () => {
-    setPrimerSaltoSesion(null)
-    setUltimoSaltoSesion(null)
-    setTotalSaltosSesion(0)
+  const resetSesion = () => {
     setAlturasSesion([])
   }
 
@@ -534,10 +551,17 @@ export default function SistemaUnificadoPage() {
   const subscribeToESP = (pusher) => {
     const channel = pusher.subscribe(`private-device-${DEVICE_ID}`)
 
+    pusher.connection.bind("disconnected", () => {
+      setEspConnected(false)
+      addMessage("SISTEMA", "Conexión perdida", "error", setMessages)
+    })
+    pusher.connection.bind("unavailable", () => {
+      setEspConnected(false)
+    })
+    pusher.connection.bind("connected", () => {})
+
     channel.bind("pusher:subscription_succeeded", () => {
-      setEspConnected(true)
-      addMessage(DEVICE_ID, "Conectado", "success", setMessages)
-      notify("success", "ESP-6 conectado")
+      addMessage(DEVICE_ID, "Canal suscrito — esperando ESP...", "success", setMessages)
     })
     channel.bind("pusher:subscription_error", (err) => {
       addMessage("SISTEMA", `Error: ${JSON.stringify(err)}`, "error", setMessages)
@@ -553,7 +577,9 @@ export default function SistemaUnificadoPage() {
       if (nivel) {
         setEspBattery({ nivel, porcentaje: porcentaje ?? null, voltaje: voltaje ?? null })
         if (nivel === "critico") {
-          notify("error", `🔋 Batería crítica en ESP-6 (${voltaje?.toFixed(2)}V)`)
+          notify("error", `🪫 Batería crítica ESP-6 · ${voltaje?.toFixed(2)}V · ${porcentaje}%`)
+        } else if (nivel === "alerta") {
+          notify("error", `⚠️ Batería baja ESP-6 · ${porcentaje}%`)
         }
       }
     })
@@ -592,7 +618,7 @@ export default function SistemaUnificadoPage() {
         setSaltoRTActual(null)
         setResultadoFinal(null)
         saltoConosContadorRef.current = 0
-        resetFatiga()
+        resetSesion()
         if (calibracionOrigen === "alcance" || faseAlcance === "jumping") {
           setFaseAlcance("jumping")
         }
@@ -616,10 +642,6 @@ export default function SistemaUnificadoPage() {
           const picoIzq = parseFloat(json.pico_izq_kgf ?? json.pico_izq ?? 0)
           const picoDer = parseFloat(json.pico_der_kgf ?? json.pico_der ?? 0)
 
-          const saltoFatiga = { pico_izq: picoIzq, pico_der: picoDer }
-          setPrimerSaltoSesion((prev) => prev ?? saltoFatiga)
-          setUltimoSaltoSesion(saltoFatiga)
-          setTotalSaltosSesion((prev) => prev + 1)
           setAlturasSesion((prev) => [...prev, json.altura_cm])
           saltoConosContadorRef.current += 1
           const numSalto = saltoConosContadorRef.current
@@ -713,7 +735,14 @@ export default function SistemaUnificadoPage() {
     })
 
     channel.bind("client-status", (data) => {
-      if (data?.status === "connected") setEspConnected(true)
+      if (data?.status === "connected") {
+        setEspConnected(true)
+        notify("success", "ESP-6 conectado")
+        addMessage(DEVICE_ID, "ESP online", "success", setMessages)
+      } else if (data?.status === "disconnected") {
+        setEspConnected(false)
+        addMessage(DEVICE_ID, "ESP offline", "error", setMessages)
+      }
     })
   }
 
@@ -739,12 +768,12 @@ export default function SistemaUnificadoPage() {
       setEjercicioEnCurso(false)
       setResultadoFinal(null)
       setSaltoRTActual(null)
-      resetFatiga()
+      resetSesion()
     }
 
     setCalibrationStatus("calibrating")
     setCalibrationModalOpen(true)
-    resetFatiga()
+    resetSesion()
 
     await sendCommand(CMD.CALIBRAR, setMessages)
 
@@ -785,7 +814,7 @@ export default function SistemaUnificadoPage() {
     setIncrementoAnterior("")
     setAlcanceSegundos(0)
     saltoConosContadorRef.current = 0
-    resetFatiga()
+    resetSesion()
     setFaseAlcance("jumping")
     setEjercicioEnCurso(true)
 
@@ -813,7 +842,6 @@ export default function SistemaUnificadoPage() {
   const handleGuardarAlcance = async () => {
     if (!resultadoFinal || !cuentaSeleccionada) return
     if (resultadoFinal._tipo === "cono") { notify("error", "El salto con conos no guarda alcance"); return }
-    const IF = calcularIndiceFatiga(primerSaltoSesion, ultimoSaltoSesion)
     try {
       const res = await fetch(`${BACKEND_URL}/api/alcances`, {
         method: "POST",
@@ -821,7 +849,6 @@ export default function SistemaUnificadoPage() {
         body: JSON.stringify({
           cuentaId: Number(cuentaSeleccionada),
           alcance: resultadoFinal.alcanceTotal,
-          indice_fatiga: IF,
         }),
       })
       const d = await res.json()
@@ -830,7 +857,6 @@ export default function SistemaUnificadoPage() {
           "Alcance registrado":      `${resultadoFinal.alcanceTotal} cm`,
           "Altura promedio":         `${resultadoFinal.alt_promedio_cm} cm`,
           "Alcance estático":        `${resultadoFinal.alcanceEstaticoCm} cm`,
-          ...(IF !== null && { "Índice de fatiga": `${IF}%` }),
         })
         setModalAlcanceOpen(true)
         notify("success", "Guardado correctamente")
@@ -852,7 +878,7 @@ export default function SistemaUnificadoPage() {
     setIncrementoAnterior("")
     setAlcanceSegundos(0)
     setEjercicioEnCurso(false)
-    resetFatiga()
+    resetSesion()
 
     if (cuentaSeleccionada) {
       fetch(`${BACKEND_URL}/api/alcances/ultimo/${cuentaSeleccionada}`)
@@ -883,7 +909,7 @@ export default function SistemaUnificadoPage() {
     setSaltoFlash(false)
     setUltimaAlturaCono(null)
     saltoConosContadorRef.current = 0
-    resetFatiga()
+    resetSesion()
     setEjercicioEnCurso(true)
     setPruebaIniciada(true)
 
@@ -929,13 +955,12 @@ export default function SistemaUnificadoPage() {
     setIncrementoAnterior("")
     setFaseAlcance("idle")
     saltoConosContadorRef.current = 0
-    resetFatiga()
+    resetSesion()
     notify("error", "Prueba cancelada")
   }
 
   const finalizarPrueba = async () => {
     if (!pruebaId || !resultadoFinal) { notify("error", "No hay datos para guardar"); return }
-    const IF = calcularIndiceFatiga(primerSaltoSesion, ultimoSaltoSesion)
     try {
       const res = await fetch(`${BACKEND_URL}/api/saltos/finalizar/${pruebaId}`, {
         method: "PUT",
@@ -946,7 +971,6 @@ export default function SistemaUnificadoPage() {
           alt_max_cm:      resultadoFinal.alt_max_cm,
           pico_izq_kg:     resultadoFinal.pico_izq_kg,
           pico_der_kg:     resultadoFinal.pico_der_kg,
-          indice_fatiga:   IF,
           ...(resultadoFinal._tipo !== "cono" && { alcanceTotal: resultadoFinal.alcanceTotal }),
         }),
       })
@@ -955,10 +979,10 @@ export default function SistemaUnificadoPage() {
         setPruebaGuardada({
           "Tipo de salto":           tipoSalto,
           "Saltos válidos":          `${resultadoFinal.saltos_validos}`,
+          "Altura máxima":           `${resultadoFinal.alt_max_cm} cm`,
           "Altura promedio":         `${resultadoFinal.alt_promedio_cm} cm`,
           "Fuerza pico izq. (kgf)":  `${resultadoFinal.pico_izq_kg}`,
           "Fuerza pico der. (kgf)":  `${resultadoFinal.pico_der_kg}`,
-          ...(IF !== null && { "Índice de fatiga": `${IF}%` }),
         })
         setModalPruebaOpen(true)
         notify("success", "Prueba guardada")
@@ -981,7 +1005,7 @@ export default function SistemaUnificadoPage() {
     setIncrementoAnterior("")
     setFaseAlcance("idle")
     saltoConosContadorRef.current = 0
-    resetFatiga()
+    resetSesion()
   }
 
   const stepState = (step) => {
@@ -1011,13 +1035,10 @@ export default function SistemaUnificadoPage() {
   const getPruebasCarrusel = () =>
     tipoSalto === "salto conos" ? SALTO_CONOS_IMAGES : SALTO_SIMPLE_IMAGES
 
-  // ── Helpers de batería ─────────────────────────────────────────────────
-  const batteryBorderColor = espBattery
-    ? espBattery.nivel === "normal"  ? "#10b981"
-    : espBattery.nivel === "alerta"  ? "#f59e0b"
-    : espBattery.nivel === "critico" ? "#ef4444"
-    : "#e2e8f0"
-    : "#e2e8f0"
+  const batteryBorderColor =
+    espBattery?.nivel === "normal"  ? "#10b981" :
+    espBattery?.nivel === "alerta"  ? "#f59e0b" :
+    espBattery?.nivel === "critico" ? "#ef4444" : "#e2e8f0"
 
   return (
     <div className="min-h-screen" style={{ background: "linear-gradient(160deg,#f8fafc 0%,#f0f4f8 60%,#e8eef5 100%)", fontFamily: "'DM Sans', sans-serif" }}>
@@ -1029,8 +1050,8 @@ export default function SistemaUnificadoPage() {
         @keyframes glow-green { from { box-shadow: 0 0 0 0 rgba(16,185,129,.08); } to { box-shadow: 0 0 0 6px rgba(16,185,129,.06); } }
         .step-card { transition: border-color .3s ease, box-shadow .3s ease; }
         select { -webkit-appearance: none; }
-        @keyframes battery-pulse-crit { 0%,100%{opacity:1} 50%{opacity:.45} }
-        .battery-critico { animation: battery-pulse-crit 1s ease-in-out infinite; }
+        @keyframes battCritPulse { from { opacity: 1; } to { opacity: 0.55; } }
+        @keyframes battCritBorder { 0%,100%{border-color:#ef4444} 50%{border-color:#fca5a5} }
       `}</style>
 
       <Toast notification={notification} onClose={() => setNotification(null)} />
@@ -1045,99 +1066,91 @@ export default function SistemaUnificadoPage() {
 
       <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8 space-y-5">
 
-        {/* ── Selector jugador + controles de tab ── */}
+        {/* ── Selector jugador + batería + controles ── */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
 
           {/* ── Card jugador ── */}
-          <div style={card} className="p-5 flex items-center gap-4">
-            <div className="flex flex-col gap-1.5 shrink-0">
-              <span className="text-[9px] uppercase tracking-widest font-bold text-slate-400">Jugador</span>
-              <div className="relative">
-                <select
-                  value={cuentaSeleccionada}
-                  onChange={(e) => {
-                    setCuentaSeleccionada(e.target.value)
-                    setFaseAlcance("idle")
-                    setIsCalibrated(false)
-                    setAlcanceCalibracionDone(false)
-                    setPruebaCalibrada(false)
-                    setPruebaCalibracionDone(false)
-                    setSaltoRTActual(null)
-                    setResultadoFinal(null)
-                    setIncrementoAnterior("")
-                    setEjercicioEnCurso(false)
-                  }}
-                  style={{ background: "#f8fafc", border: "1.5px solid #e2e8f0", borderRadius: 14, padding: "9px 36px 9px 14px", fontSize: 13, color: "#374151", width: 168, cursor: "pointer" }}
-                  className="focus:outline-none focus:ring-2 focus:ring-slate-200"
-                >
-                  <option value="">Seleccionar...</option>
-                  {jugadoresDisponibles.map((c) => (
-                    <option key={c.id} value={c.id.toString()}>
-                      {c.jugador ? `${c.jugador.nombres} ${c.jugador.apellidos}` : c.usuario}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
-              </div>
+          <div style={card} className="p-5 flex flex-col gap-4">
+            <div className="flex items-center gap-4">
+              <div className="flex flex-col gap-1.5 shrink-0">
+                <span className="text-[9px] uppercase tracking-widest font-bold text-slate-400">Jugador</span>
+                <div className="relative">
+                  <select
+                    value={cuentaSeleccionada}
+                    onChange={(e) => {
+                      setCuentaSeleccionada(e.target.value)
+                      setFaseAlcance("idle")
+                      setIsCalibrated(false)
+                      setAlcanceCalibracionDone(false)
+                      setPruebaCalibrada(false)
+                      setPruebaCalibracionDone(false)
+                      setSaltoRTActual(null)
+                      setResultadoFinal(null)
+                      setIncrementoAnterior("")
+                      setEjercicioEnCurso(false)
+                    }}
+                    style={{ background: "#f8fafc", border: "1.5px solid #e2e8f0", borderRadius: 14, padding: "9px 36px 9px 14px", fontSize: 13, color: "#374151", width: 168, cursor: "pointer" }}
+                    className="focus:outline-none focus:ring-2 focus:ring-slate-200"
+                  >
+                    <option value="">Seleccionar...</option>
+                    {jugadoresDisponibles.map((c) => (
+                      <option key={c.id} value={c.id.toString()}>
+                        {c.jugador ? `${c.jugador.nombres} ${c.jugador.apellidos}` : c.usuario}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                </div>
 
-              {/* ── Estado ESP-6 + Batería ── */}
-              <div className="flex items-center gap-2 mt-1">
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-2 mt-1">
                   <span
-                    className="w-2 h-2 rounded-full shrink-0"
+                    className={`w-2 h-2 rounded-full shrink-0 ${espConnected ? "animate-pulse" : ""}`}
                     style={{ background: espConnected ? "#10b981" : "#cbd5e1" }}
                   />
-                  <span className="text-[9px] font-semibold uppercase tracking-widest text-slate-400">
-                    {espConnected ? "Online" : "Offline"}
+                  <span className="text-[9px] font-semibold uppercase tracking-widest"
+                    style={{ color: espConnected ? "#10b981" : "#94a3b8" }}>
+                    {espConnected ? "ESP Online" : "ESP Offline"}
                   </span>
                 </div>
-                {espConnected && espBattery && (
-                  <div className={espBattery.nivel === "critico" ? "battery-critico" : ""}>
-                    <BatteryIcon
-                      nivel={espBattery.nivel}
-                      porcentaje={espBattery.porcentaje}
-                      voltaje={espBattery.voltaje}
-                    />
-                  </div>
-                )}
+              </div>
+
+              <div className="w-px self-stretch bg-slate-100 shrink-0" />
+
+              <div className="flex items-center gap-3 min-w-0">
+                <div
+                  className="w-12 h-12 shrink-0 overflow-hidden"
+                  style={{
+                    borderRadius: 16,
+                    background: "#f1f5f9",
+                    border: `1.5px solid ${batteryBorderColor}`,
+                    transition: "border-color .4s",
+                    animation: espBattery?.nivel === "critico" ? "battCritBorder 1s ease-in-out infinite" : "none",
+                  }}
+                >
+                  {jugadorSeleccionado?.jugador?.posicion_principal
+                    ? <img src={getPositionIcon(jugadorSeleccionado.jugador.posicion_principal)} alt=""
+                        className="w-full h-full object-cover" onError={(e) => { e.currentTarget.src = "/oso.png" }} />
+                    : <div className="w-full h-full flex items-center justify-center"><User className="w-5 h-5 text-slate-300" /></div>}
+                </div>
+                <div className="leading-snug min-w-0">
+                  <p className="text-sm font-bold text-slate-800 truncate">
+                    {jugadorSeleccionado?.jugador
+                      ? `${jugadorSeleccionado.jugador.nombres} ${jugadorSeleccionado.jugador.apellidos}`
+                      : <span className="text-slate-300 font-normal">Sin selección</span>}
+                  </p>
+                  {jugadorSeleccionado?.jugador && <>
+                    <p className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold mt-0.5">
+                      {getPositionName(jugadorSeleccionado.jugador.posicion_principal) ?? "—"}
+                    </p>
+                    <p className="text-[11px] text-slate-400">
+                      Alcance: <span className="font-semibold text-slate-600">{jugadorSeleccionado.jugador.alcance_estatico ?? "N"} m</span>
+                    </p>
+                  </>}
+                </div>
               </div>
             </div>
 
-            <div className="w-px self-stretch bg-slate-100 shrink-0" />
-
-            <div className="flex items-center gap-3 min-w-0">
-              <div
-                className="w-12 h-12 shrink-0 overflow-hidden"
-                style={{
-                  borderRadius: 16,
-                  background: "#f1f5f9",
-                  border: espBattery
-                    ? `1.5px solid ${batteryBorderColor}`
-                    : "1.5px solid #e2e8f0",
-                  transition: "border-color .4s",
-                }}
-              >
-                {jugadorSeleccionado?.jugador?.posicion_principal
-                  ? <img src={getPositionIcon(jugadorSeleccionado.jugador.posicion_principal)} alt=""
-                      className="w-full h-full object-cover" onError={(e) => { e.currentTarget.src = "/oso.png" }} />
-                  : <div className="w-full h-full flex items-center justify-center"><User className="w-5 h-5 text-slate-300" /></div>}
-              </div>
-              <div className="leading-snug min-w-0">
-                <p className="text-sm font-bold text-slate-800 truncate">
-                  {jugadorSeleccionado?.jugador
-                    ? `${jugadorSeleccionado.jugador.nombres} ${jugadorSeleccionado.jugador.apellidos}`
-                    : <span className="text-slate-300 font-normal">Sin selección</span>}
-                </p>
-                {jugadorSeleccionado?.jugador && <>
-                  <p className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold mt-0.5">
-                    {getPositionName(jugadorSeleccionado.jugador.posicion_principal) ?? "—"}
-                  </p>
-                  <p className="text-[11px] text-slate-400">
-                    Alcance: <span className="font-semibold text-slate-600">{jugadorSeleccionado.jugador.alcance_estatico ?? "N"} m</span>
-                  </p>
-                </>}
-              </div>
-            </div>
+            <BatteryPanel battery={espBattery} espConnected={espConnected} />
           </div>
 
           {/* ── Controles según tab ── */}
@@ -1301,7 +1314,6 @@ export default function SistemaUnificadoPage() {
             <div className="space-y-3">
               <p className="text-center text-[10px] font-bold uppercase tracking-widest text-slate-400">Pasos a seguir para el jugador</p>
               <div className="flex justify-center gap-4">
-                {/* Card 1: Calibración */}
                 {(() => {
                   const s = stepState(1)
                   const border = s === "done" ? "#10b981" : s === "active" ? "#818cf8" : "#e2e8f0"
@@ -1320,7 +1332,6 @@ export default function SistemaUnificadoPage() {
                     </div>
                   )
                 })()}
-                {/* Card 2: Prueba */}
                 {(() => {
                   const s = stepState(2)
                   const border = s === "done" ? "#10b981" : s === "active" ? "#818cf8" : "#e2e8f0"
@@ -1340,10 +1351,12 @@ export default function SistemaUnificadoPage() {
               </div>
             </div>
 
-            {/* Resultados */}
+            {/* Resultados alcance */}
             <div className="flex justify-center">
               <div className="w-full max-w-md p-6" style={card}>
-                <p className="text-[10px] uppercase tracking-widest font-bold text-slate-400 text-center mb-5">Resultados</p>
+                <div className="flex items-center justify-between mb-5">
+                  <p className="text-[10px] uppercase tracking-widest font-bold text-slate-400">Resultados</p>
+                </div>
                 <div className="space-y-3">
                   {(() => {
                     const value = resultadoFinal?.alcanceTotal
@@ -1385,10 +1398,6 @@ export default function SistemaUnificadoPage() {
                 </div>
               </div>
             </div>
-
-            {primerSaltoSesion && (
-              <FatigaCard primerSalto={primerSaltoSesion} ultimoSalto={ultimoSaltoSesion} totalSaltos={totalSaltosSesion} />
-            )}
           </div>
         )}
 
@@ -1398,7 +1407,6 @@ export default function SistemaUnificadoPage() {
             <div className="space-y-3">
               <p className="text-center text-[10px] font-bold uppercase tracking-widest text-slate-400">Pasos a seguir para el jugador</p>
               <div className="flex justify-center gap-4">
-                {/* Card 1: Calibración */}
                 {(() => {
                   const s = pruebaCalibracionDone ? "done" : "idle"
                   const border = s === "done" ? "#10b981" : "#e2e8f0"
@@ -1417,7 +1425,6 @@ export default function SistemaUnificadoPage() {
                     </div>
                   )
                 })()}
-                {/* Card 2: Tipo de salto */}
                 {(() => {
                   const s = resultadoFinal ? "done" : ejercicioEnCurso ? "active" : "idle"
                   const border = s === "done" ? "#10b981" : s === "active" ? "#818cf8" : "#e2e8f0"
@@ -1458,72 +1465,106 @@ export default function SistemaUnificadoPage() {
               </div>
             </div>
 
-            {/* Resultados */}
+            {/* Resultados + Batería en grid */}
             <div className="flex justify-center">
-              <div className="w-full max-w-md p-6" style={card}>
-                <p className="text-[10px] uppercase tracking-widest font-bold text-slate-400 text-center mb-5">Resultados</p>
-                <div className="space-y-3">
-                  {[
-                    {
-                      label: "Saltos detectados",
-                      value: resultadoFinal ? `${resultadoFinal.saltos_validos}` : saltoRTActual ? `${saltoRTActual.num}` : "",
-                      isLive: !!saltoRTActual && !resultadoFinal,
-                    },
-                    {
-                      label: "Fuerza máxima alcanzada",
-                      value: resultadoFinal
-                        ? `Izq: ${resultadoFinal.pico_izq_kg} kgf  /  Der: ${resultadoFinal.pico_der_kg} kgf`
-                        : saltoRTActual
-                        ? `Izq: ${saltoRTActual.pico_izq.toFixed(2)} kgf  /  Der: ${saltoRTActual.pico_der.toFixed(2)} kgf`
-                        : "",
-                      isLive: !!saltoRTActual && !resultadoFinal,
-                    },
-                    {
-                      label: "Altura promedio",
-                      value: resultadoFinal
-                        ? `${resultadoFinal.alt_promedio_cm} cm`
-                        : saltoRTActual
-                        ? `${saltoRTActual.altura_cm} cm`
-                        : "",
-                      isLive: !!saltoRTActual && !resultadoFinal,
-                    },
-                  ].map(({ label, value, isLive }) => (
-                    <div key={label} className="flex items-center justify-between gap-3">
-                      <span className="text-[9px] uppercase tracking-wide font-semibold text-slate-500 shrink-0">{label}</span>
-                      <div className="relative shrink-0">
-                        <input readOnly value={value} placeholder="—"
-                          className={`w-44 text-xs text-center font-bold focus:outline-none ${isLive && value ? "field-live" : ""}`}
-                          style={{
-                            padding: "8px 14px", borderRadius: 12,
-                            background: isLive && value ? "#ecfdf5" : "#f8fafc",
-                            border: `1.5px solid ${isLive && value ? "#6ee7b7" : "#e2e8f0"}`,
-                            color: isLive && value ? "#059669" : "#475569",
-                          }} />
-                        {isLive && value && <span className="absolute right-2.5 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />}
+              <div className="w-full max-w-2xl grid grid-cols-1 sm:grid-cols-2 gap-4">
+
+                {/* Card resultados */}
+                <div className="p-6" style={card}>
+                  <p className="text-[10px] uppercase tracking-widest font-bold text-slate-400 text-center mb-5">Resultados</p>
+                  <div className="space-y-3">
+                    {[
+                      {
+                        label: "Saltos detectados",
+                        value: resultadoFinal ? `${resultadoFinal.saltos_validos}` : saltoRTActual ? `${saltoRTActual.num}` : "",
+                        isLive: !!saltoRTActual && !resultadoFinal,
+                      },
+                      {
+                        label: "Fuerza máxima",
+                        value: resultadoFinal
+                          ? `Izq: ${resultadoFinal.pico_izq_kg}  Der: ${resultadoFinal.pico_der_kg} kgf`
+                          : saltoRTActual
+                          ? `Izq: ${saltoRTActual.pico_izq.toFixed(2)}  Der: ${saltoRTActual.pico_der.toFixed(2)} kgf`
+                          : "",
+                        isLive: !!saltoRTActual && !resultadoFinal,
+                      },
+                      {
+                        label: "Altura máxima",
+                        value: resultadoFinal
+                          ? `${resultadoFinal.alt_max_cm} cm`
+                          : saltoRTActual
+                          ? `${saltoRTActual.altura_cm} cm`
+                          : "",
+                        isLive: !!saltoRTActual && !resultadoFinal,
+                      },
+                      {
+                        label: "Altura promedio",
+                        value: resultadoFinal
+                          ? `${resultadoFinal.alt_promedio_cm} cm`
+                          : "",
+                        isLive: false,
+                      },
+                    ].map(({ label, value, isLive }) => (
+                      <div key={label} className="flex flex-col gap-1">
+                        <span className="text-[9px] uppercase tracking-wide font-semibold text-slate-500">{label}</span>
+                        <div className="relative">
+                          <input readOnly value={value} placeholder="—"
+                            className={`w-full text-xs text-center font-bold focus:outline-none ${isLive && value ? "field-live" : ""}`}
+                            style={{
+                              padding: "8px 14px", borderRadius: 12,
+                              background: isLive && value ? "#ecfdf5" : "#f8fafc",
+                              border: `1.5px solid ${isLive && value ? "#6ee7b7" : "#e2e8f0"}`,
+                              color: isLive && value ? "#059669" : "#475569",
+                            }} />
+                          {isLive && value && <span className="absolute right-2.5 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
+                  <div className="flex justify-center mt-6">
+                    <button
+                      onClick={finalizarPrueba}
+                      disabled={!resultadoFinal || !pruebaId}
+                      className="pill-btn px-10 py-2.5 text-sm font-bold"
+                      style={pillBtn(!!resultadoFinal && !!pruebaId, !resultadoFinal || !pruebaId)}
+                    >
+                      Guardar
+                    </button>
+                  </div>
                 </div>
-                <div className="flex justify-center mt-6">
-                  <button
-                    onClick={finalizarPrueba}
-                    disabled={!resultadoFinal || !pruebaId}
-                    className="pill-btn px-10 py-2.5 text-sm font-bold"
-                    style={pillBtn(!!resultadoFinal && !!pruebaId, !resultadoFinal || !pruebaId)}
-                  >
-                    Guardar
-                  </button>
+
+                {/* Card batería en sección de saltos */}
+                <div className="p-6 flex flex-col gap-4" style={card}>
+                  <p className="text-[10px] uppercase tracking-widest font-bold text-slate-400 text-center">Estado del Dispositivo</p>
+
+                  <BatteryPanel battery={espBattery} espConnected={espConnected} />
+
+                  {(saltoRTActual || resultadoFinal) && (
+                    <div style={{
+                      background: "linear-gradient(135deg,#1e293b,#334155)",
+                      borderRadius: 14, padding: "16px 20px",
+                      display: "flex", flexDirection: "column", alignItems: "center", gap: 4,
+                    }}>
+                      <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", color: "rgba(255,255,255,0.5)" }}>
+                        Altura máxima
+                      </span>
+                      <span style={{ fontFamily: "monospace", fontSize: 32, fontWeight: 700, color: "#fff", lineHeight: 1 }}>
+                        {resultadoFinal
+                          ? `${resultadoFinal.alt_max_cm} cm`
+                          : saltoRTActual
+                          ? `${saltoRTActual.altura_cm} cm`
+                          : "—"}
+                      </span>
+                      {saltoConosContadorRef.current > 0 && (
+                        <span style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", fontFamily: "monospace" }}>
+                          {saltoConosContadorRef.current} saltos registrados
+                        </span>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
-
-            {primerSaltoSesion && (
-              <div className="flex justify-center">
-                <div className="w-full max-w-md">
-                  <FatigaCard primerSalto={primerSaltoSesion} ultimoSalto={ultimoSaltoSesion} totalSaltos={totalSaltosSesion} />
-                </div>
-              </div>
-            )}
           </div>
         )}
       </div>
