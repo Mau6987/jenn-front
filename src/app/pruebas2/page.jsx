@@ -43,7 +43,7 @@ const styles = {
   },
 }
 
-/* ─── BatteryIcon: 3 barras (verde / naranja / rojo) ────────────────────── */
+/* ─── BatteryIcon ────────────────────────────────────────────────────────── */
 function BatteryIcon({ nivel, porcentaje, voltaje }) {
   const barColors = {
     normal:  ["#1A7A5E", "#1A7A5E", "#1A7A5E"],
@@ -162,6 +162,12 @@ export default function PruebasPage() {
   const pusherChannelsRef = useRef({})
   const connectedESPsRef = useRef(new Set())
 
+  // ── FIX 2: Ref para selectedPlayer para capturarlo siempre actualizado ────
+  const selectedPlayerRef = useRef(null)
+  useEffect(() => {
+    selectedPlayerRef.current = selectedPlayer
+  }, [selectedPlayer])
+
   useEffect(() => {
     testActiveSequentialRef.current = testActiveSequential
     currentActiveESPSequentialRef.current = currentActiveESPSequential
@@ -270,25 +276,28 @@ export default function PruebasPage() {
     } catch (e) { console.error("Health check error:", e) }
   }
 
+  // ── FIX 1: checkAllCapsuleHealth preserva cápsulas ya conectadas ──────────
   const checkAllCapsuleHealth = async () => {
-    // Solo marcar como "Verificando..." las que no tenemos info aún
-    setMicroControllers((prev) => prev.map((mc) => ({ 
-      ...mc, 
-      status: mc.connected ? mc.status : "Verificando..." 
-    })))
-    connectedESPsRef.current = new Set()
-    const checkStartTime = Date.now()
+    // Leer el estado actual de microControllers y pre-poblar connectedESPsRef
+    // con las cápsulas que YA están conectadas, para que el timeout de 2.5s
+    // no las marque como desconectadas si no alcanzan a responder el nuevo check.
+    setMicroControllers((prev) => {
+      connectedESPsRef.current = new Set(
+        prev.filter((mc) => mc.connected).map((mc) => mc.id)
+      )
+      return prev // no modificar el estado, solo leer
+    })
+
     for (const espId of [1, 2, 3, 4, 5]) {
       await sendHealthCheck(espId)
     }
+
     // Esperar 2.5 segundos para que las cápsulas respondan
     setTimeout(() => {
       setMicroControllers((prev) => prev.map((mc) => {
-        // Si respondió al health check (está en connectedESPsRef), está conectada
         if (connectedESPsRef.current.has(mc.id)) {
           return { ...mc, connected: true, status: "" }
         }
-        // Si no respondió después de 2.5 segundos, marca como desconectada
         return { ...mc, connected: false, status: "Sin conexión" }
       }))
     }, 2500)
@@ -312,7 +321,6 @@ export default function PruebasPage() {
           return
         }
 
-        // Test response (acierto/error)
         setMicroControllers((prev) => prev.map((mc) =>
           mc.id === espId ? { ...mc, connected: true, lastSeen: new Date() } : mc
         ))
@@ -366,7 +374,6 @@ export default function PruebasPage() {
     } catch (e) { console.error(e) }
   }
 
-  // Siempre retorna todos los ESPs seleccionados, sin excluir ninguno
   const getActiveESPs = () => {
     return selectedESPsRef.current
   }
@@ -430,15 +437,26 @@ export default function PruebasPage() {
     } finally { setIsSaving(false) }
   }
 
+  // ── FIX 2: abrirResumen usa jugadorSnapshot directamente (viene del ref) ──
   const abrirResumen = (tipo, stats, jugadorSnapshot, capsulasSnapshot) => {
     setSummaryData({
       tipo,
       jugador: jugadorSnapshot
-        ? { id: jugadorSnapshot.id, nombres: jugadorSnapshot.nombres, apellidos: jugadorSnapshot.apellidos, posicion: jugadorSnapshot.posicion_principal, cuentaId: jugadorSnapshot.cuentaId }
+        ? {
+            id: jugadorSnapshot.id,
+            nombres: jugadorSnapshot.nombres,
+            apellidos: jugadorSnapshot.apellidos,
+            posicion: jugadorSnapshot.posicion_principal,
+            cuentaId: jugadorSnapshot.cuentaId,
+          }
         : null,
       tiempo_transcurrido: finalDurationRef.current,
       esp_seleccionadas: capsulasSnapshot,
-      parametros: { tiempo_reaccion: tiempoReaccion, rondas: tipo === "secuencial" ? totalRounds : undefined, duracion: tipo !== "secuencial" ? tiempoPrueba : undefined },
+      parametros: {
+        tiempo_reaccion: tiempoReaccion,
+        rondas: tipo === "secuencial" ? totalRounds : undefined,
+        duracion: tipo !== "secuencial" ? tiempoPrueba : undefined,
+      },
       resultados: stats,
       timestamp: new Date().toISOString(),
     })
@@ -481,7 +499,6 @@ export default function PruebasPage() {
     setCurrentActiveESPSequential(espId); setWaitingForResponseSequential(true)
     setMicroControllers((prev) => prev.map((mc) => ({ ...mc, active: mc.id === espId, status: mc.id === espId ? "Esperando respuesta" : mc.status })))
     sendCommandToESP(espId, { command: "ON" })
-    // Timeout: registra error y continúa, pero NO deshabilita la cápsula
     responseTimeoutSequentialRef.current = setTimeout(() => {
       showNotification("error", `Cápsula ${espId} sin respuesta, contando como fallo`)
       if (processingResponseSequentialRef.current) return
@@ -510,7 +527,6 @@ export default function PruebasPage() {
       if (nextESP !== null) {
         setCurrentSequence(allESPs.indexOf(nextESP) + 1); activateNextMicrocontrollerSequential(nextESP)
       } else {
-        // End of current round - check if we need to continue with more rounds
         const nextRound = currentRoundRef.current + 1
         if (nextRound <= totalRounds) {
           setCurrentRound(nextRound)
@@ -527,11 +543,12 @@ export default function PruebasPage() {
     }, 1500)
   }
 
+  // ── FIX 2 aplicado: capturar jugador desde ref antes de limpiar ───────────
   const finalizarPruebaSecuencial = async () => {
     detenerCronometroGeneral()
-    const stats           = { ...estadisticasSequentialRef.current }
-    const jugadorSnap     = selectedPlayer
-    const capsulasSnap    = [...selectedESPsRef.current]
+    const stats        = { ...estadisticasSequentialRef.current }
+    const jugadorSnap  = selectedPlayerRef.current   // FIX: usar ref para garantizar valor actual
+    const capsulasSnap = [...selectedESPsRef.current]
     const pruebaId = localStorage.getItem("prueba_secuencial_id")
     if (pruebaId) {
       try {
@@ -595,7 +612,6 @@ export default function PruebasPage() {
     setCurrentActiveESPRandom(espId); setWaitingForResponseRandom(true)
     setMicroControllers((prev) => prev.map((mc) => ({ ...mc, active: mc.id === espId, status: mc.id === espId ? "Esperando respuesta" : mc.status })))
     sendCommandToESP(espId, { command: "ON" })
-    // Timeout: registra error y continúa, pero NO deshabilita la cápsula
     responseTimeoutRandomRef.current = setTimeout(() => {
       showNotification("error", `Cápsula ${espId} sin respuesta, contando como fallo`)
       if (processingResponseRandomRef.current) return
@@ -617,11 +633,12 @@ export default function PruebasPage() {
     setTimeout(() => { if (testActiveRandomRef.current) activateRandomMicrocontroller(); processingResponseRandomRef.current = false }, 1000)
   }
 
+  // ── FIX 2 aplicado: capturar jugador desde ref antes de limpiar ───────────
   const finalizarPruebaAleatoria = async () => {
     detenerCronometroGeneral()
     if (timerInterval) { clearInterval(timerInterval); setTimerInterval(null) }
     const stats        = { ...estadisticasRandomRef.current }
-    const jugadorSnap  = selectedPlayer
+    const jugadorSnap  = selectedPlayerRef.current   // FIX: usar ref
     const capsulasSnap = [...selectedESPsRef.current]
     const pruebaId = localStorage.getItem("prueba_aleatoria_id")
     if (pruebaId) {
@@ -677,7 +694,6 @@ export default function PruebasPage() {
     setCurrentActiveESPManual(espId); setWaitingForResponseManual(true)
     setMicroControllers((prev) => prev.map((mc) => ({ ...mc, active: mc.id === espId, status: mc.id === espId ? "Esperando respuesta" : mc.status })))
     sendCommandToESP(espId, { command: "ON" })
-    // Timeout: registra error y continúa, pero NO deshabilita la cápsula
     responseTimeoutManualRef.current = setTimeout(() => {
       showNotification("error", `Cápsula ${espId} sin respuesta, contando como fallo`)
       if (processingResponseManualRef.current) return
@@ -699,11 +715,12 @@ export default function PruebasPage() {
     processingResponseManualRef.current = false
   }
 
+  // ── FIX 2 aplicado: capturar jugador desde ref antes de limpiar ───────────
   const finalizarPruebaManual = async () => {
     detenerCronometroGeneral()
     if (timerInterval) { clearInterval(timerInterval); setTimerInterval(null) }
     const stats        = { ...estadisticasManualRef.current }
-    const jugadorSnap  = selectedPlayer
+    const jugadorSnap  = selectedPlayerRef.current   // FIX: usar ref
     const capsulasSnap = [...selectedESPsRef.current]
     const pruebaId = localStorage.getItem("prueba_manual_id")
     if (pruebaId) {
@@ -729,7 +746,7 @@ export default function PruebasPage() {
     processingResponseManualRef.current = false
   }
 
-  // ── Computed ───────���────────────────────────────────────────────────────────
+  // ── Computed ───────────────────────────────────────────────────────────────
   const testActive = testActiveSequential || testActiveRandom || testActiveManual
   const estadisticas = testActiveSequential ? estadisticasSequential : testActiveRandom ? estadisticasRandom : estadisticasManual
   const totalAttempts = estadisticas.intentos
@@ -995,8 +1012,6 @@ export default function PruebasPage() {
                     )
                   })}
                 </div>
-
-
               </div>
             </div>
 
@@ -1241,7 +1256,16 @@ export default function PruebasPage() {
                 </div>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
                   {[
-                    { label: "Jugador", value: summaryData.jugador ? `${summaryData.jugador.nombres} ${summaryData.jugador.apellidos}` : "—", sub: summaryData.jugador?.posicion ? getPositionName(summaryData.jugador.posicion) : null },
+                    {
+                      label: "Jugador",
+                      // FIX 2: mostrar nombres y apellidos correctamente
+                      value: summaryData.jugador
+                        ? `${summaryData.jugador.nombres} ${summaryData.jugador.apellidos}`
+                        : "—",
+                      sub: summaryData.jugador?.posicion
+                        ? getPositionName(summaryData.jugador.posicion)
+                        : null,
+                    },
                     { label: "Duración", value: formatTime(summaryData.tiempo_transcurrido || 0), sub: "tiempo total" },
                     { label: "Modalidad", value: summaryData.tipo, sub: null },
                     { label: "Cápsulas", value: summaryData.esp_seleccionadas?.join(", ") || "Todas", sub: null },
