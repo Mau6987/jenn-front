@@ -141,6 +141,7 @@ export default function PruebasPage() {
   const processingResponseSequentialRef = useRef(false)
   const responseTimeoutSequentialRef = useRef(null)
   const currentRoundRef = useRef(0)
+  const totalRoundsRef = useRef(1)
 
   const testActiveRandomRef = useRef(false)
   const currentActiveESPRandomRef = useRef(null)
@@ -173,6 +174,7 @@ export default function PruebasPage() {
     currentActiveESPSequentialRef.current = currentActiveESPSequential
     waitingForResponseSequentialRef.current = waitingForResponseSequential
     currentRoundRef.current = currentRound
+    totalRoundsRef.current = totalRounds
     testActiveRandomRef.current = testActiveRandom
     currentActiveESPRandomRef.current = currentActiveESPRandom
     waitingForResponseRandomRef.current = waitingForResponseRandom
@@ -181,7 +183,7 @@ export default function PruebasPage() {
     waitingForResponseManualRef.current = waitingForResponseManual
     selectedESPsRef.current = selectedESPs
   }, [
-    testActiveSequential, currentActiveESPSequential, waitingForResponseSequential, currentRound,
+    testActiveSequential, currentActiveESPSequential, waitingForResponseSequential, currentRound, totalRounds,
     testActiveRandom, currentActiveESPRandom, waitingForResponseRandom,
     testActiveManual, currentActiveESPManual, waitingForResponseManual, selectedESPs,
   ])
@@ -528,7 +530,7 @@ export default function PruebasPage() {
         setCurrentSequence(allESPs.indexOf(nextESP) + 1); activateNextMicrocontrollerSequential(nextESP)
       } else {
         const nextRound = currentRoundRef.current + 1
-        if (nextRound <= totalRounds) {
+        if (nextRound <= totalRoundsRef.current) {
           setCurrentRound(nextRound)
           limpiarEntreRondasSequential()
           showNotification("success", `Iniciando ronda ${nextRound}`)
