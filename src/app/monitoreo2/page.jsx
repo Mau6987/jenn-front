@@ -259,8 +259,10 @@ const IconZap = () => (
   </svg>
 )
 
-// ── COMPONENTE DE BATERÍA ─────────────────────────────────────────────────
+// ── COMPONENTE DE BATERÍA CON TOOLTIP ─────────────────────────────────────
 function BatteryIcon({ nivel, porcentaje, voltaje }) {
+  const [showTooltip, setShowTooltip] = useState(false)
+  
   const barColors = {
     normal:  ["#10b981", "#10b981", "#10b981"],
     alerta:  ["#f59e0b", "#f59e0b", "#e8e8e8"],
@@ -269,10 +271,17 @@ function BatteryIcon({ nivel, porcentaje, voltaje }) {
   }
   const colors = barColors[nivel] || barColors.null
   const labelColor = nivel === "normal" ? "#10b981" : nivel === "alerta" ? "#f59e0b" : nivel === "critico" ? "#ef4444" : "#9ca3af"
+  const batteryLabel = 
+    nivel === "normal" ? "OK" :
+    nivel === "alerta" ? "LOW" :
+    nivel === "critico" ? "CRIT" : "—"
 
   return (
-    <div title={voltaje ? `${voltaje.toFixed(2)}V · ${porcentaje}%` : "Sin datos de batería"}
-      style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2, cursor: "default" }}>
+    <div
+      style={{ position: "relative", display: "flex", flexDirection: "column", alignItems: "center", gap: 2, cursor: "default" }}
+      onMouseEnter={() => setShowTooltip(true)}
+      onMouseLeave={() => setShowTooltip(false)}
+    >
       <div style={{ display: "flex", alignItems: "center", gap: 1 }}>
         <div style={{
           width: 18, height: 10, border: `1.5px solid ${colors[0] === "#e8e8e8" ? "#d8d5ea" : colors[0]}`,
@@ -286,8 +295,32 @@ function BatteryIcon({ nivel, porcentaje, voltaje }) {
         <div style={{ width: 2, height: 5, background: colors[0] === "#e8e8e8" ? "#d8d5ea" : colors[0], borderRadius: "0 1px 1px 0", transition: "background 0.4s" }} />
       </div>
       <span style={{ fontSize: 9, fontWeight: 700, color: labelColor, fontFamily: "'DM Mono', monospace", lineHeight: 1 }}>
-        {porcentaje !== null ? `${porcentaje}%` : nivel === "normal" ? "OK" : nivel === "alerta" ? "LOW" : nivel === "critico" ? "CRIT" : "—"}
+        {porcentaje !== null ? `${porcentaje}%` : batteryLabel}
       </span>
+      
+      {/* Tooltip al pasar el mouse */}
+      {showTooltip && (
+        <div style={{
+          position: "absolute", bottom: "calc(100% + 8px)", left: "50%", transform: "translateX(-50%)",
+          background: "#fff", border: "1px solid #d8d5ea",
+          borderRadius: 6, padding: 8, boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+          whiteSpace: "nowrap", zIndex: 1000,
+        }}>
+          <div style={{ fontSize: 11, fontWeight: 600, color: "#1a174d", marginBottom: 4 }}>
+            {porcentaje !== null ? `${porcentaje}%` : batteryLabel}
+          </div>
+          {voltaje != null && (
+            <div style={{ fontSize: 10, color: "#6b7280" }}>
+              {voltaje.toFixed(2)}V
+            </div>
+          )}
+          {!nivel && (
+            <div style={{ fontSize: 10, color: "#9ca3af", fontStyle: "italic" }}>
+              Sin datos
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }

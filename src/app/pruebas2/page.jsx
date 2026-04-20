@@ -42,19 +42,21 @@ const styles = {
   },
 }
 
+// ── FIX: barColors incluye alias "critica" (string que manda el ESP)
 function BatteryIcon({ nivel, porcentaje, voltaje }) {
   const barColors = {
     normal:  ["#1A7A5E", "#1A7A5E", "#1A7A5E"],
     alerta:  ["#C2620A", "#C2620A", "#E8E8E8"],
     critico: ["#B03030", "#E8E8E8", "#E8E8E8"],
+    critica: ["#B03030", "#E8E8E8", "#E8E8E8"], // alias para el valor que manda el ESP
     null:    ["#E8E8E8", "#E8E8E8", "#E8E8E8"],
   }
   const colors = barColors[nivel] || barColors[null]
-  const label  = nivel === "normal" ? "OK" : nivel === "alerta" ? "LOW" : nivel === "critico" ? "CRIT" : "—"
-  const labelColor = nivel === "normal" ? C.emerald : nivel === "alerta" ? C.orange : nivel === "critico" ? C.red : C.grayMed
+  const label  = nivel === "normal" ? "OK" : (nivel === "alerta" ? "LOW" : (nivel === "critico" || nivel === "critica") ? "CRIT" : "—")
+  const labelColor = nivel === "normal" ? C.emerald : nivel === "alerta" ? C.orange : (nivel === "critico" || nivel === "critica") ? C.red : C.grayMed
 
   return (
-    <div title={voltaje ? `${voltaje.toFixed(2)}V · ${porcentaje}%` : "Sin datos de batería"}
+    <div title={voltaje != null ? `${typeof voltaje === "number" ? voltaje.toFixed(2) : voltaje}V · ${porcentaje}%` : "Sin datos de batería"}
       style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2, cursor: "default" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 1 }}>
         <div style={{
@@ -265,13 +267,10 @@ export default function PruebasPage() {
     } catch (e) { console.error("Health check error:", e) }
   }
 
-  // 🔧 CORREGIDO: Ya no fuerza desconexión automática
   const checkAllCapsuleHealth = async () => {
-    // Solo enviamos health checks, NO forzamos desconexión
     for (const espId of [1, 2, 3, 4, 5]) {
       await sendHealthCheck(espId)
     }
-    // Ya no hay setTimeout que fuerce desconexión
   }
 
   const subscribeToMicrocontrollerChannels = (pusher) => {
@@ -283,8 +282,7 @@ export default function PruebasPage() {
       channel.bind("client-response", (data) => {
         const espId = i
         const message = data.message?.toLowerCase() || ""
-        
-        // Cualquier respuesta indica que el ESP está vivo
+
         if (message === "ok" || message === "health_ok" || message.includes("vivo")) {
           connectedESPsRef.current.add(espId)
           setMicroControllers((prev) => prev.map((mc) =>
@@ -292,11 +290,11 @@ export default function PruebasPage() {
           ))
           return
         }
-        
+
         setMicroControllers((prev) => prev.map((mc) =>
           mc.id === espId ? { ...mc, connected: true, lastSeen: new Date() } : mc
         ))
-        
+
         const isAcierto = message.includes("acierto") || message.includes("success")
         if (testActiveSequentialRef.current && waitingForResponseSequentialRef.current && currentActiveESPSequentialRef.current === espId) {
           if (processingResponseSequentialRef.current) return
@@ -313,26 +311,48 @@ export default function PruebasPage() {
         }
       })
 
+      // ── FIX PRINCIPAL: parsing correcto del evento de batería del ESP ──
       channel.bind("client-bateria_estado", (data) => {
         const espId = i
+
+        // El ESP puede mandar data como string JSON o como objeto directo
         let payload = data
         if (typeof data.data === "string") {
           try { payload = JSON.parse(data.data) } catch { payload = data }
+        } else if (data.data && typeof data.data === "object") {
+          payload = data.data
         }
-        const { nivel, porcentaje, voltaje } = payload
+
+        // El ESP manda "estado" (no "nivel"), y voltaje como string "7.85"
+        const nivel      = payload.estado     ?? payload.nivel     ?? null
+        const porcentaje = payload.porcentaje  ?? null
+        const voltaje    = payload.voltaje != null
+                             ? parseFloat(payload.voltaje)  // viene como string del ESP
+                             : null
+
         if (nivel) {
           setMicroControllers((prev) => prev.map((mc) =>
             mc.id === espId
-              ? { ...mc, battery: { nivel, porcentaje: porcentaje ?? null, voltaje: voltaje ?? null } }
+              ? {
+                  ...mc,
+                  connected: true,       // si manda batería, está viva
+                  lastSeen: new Date(),
+                  battery: { nivel, porcentaje, voltaje },
+                }
               : mc
           ))
-          if (nivel === "critico") {
-            showNotification("error", `🔋 Batería crítica en Cápsula ${espId} (${voltaje?.toFixed(2)}V)`)
+          setBatteryLevels((prev) => ({ ...prev, [espId]: { nivel, porcentaje, voltaje } }))
+
+          if (nivel === "critica" || nivel === "critico") {
+            showNotification(
+              "error",
+              `🔋 Batería crítica en Cápsula ${espId}${voltaje != null ? ` (${voltaje.toFixed(2)}V)` : ""}`
+            )
           }
         }
       })
     }
-    // Esperamos un poco para que los ESPs respondan, pero NO forzamos desconexión
+
     setTimeout(() => checkAllCapsuleHealth(), 500)
   }
 
@@ -910,7 +930,6 @@ export default function PruebasPage() {
                           )}
                         </button>
 
-                        {/* Siempre visible si está conectada, gris si no hay datos aún */}
                         {isConnected && (
                           <BatteryIcon
                             nivel={mc?.battery?.nivel ?? null}
@@ -1011,17 +1030,10 @@ export default function PruebasPage() {
                 <div key={mc.id} className={cardClass}
                   onClick={() => { if (isClickable) activateManualMicrocontroller(mc.id) }}>
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 12px 6px" }}>
-                    <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 4 }}>
+                  <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 4 }}>
                       <span style={{ fontSize: 11, fontWeight: 700, color: C.grayDark, fontFamily: "'DM Mono', monospace", letterSpacing: "0.04em" }}>
                         CAP-{mc.id}
                       </span>
-                      {mc.battery && (
-                        <BatteryIcon
-                          nivel={mc.battery.nivel}
-                          porcentaje={mc.battery.porcentaje}
-                          voltaje={mc.battery.voltaje}
-                        />
-                      )}
                     </div>
                     <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
                       <div style={{ width: 8, height: 8, borderRadius: "50%", background: dotColor, transition: "background 0.3s" }}

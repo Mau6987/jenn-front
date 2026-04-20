@@ -65,6 +65,12 @@ const IconTrash = ({ style }) => (
     <path d="M19 6l-1 14H6L5 6M10 11v6M14 11v6M9 6V4h6v2" strokeLinecap="round" strokeLinejoin="round"/>
   </svg>
 )
+const IconBattery = ({ style }) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" style={{width:14,height:14,...style}}>
+    <rect x="1" y="6" width="18" height="12" rx="2"/>
+    <path d="M23 13v-2" strokeLinecap="round"/>
+  </svg>
+)
 
 const C = {
   brand:      "#1e1b4b",
@@ -76,6 +82,8 @@ const C = {
   successBg:  "#ecfdf5",
   danger:     "#f43f5e",
   dangerBg:   "#fff1f2",
+  warning:    "#f59e0b",
+  warningBg:  "#fffbeb",
   text:       "#1f2937",
   textMid:    "#4b5563",
   textSoft:   "#9ca3af",
@@ -116,8 +124,115 @@ const SENSOR_MAP = {
   error:   { label: "Error",     dotColor: C.danger,   textColor: C.danger },
 }
 
-// ── BatteryIcon ─────────────────────────────────────────────────────────────
-function BatteryIcon({ nivel, porcentaje, voltaje, showVoltage = false }) {
+// ── BatteryWidget: versión completa con barra de progreso ─────────────────
+function BatteryWidget({ nivel, porcentaje, voltaje, compact = false }) {
+  const cfg = {
+    normal:  { bar: C.success,  bg: C.successBg, border: "#a7f3d0", text: "#065f46", label: "Normal"   },
+    alerta:  { bar: C.warning,  bg: C.warningBg, border: "#fde68a", text: "#78350f", label: "Bajo"     },
+    critico: { bar: C.danger,   bg: C.dangerBg,  border: "#fecaca", text: "#7f1d1d", label: "Crítico"  },
+    null:    { bar: C.textSoft, bg: "#f9fafb",   border: C.border,  text: C.textSoft,label: "Sin datos" },
+  }
+  const c   = cfg[nivel] || cfg.null
+  const pct = porcentaje ?? 0
+
+  if (compact) {
+    // Versión compacta: icono + barra + texto
+    return (
+      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+        {/* Ícono batería inline */}
+        <div style={{ display: "flex", alignItems: "center", gap: 1, flexShrink: 0 }}>
+          <div style={{
+            width: 20, height: 11, border: `1.5px solid ${nivel ? c.bar : C.border}`,
+            borderRadius: 3, padding: "1.5px 2px",
+            display: "flex", alignItems: "center", gap: 1.5, background: C.white,
+          }}>
+            {[0,1,2].map(i => {
+              const filled =
+                nivel === "normal"  ? true :
+                nivel === "alerta"  ? i < 2 :
+                nivel === "critico" ? i < 1 : false
+              return (
+                <div key={i} style={{
+                  flex: 1, height: "100%", borderRadius: 1.5,
+                  background: filled ? c.bar : C.border,
+                  transition: "background 0.4s",
+                }} />
+              )
+            })}
+          </div>
+          <div style={{ width: 2, height: 6, background: nivel ? c.bar : C.border, borderRadius: "0 1px 1px 0" }} />
+        </div>
+        {/* Barra de porcentaje */}
+        <div style={{ flex: 1, height: 5, background: C.border, borderRadius: 99, overflow: "hidden", minWidth: 40 }}>
+          <div style={{
+            height: "100%", width: `${pct}%`, background: c.bar,
+            borderRadius: 99, transition: "width 0.6s ease",
+            animation: nivel === "critico" ? "battCrit 1s ease-in-out infinite alternate" : "none",
+          }} />
+        </div>
+        {/* Texto */}
+        <span style={{ fontSize: 11, fontWeight: 700, color: c.text, fontFamily: "monospace", minWidth: 32, textAlign: "right" }}>
+          {porcentaje != null ? `${porcentaje}%` : "—"}
+        </span>
+        {voltaje != null && (
+          <span style={{ fontSize: 10, color: C.textSoft, fontFamily: "monospace" }}>
+            {voltaje.toFixed(2)}V
+          </span>
+        )}
+      </div>
+    )
+  }
+
+  // Versión completa: card con barra grande
+  return (
+    <div style={{
+      background: c.bg, border: `1px solid ${c.border}`,
+      borderRadius: 10, padding: "10px 14px",
+      display: "flex", flexDirection: "column", gap: 8,
+    }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <IconBattery style={{ color: c.bar }} />
+          <span style={{ fontSize: 11, fontWeight: 700, color: c.text, letterSpacing: "0.05em" }}>
+            Batería
+          </span>
+        </div>
+        <span style={{
+          fontSize: 10, fontWeight: 700, color: c.text,
+          background: C.white + "99", borderRadius: 99,
+          padding: "2px 8px", border: `1px solid ${c.border}`,
+          letterSpacing: "0.06em", textTransform: "uppercase",
+        }}>
+          {c.label}
+        </span>
+      </div>
+
+      {/* Barra grande */}
+      <div style={{ height: 8, background: C.white + "80", borderRadius: 99, overflow: "hidden" }}>
+        <div style={{
+          height: "100%", width: `${pct}%`, background: c.bar,
+          borderRadius: 99, transition: "width 0.6s ease",
+          animation: nivel === "critico" ? "battCrit 1s ease-in-out infinite alternate" : "none",
+        }} />
+      </div>
+
+      {/* Valores */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <span style={{ fontFamily: "monospace", fontSize: 20, fontWeight: 700, color: c.text }}>
+          {porcentaje != null ? `${porcentaje}%` : "—"}
+        </span>
+        {voltaje != null && (
+          <span style={{ fontFamily: "monospace", fontSize: 12, color: c.text, opacity: 0.7 }}>
+            {voltaje.toFixed(2)} V
+          </span>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ── BatteryIcon: versión tiny para listas ────────────────────────────────
+function BatteryIcon({ nivel, porcentaje, voltaje }) {
   const barColors = {
     normal:  ["#10b981", "#10b981", "#10b981"],
     alerta:  ["#f59e0b", "#f59e0b", C.border],
@@ -129,10 +244,6 @@ function BatteryIcon({ nivel, porcentaje, voltaje, showVoltage = false }) {
     nivel === "normal"  ? "#10b981" :
     nivel === "alerta"  ? "#f59e0b" :
     nivel === "critico" ? "#f43f5e" : C.textSoft
-
-  const labelText = showVoltage
-    ? (voltaje    != null ? `${voltaje.toFixed(1)}V` : "—")
-    : (porcentaje != null ? `${porcentaje}%`          : "—")
 
   return (
     <div
@@ -157,7 +268,7 @@ function BatteryIcon({ nivel, porcentaje, voltaje, showVoltage = false }) {
         }} />
       </div>
       <span style={{ fontSize: 10, fontWeight: 700, color: labelColor, fontFamily: "monospace", lineHeight: 1 }}>
-        {labelText}
+        {porcentaje != null ? `${porcentaje}%` : "—"}
       </span>
     </div>
   )
@@ -173,39 +284,110 @@ function StatusDot({ color, pulse }) {
   )
 }
 
-function EspRow({ label, statusKey, statusMap, onAction, actionDisabled, actionLabel = "Probar", extra, battery, showVoltage = false }) {
+function EspRow({ label, statusKey, statusMap, onAction, actionDisabled, actionLabel = "Probar", extra, battery }) {
+  const [showTooltip, setShowTooltip] = useState(false)
   const s = statusMap[statusKey] || Object.values(statusMap)[0]
+  
+  // Color de la batería para el icono
+  const batteryColor =
+    battery?.nivel === "normal"  ? C.success :
+    battery?.nivel === "alerta"  ? C.warning :
+    battery?.nivel === "critico" ? C.danger  : C.textSoft
+  
+  // Label de estado de batería
+  const batteryLabel = 
+    battery?.nivel === "normal" ? "OK" :
+    battery?.nivel === "alerta" ? "LOW" :
+    (battery?.nivel === "critico" || battery?.nivel === "critica") ? "CRIT" : "—"
+  
   return (
     <div style={{
-      display: "flex", alignItems: "center", justifyContent: "space-between",
-      padding: "11px 0", borderBottom: `1px solid ${C.borderSoft}`,
+      display: "flex", flexDirection: "column", gap: 8,
+      padding: "12px 0", borderBottom: `1px solid ${C.borderSoft}`,
     }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-        <StatusDot color={s.dotColor} pulse={s.pulse} />
-        <div>
-          <span style={{ fontSize: 13, fontWeight: 500, color: C.text }}>{label}</span>
-          {extra && <div style={{ fontSize: 11, color: C.textSoft, marginTop: 1 }}>{extra}</div>}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <StatusDot color={s.dotColor} pulse={s.pulse} />
+          <div>
+            <span style={{ fontSize: 13, fontWeight: 500, color: C.text }}>{label}</span>
+            {extra && <div style={{ fontSize: 11, color: C.textSoft, marginTop: 1 }}>{extra}</div>}
+          </div>
         </div>
-      </div>
-      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-        {battery && (
-          <BatteryIcon
-            nivel={battery.nivel}
-            porcentaje={battery.porcentaje}
-            voltaje={battery.voltaje}
-            showVoltage={showVoltage}
-          />
-        )}
-        <span style={{ fontSize: 12, fontWeight: 600, color: s.textColor }}>{s.label}</span>
-        {onAction && (
-          <button onClick={onAction} disabled={actionDisabled} style={{
-            fontSize: 11, fontWeight: 600, padding: "3px 12px", borderRadius: 999,
-            border: `1.5px solid ${C.border}`, background: C.white, color: C.textMid,
-            cursor: actionDisabled ? "not-allowed" : "pointer", opacity: actionDisabled ? 0.4 : 1,
-          }}>
-            {actionLabel}
-          </button>
-        )}
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{ fontSize: 12, fontWeight: 600, color: s.textColor }}>{s.label}</span>
+          {/* Icono de batería con tooltip - solo si hay datos de batería */}
+          {battery && (
+            <div
+              style={{ position: "relative" }}
+              onMouseEnter={() => setShowTooltip(true)}
+              onMouseLeave={() => setShowTooltip(false)}
+            >
+              <div style={{
+                display: "flex", flexDirection: "column", alignItems: "center", gap: 2,
+                cursor: "default", width: 24, height: 24, justifyContent: "center",
+              }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 1 }}>
+                  <div style={{
+                    width: 18, height: 10, border: `1.5px solid ${batteryColor}`,
+                    borderRadius: 2, padding: "1px 2px",
+                    display: "flex", alignItems: "center", gap: 1, background: C.white,
+                  }}>
+                    {[0,1,2].map(i => {
+                      const filled =
+                        battery?.nivel === "normal"  ? true :
+                        battery?.nivel === "alerta"  ? i < 2 :
+                        battery?.nivel === "critico" || battery?.nivel === "critica" ? i < 1 : false
+                      return (
+                        <div key={i} style={{
+                          flex: 1, height: "100%", borderRadius: 1,
+                          background: filled ? batteryColor : C.border,
+                          transition: "background 0.4s",
+                        }} />
+                      )
+                    })}
+                  </div>
+                  <div style={{
+                    width: 2, height: 5, background: batteryColor,
+                    borderRadius: "0 1px 1px 0", transition: "background 0.4s",
+                  }} />
+                </div>
+              </div>
+              
+              {/* Tooltip al pasar el mouse */}
+              {showTooltip && (
+                <div style={{
+                  position: "absolute", bottom: "calc(100% + 8px)", right: 0,
+                  background: C.white, border: `1px solid ${C.border}`,
+                  borderRadius: 6, padding: 8, boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+                  whiteSpace: "nowrap", zIndex: 1000,
+                }}>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: C.text, marginBottom: 4 }}>
+                    {battery?.porcentaje != null ? `${battery.porcentaje}%` : batteryLabel}
+                  </div>
+                  {battery?.voltaje != null && (
+                    <div style={{ fontSize: 10, color: C.textSoft }}>
+                      {battery.voltaje.toFixed(2)}V
+                    </div>
+                  )}
+                  {!battery?.nivel && (
+                    <div style={{ fontSize: 10, color: C.textSoft, fontStyle: "italic" }}>
+                      Sin datos
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+          {onAction && (
+            <button onClick={onAction} disabled={actionDisabled} style={{
+              fontSize: 11, fontWeight: 600, padding: "3px 12px", borderRadius: 999,
+              border: `1.5px solid ${C.border}`, background: C.white, color: C.textMid,
+              cursor: actionDisabled ? "not-allowed" : "pointer", opacity: actionDisabled ? 0.4 : 1,
+            }}>
+              {actionLabel}
+            </button>
+          )}
+        </div>
       </div>
     </div>
   )
@@ -222,7 +404,6 @@ function SensoresTab({ sensorTestStates, onTestSensor, onTestAll, onStopAll, esp
         {ESP_LIST.map((id) => {
           const sState  = sensorTestStates[id] || "idle"
           const lastMsg = espMessages.filter(m => m.device === `ESP-${id}`).slice(-1)[0]
-          const battery = microControllers.find(mc => mc.id === id)?.battery
           return (
             <EspRow
               key={id}
@@ -230,8 +411,6 @@ function SensoresTab({ sensorTestStates, onTestSensor, onTestAll, onStopAll, esp
               statusKey={sState}
               statusMap={SENSOR_MAP}
               extra={lastMsg ? `Último: ${lastMsg.message}` : null}
-              battery={battery}
-              showVoltage={true}
               onAction={() => onTestSensor(id)}
               actionDisabled={sState === "waiting"}
               actionLabel={sState === "waiting" ? "Esperando…" : "Probar"}
@@ -265,25 +444,40 @@ function SensoresTab({ sensorTestStates, onTestSensor, onTestAll, onStopAll, esp
           <span style={sectionLabel}>Cápsulas</span>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
             {ESP_LIST.map((id) => {
-              const active = selectedCapsule === id
-              const sState = sensorTestStates[id]
+              const active  = selectedCapsule === id
+              const sState  = sensorTestStates[id]
+              const battery = microControllers.find(mc => mc.id === id)?.battery
               const borderColor =
                 sState === "success" ? C.success :
                 sState === "error"   ? C.danger  :
                 sState === "waiting" ? C.accent  :
                 active ? C.brand : C.border
               return (
-                <button key={id} onClick={() => setSelectedCapsule(active ? null : id)} style={{
-                  width: 32, height: 32, borderRadius: "50%", border: `2px solid ${borderColor}`,
-                  background: active ? C.brand : sState === "success" ? C.successBg : sState === "error" ? C.dangerBg : C.white,
-                  color: active ? C.white : C.textMid, fontSize: 12, fontWeight: 700, cursor: "pointer",
-                }}>
-                  {id}
-                </button>
+                <div key={id} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+                  <button onClick={() => setSelectedCapsule(active ? null : id)} style={{
+                    width: 36, height: 36, borderRadius: "50%", border: `2px solid ${borderColor}`,
+                    background: active ? C.brand : sState === "success" ? C.successBg : sState === "error" ? C.dangerBg : C.white,
+                    color: active ? C.white : C.textMid, fontSize: 12, fontWeight: 700, cursor: "pointer",
+                  }}>
+                    {id}
+                  </button>
+                  {/* Mini porcentaje bajo cada botón */}
+                  {battery?.porcentaje != null && (
+                    <span style={{
+                      fontSize: 9, fontWeight: 700, fontFamily: "monospace",
+                      color:
+                        battery.nivel === "normal"  ? C.success :
+                        battery.nivel === "alerta"  ? C.warning :
+                        battery.nivel === "critico" ? C.danger  : C.textSoft,
+                    }}>
+                      {battery.porcentaje}%
+                    </span>
+                  )}
+                </div>
               )
             })}
             <button onClick={() => setSelectedCapsule(null)} style={{
-              height: 32, padding: "0 14px", borderRadius: 999,
+              height: 36, padding: "0 14px", borderRadius: 999,
               border: `2px solid ${selectedCapsule === null ? C.brand : C.border}`,
               background: selectedCapsule === null ? C.brand : C.white,
               color: selectedCapsule === null ? C.white : C.textMid,
@@ -293,6 +487,8 @@ function SensoresTab({ sensorTestStates, onTestSensor, onTestAll, onStopAll, esp
             </button>
           </div>
         </div>
+
+
 
         <div>
           <span style={sectionLabel}>Panel de Confirmación</span>
@@ -324,27 +520,28 @@ function ActuadoresTab({ microControllers, onToggleLed, onToggleAllLeds, pending
         <span style={{ ...sectionLabel, marginBottom: 0 }}>Anillos LED</span>
       </div>
       <span style={sectionLabel}>Control Individual</span>
-      <div style={{ 
-        display: "flex", 
-        justifyContent: "center", 
+      <div style={{
+        display: "flex",
+        justifyContent: "center",
         alignItems: "center",
-        flexWrap: "wrap", 
-        gap: 12, 
-        marginBottom: 20 
+        flexWrap: "wrap",
+        gap: 12,
+        marginBottom: 20
       }}>
         {microControllers.map((mc) => {
           const isPending = !!pendingLed?.[mc.id]
+          const battery   = mc.battery
           return (
-            <button 
-              key={mc.id} 
-              onClick={() => onToggleLed(mc.id)} 
-              disabled={isPending} 
+            <button
+              key={mc.id}
+              onClick={() => onToggleLed(mc.id)}
+              disabled={isPending}
               style={{
-                display: "flex", 
-                flexDirection: "column", 
-                alignItems: "center", 
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
                 gap: 8,
-                padding: "18px 12px", 
+                padding: "18px 12px",
                 borderRadius: 12,
                 minWidth: 120,
                 border: `2px solid ${mc.ledOn ? C.brand : C.border}`,
@@ -359,14 +556,36 @@ function ActuadoresTab({ microControllers, onToggleLed, onToggleAllLeds, pending
               <span style={{ fontSize: 11, color: mc.ledOn ? "rgba(255,255,255,0.6)" : C.textSoft }}>
                 {isPending ? "Enviando..." : mc.ledOn ? "Encendido" : "Apagado"}
               </span>
+              {/* Batería dentro de la card del LED */}
+              {battery && (
+                <div style={{ width: "100%", marginTop: 4 }}>
+                  <div style={{ height: 4, background: mc.ledOn ? "rgba(255,255,255,0.3)" : C.border, borderRadius: 99, overflow: "hidden" }}>
+                    <div style={{
+                      height: "100%",
+                      width: `${battery.porcentaje ?? 0}%`,
+                      background:
+                        battery.nivel === "normal"  ? "#10b981" :
+                        battery.nivel === "alerta"  ? "#f59e0b" : "#f43f5e",
+                      borderRadius: 99, transition: "width 0.6s",
+                    }} />
+                  </div>
+                  <span style={{
+                    fontSize: 9, fontWeight: 700, color: mc.ledOn ? "rgba(255,255,255,0.7)" : C.textSoft,
+                    fontFamily: "monospace", display: "block", textAlign: "center", marginTop: 3,
+                  }}>
+                    {battery.porcentaje != null ? `${battery.porcentaje}%` : "—"}
+                    {battery.voltaje != null ? ` · ${battery.voltaje.toFixed(1)}V` : ""}
+                  </span>
+                </div>
+              )}
             </button>
           )
         })}
       </div>
-      <div style={{ 
-        display: "flex", 
-        justifyContent: "center", 
-        gap: 12 
+      <div style={{
+        display: "flex",
+        justifyContent: "center",
+        gap: 12
       }}>
         <button onClick={() => onToggleAllLeds(false)} style={btnOutline}>Apagar Todos</button>
         <button onClick={() => onToggleAllLeds(true)}  style={btnBrand}>Encender Todos</button>
@@ -400,6 +619,7 @@ function ConexionTab({ microControllers, pusherConnected, pusherStatus, onTestCo
               statusKey={sKey}
               statusMap={STATUS_MAP}
               extra={mc?.lastSeen ? `Visto: ${new Date(mc.lastSeen).toLocaleTimeString()}` : null}
+              battery={mc?.battery}
               onAction={() => onTestConnection(id)}
               actionDisabled={sKey === "testing"}
             />
@@ -638,7 +858,7 @@ export default function ESPMonitoringDashboard() {
                 : mc
             ))
             if (nivel === "critico") {
-              addMessage(`ESP-${id}`, "error", `🔋 Batería crítica (${voltaje?.toFixed(2)}V)`, "error")
+              addMessage(`ESP-${id}`, "error", `🔋 Batería crítica (${voltaje?.toFixed(2)}V · ${porcentaje}%)`, "error")
             }
           }
         })
@@ -759,6 +979,10 @@ export default function ESPMonitoringDashboard() {
   const msgColor = (status) =>
     status === "error" ? C.danger : status === "success" ? C.success : C.accent
 
+  // Resumen global de baterías para el header
+  const batteryAlerts = microControllers.filter(mc => mc.battery?.nivel === "critico")
+  const batteryWarnings = microControllers.filter(mc => mc.battery?.nivel === "alerta")
+
   return (
     <div style={{ minHeight: "100vh", background: C.bg, fontFamily: "'DM Sans', sans-serif" }}>
       <style>{`
@@ -768,6 +992,10 @@ export default function ESPMonitoringDashboard() {
         @keyframes pulseDot {
           0%, 100% { opacity: 1; transform: scale(1); }
           50%       { opacity: 0.45; transform: scale(0.65); }
+        }
+        @keyframes battCrit {
+          from { opacity: 1; }
+          to   { opacity: 0.4; }
         }
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: transparent; }
@@ -796,6 +1024,31 @@ export default function ESPMonitoringDashboard() {
               </span>
             )}
           </div>
+
+          {/* ── Banner de alertas de batería ── */}
+          {(batteryAlerts.length > 0 || batteryWarnings.length > 0) && (
+            <div style={{
+              display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "center", marginTop: 4,
+            }}>
+              {batteryAlerts.map(mc => (
+                <span key={mc.id} style={{
+                  fontSize: 10, fontWeight: 700, padding: "3px 10px", borderRadius: 999,
+                  background: "#fff1f2", color: "#be123c", border: "1px solid #fecdd3",
+                  animation: "battCrit 1s ease-in-out infinite alternate",
+                }}>
+                  🔋 CAP-{mc.id} CRÍTICA {mc.battery.porcentaje != null ? `· ${mc.battery.porcentaje}%` : ""}
+                </span>
+              ))}
+              {batteryWarnings.map(mc => (
+                <span key={mc.id} style={{
+                  fontSize: 10, fontWeight: 700, padding: "3px 10px", borderRadius: 999,
+                  background: "#fffbeb", color: "#92400e", border: "1px solid #fde68a",
+                }}>
+                  🔋 CAP-{mc.id} BAJA {mc.battery.porcentaje != null ? `· ${mc.battery.porcentaje}%` : ""}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
 
         <div style={{ display: "flex", justifyContent: "center" }}>

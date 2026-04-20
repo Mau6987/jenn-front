@@ -179,8 +179,10 @@ function BatteryPanel({ battery, espConnected }) {
   )
 }
 
-// ── BATTERY ICON tiny (para header de card) ───────────────────────────────
+// ── BATTERY ICON con TOOLTIP ───────────────────────────────────────────────
 function BatteryIcon({ nivel, porcentaje, voltaje }) {
+  const [showTooltip, setShowTooltip] = useState(false)
+  
   const barColors = {
     normal:  ["#10b981", "#10b981", "#10b981"],
     alerta:  ["#f59e0b", "#f59e0b", "#e5e7eb"],
@@ -192,11 +194,16 @@ function BatteryIcon({ nivel, porcentaje, voltaje }) {
     nivel === "normal"  ? "#10b981" :
     nivel === "alerta"  ? "#f59e0b" :
     nivel === "critico" ? "#f43f5e" : "#9ca3af"
+  const batteryLabel = 
+    nivel === "normal" ? "OK" :
+    nivel === "alerta" ? "LOW" :
+    (nivel === "critico" || nivel === "critica") ? "CRIT" : "—"
 
   return (
     <div
-      title={voltaje ? `${voltaje.toFixed(2)}V · ${porcentaje}%` : "Sin datos de batería"}
-      style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2, cursor: "default" }}
+      style={{ position: "relative", display: "flex", flexDirection: "column", alignItems: "center", gap: 2, cursor: "default" }}
+      onMouseEnter={() => setShowTooltip(true)}
+      onMouseLeave={() => setShowTooltip(false)}
     >
       <div style={{ display: "flex", alignItems: "center", gap: 1 }}>
         <div style={{
@@ -219,8 +226,32 @@ function BatteryIcon({ nivel, porcentaje, voltaje }) {
         fontSize: 9, fontWeight: 700, letterSpacing: "0.06em",
         color: labelColor, fontFamily: "monospace", lineHeight: 1,
       }}>
-        {porcentaje !== null ? `${porcentaje}%` : "—"}
+        {porcentaje !== null ? `${porcentaje}%` : batteryLabel}
       </span>
+      
+      {/* Tooltip al pasar el mouse */}
+      {showTooltip && (
+        <div style={{
+          position: "absolute", bottom: "calc(100% + 8px)", left: "50%", transform: "translateX(-50%)",
+          background: "#fff", border: "1px solid #d1d5db",
+          borderRadius: 6, padding: 8, boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+          whiteSpace: "nowrap", zIndex: 1000,
+        }}>
+          <div style={{ fontSize: 11, fontWeight: 600, color: "#111", marginBottom: 4 }}>
+            {porcentaje !== null ? `${porcentaje}%` : batteryLabel}
+          </div>
+          {voltaje != null && (
+            <div style={{ fontSize: 10, color: "#6b7280" }}>
+              {voltaje.toFixed(2)}V
+            </div>
+          )}
+          {!nivel && (
+            <div style={{ fontSize: 10, color: "#9ca3af", fontStyle: "italic" }}>
+              Sin datos
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }
