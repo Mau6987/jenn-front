@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
 import {
-  AlertCircle, CheckCirclex, X, ChevronDown, Save, User, Award, Activity, Target,
+  AlertCircle, CheckCircle, X, ChevronDown, Save, User, Award, Activity, Target,
 } from "lucide-react"
 import { getPositionIcon, getPositionName } from "../../lib/position-icons"
 
@@ -271,19 +271,27 @@ export default function PruebasPage() {
   }
 
   const checkAllCapsuleHealth = async () => {
-    setMicroControllers((prev) => prev.map((mc) => ({ ...mc, connected: false, status: "Verificando..." })))
+    // Solo marcar como "Verificando..." las que no tenemos info aún
+    setMicroControllers((prev) => prev.map((mc) => ({ 
+      ...mc, 
+      status: mc.connected ? mc.status : "Verificando..." 
+    })))
     connectedESPsRef.current = new Set()
+    const checkStartTime = Date.now()
     for (const espId of [1, 2, 3, 4, 5]) {
       await sendHealthCheck(espId)
     }
+    // Esperar 2.5 segundos para que las cápsulas respondan
     setTimeout(() => {
       setMicroControllers((prev) => prev.map((mc) => {
-        if (!connectedESPsRef.current.has(mc.id)) {
-          return { ...mc, connected: false, status: "Sin conexión" }
+        // Si respondió al health check (está en connectedESPsRef), está conectada
+        if (connectedESPsRef.current.has(mc.id)) {
+          return { ...mc, connected: true, status: "" }
         }
-        return mc
+        // Si no respondió después de 2.5 segundos, marca como desconectada
+        return { ...mc, connected: false, status: "Sin conexión" }
       }))
-    }, 6000)
+    }, 2500)
   }
 
   const subscribeToMicrocontrollerChannels = (pusher) => {
@@ -721,7 +729,7 @@ export default function PruebasPage() {
     processingResponseManualRef.current = false
   }
 
-  // ── Computed ────────────────────────────────────────────────────────────────
+  // ── Computed ───────���────────────────────────────────────────────────────────
   const testActive = testActiveSequential || testActiveRandom || testActiveManual
   const estadisticas = testActiveSequential ? estadisticasSequential : testActiveRandom ? estadisticasRandom : estadisticasManual
   const totalAttempts = estadisticas.intentos
