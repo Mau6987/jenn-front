@@ -88,28 +88,29 @@ function StatusIndicator({ espConnected }) {
       style={{
         display: "flex",
         alignItems: "center",
-        gap: 6,
+        gap: 3,
         cursor: "default",
       }}
     >
       <div
         style={{
-          width: 8,
-          height: 8,
+          width: 6,
+          height: 6,
           borderRadius: "50%",
           background: espConnected ? "#10b981" : "#d1d5db",
-          boxShadow: espConnected ? "0 0 4px rgba(16,185,129,0.5)" : "none",
+          boxShadow: espConnected ? "0 0 3px rgba(16,185,129,0.5)" : "none",
           transition: "all 0.3s",
         }}
       />
       <span
         style={{
-          fontSize: 10,
+          fontSize: 7,
           fontWeight: 700,
           color: espConnected ? "#10b981" : "#9ca3af",
           letterSpacing: "0.06em",
           textTransform: "uppercase",
           fontFamily: "monospace",
+          lineHeight: 1,
         }}
       >
         {espConnected ? "OK" : "—"}
@@ -140,27 +141,27 @@ function BatteryIcon({ nivel, porcentaje, voltaje }) {
   return (
     <div
       title={voltaje != null ? `${typeof voltaje === "number" ? voltaje.toFixed(2) : voltaje}V · ${porcentaje}%` : "Sin datos de batería"}
-      style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2, cursor: "default" }}
+      style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 1, cursor: "default" }}
     >
-      <div style={{ display: "flex", alignItems: "center", gap: 1 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 0.5 }}>
         <div style={{
-          width: 18, height: 10,
-          border: `1.5px solid ${colors[0] === "#e5e7eb" ? "#d1d5db" : colors[0]}`,
-          borderRadius: 2, padding: "1px 2px",
-          display: "flex", alignItems: "center", gap: 1, background: "#fff",
+          width: 14, height: 8,
+          border: `1px solid ${colors[0] === "#e5e7eb" ? "#d1d5db" : colors[0]}`,
+          borderRadius: 1, padding: "0.5px 1px",
+          display: "flex", alignItems: "center", gap: 0.5, background: "#fff",
         }}>
           {colors.map((c, i) => (
-            <div key={i} style={{ flex: 1, height: "100%", borderRadius: 1, background: c, transition: "background 0.4s" }} />
+            <div key={i} style={{ flex: 1, height: "100%", borderRadius: 0.5, background: c, transition: "background 0.4s" }} />
           ))}
         </div>
         <div style={{
-          width: 2, height: 5,
+          width: 1.5, height: 4,
           background: colors[0] === "#e5e7eb" ? "#d1d5db" : colors[0],
           borderRadius: "0 1px 1px 0", transition: "background 0.4s",
         }} />
       </div>
       <span style={{
-        fontSize: 9, fontWeight: 700, letterSpacing: "0.06em",
+        fontSize: 7, fontWeight: 700, letterSpacing: "0.06em",
         color: labelColor, fontFamily: "monospace", lineHeight: 1,
       }}>
         {porcentaje !== null ? `${porcentaje}%` : batteryLabel}
@@ -195,7 +196,7 @@ function Carrusel({ images, alt }) {
   )
 }
 
-// ── TOAST ─────────────────────────────────────���────────────────────────────
+// ── TOAST ──────────────────────────��──────────���────────────────────────────
 function Toast({ notification, onClose }) {
   if (!notification) return null
   const isOk = notification.type === "success"
@@ -1112,9 +1113,11 @@ export default function SistemaUnificadoPage() {
               </div>
             </div>
 
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 12, padding: "10px", background: "#f8fafc", borderRadius: 12, border: "1px solid #e2e8f0" }}>
-              <BatteryIcon nivel={espBattery?.nivel} porcentaje={espBattery?.porcentaje} voltaje={espBattery?.voltaje} />
-              <div style={{ width: 1, height: 24, background: "#e2e8f0" }} />
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-start", gap: 8 }}>
+              <div style={{ display: "flex", alignItems: "center", padding: "8px 10px", background: "#f8fafc", borderRadius: 10, border: "1px solid #e2e8f0" }}>
+                <BatteryIcon nivel={espBattery?.nivel} porcentaje={espBattery?.porcentaje} voltaje={espBattery?.voltaje} />
+              </div>
+              <div style={{ width: 1, height: 14, background: "#e2e8f0" }} />
               <StatusIndicator espConnected={espConnected} />
             </div>
           </div>
@@ -1503,9 +1506,11 @@ export default function SistemaUnificadoPage() {
                 <div className="p-6 flex flex-col gap-4" style={card}>
                   <p className="text-[10px] uppercase tracking-widest font-bold text-slate-400 text-center">Estado del Dispositivo</p>
 
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 12 }}>
-                    <BatteryIcon nivel={espBattery?.nivel} porcentaje={espBattery?.porcentaje} voltaje={espBattery?.voltaje} />
-                    <div style={{ width: 1, height: 24, background: "#e2e8f0" }} />
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-start", gap: 8 }}>
+                    <div style={{ display: "flex", alignItems: "center", padding: "8px 10px", background: "#f8fafc", borderRadius: 10, border: "1px solid #e2e8f0" }}>
+                      <BatteryIcon nivel={espBattery?.nivel} porcentaje={espBattery?.porcentaje} voltaje={espBattery?.voltaje} />
+                    </div>
+                    <div style={{ width: 1, height: 16, background: "#e2e8f0" }} />
                     <StatusIndicator espConnected={espConnected} />
                   </div>
 
