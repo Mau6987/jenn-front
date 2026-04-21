@@ -1,5 +1,4 @@
 "use client"
-
 import { useState, useEffect, useCallback, useMemo } from "react"
 import {
   TrendingUp, TrendingDown, Minus, Download,
@@ -35,10 +34,8 @@ const precisionBg    = (p) =>
 const formatFecha      = (f) => !f ? "—" : new Date(f).toLocaleDateString("es-BO", { day: "2-digit", month: "short", year: "numeric" })
 const formatFechaCorta = (f) => !f ? "—" : new Date(f).toLocaleDateString("es-BO", { day: "2-digit", month: "short" })
 
-// ─── Agrupar sesiones en semanas dinámicas ────────────────────────────────────
 function agruparEnSemanas(sesiones) {
   if (!sesiones.length) return []
-
   const semSet = new Set()
   sesiones.forEach(s => {
     const d = new Date(s.fecha)
@@ -48,21 +45,13 @@ function agruparEnSemanas(sesiones) {
     lunes.setHours(0, 0, 0, 0)
     semSet.add(lunes.toISOString().slice(0, 10))
   })
-
   const semanas = Array.from(semSet).sort()
   return semanas.map((lunesISO, idx) => {
     const lunes   = new Date(lunesISO)
     const domingo = new Date(lunes)
     domingo.setDate(lunes.getDate() + 6)
     const mes = lunes.toLocaleDateString("es-BO", { month: "short", year: "2-digit" })
-    return {
-      idx,
-      desde:  lunesISO,
-      hasta:  domingo.toISOString().slice(0, 10),
-      label:  `S${idx + 1}`,
-      mes,
-      lunes,
-    }
+    return { idx, desde: lunesISO, hasta: domingo.toISOString().slice(0, 10), label: `S${idx + 1}`, mes, lunes }
   })
 }
 
@@ -73,14 +62,11 @@ function agruparPorMes(semanas) {
     if (!actual || sem.mes !== actual.mes) {
       actual = { mes: sem.mes, inicio: i, fin: i }
       grupos.push(actual)
-    } else {
-      actual.fin = i
-    }
+    } else { actual.fin = i }
   })
   return grupos
 }
 
-// ─── Sparkline ────────────────────────────────────────────────────────────────
 const Sparkline = ({ values = [], color = "#6366f1" }) => {
   const nonZero = values.filter(v => v > 0)
   if (nonZero.length < 2) return null
@@ -98,9 +84,6 @@ const Sparkline = ({ values = [], color = "#6366f1" }) => {
   )
 }
 
-// ─── LineChart dinámico con eje Y dinámico ────────────────────────────────────
-// El eje Y arranca en el mínimo real de los datos (con padding) en lugar de 0,
-// aprovechando todo el espacio visual donde hay datos relevantes.
 const LineChart = ({ sesiones, modosVisibles }) => {
   const W = 1000, H = 420
   const PAD = { t: 48, r: 48, b: 96, l: 68 }
@@ -111,7 +94,6 @@ const LineChart = ({ sesiones, modosVisibles }) => {
   const grupos  = useMemo(() => agruparPorMes(semanas), [semanas])
   const n = semanas.length
 
-  // Calcular precisión por modo y semana
   const chartData = useMemo(() => {
     const result = {}
     MODOS_CHART.forEach(modo => {
@@ -123,17 +105,12 @@ const LineChart = ({ sesiones, modosVisibles }) => {
         if (!enSem.length) return { precision: 0, total: 0 }
         const totalA = enSem.reduce((s, r) => s + (r.aciertos || 0), 0)
         const totalI = enSem.reduce((s, r) => s + (r.intentos || (r.aciertos || 0) + (r.errores || 0)), 0)
-        return {
-          precision: totalI > 0 ? +((totalA / totalI) * 100).toFixed(1) : 0,
-          total: enSem.length,
-        }
+        return { precision: totalI > 0 ? +((totalA / totalI) * 100).toFixed(1) : 0, total: enSem.length }
       })
     })
     return result
   }, [sesiones, semanas])
 
-  // ── Rango dinámico del eje Y ───────────────────────────────────────────────
-  // Solo considera los puntos visibles con datos reales.
   const allValues = useMemo(() => {
     const vals = []
     MODOS_CHART.forEach(modo => {
@@ -143,17 +120,10 @@ const LineChart = ({ sesiones, modosVisibles }) => {
     return vals
   }, [chartData, modosVisibles])
 
-  // yMin: múltiplo de 5 más cercano por debajo, con al menos 5pp de margen
-  // yMax: múltiplo de 5 más cercano por encima, con al menos 5pp de margen
-  const yMin = allValues.length > 0
-    ? Math.max(0, Math.floor((Math.min(...allValues) - 5) / 5) * 5)
-    : 0
-  const yMax = allValues.length > 0
-    ? Math.min(100, Math.ceil((Math.max(...allValues) + 5) / 5) * 5)
-    : 100
+  const yMin = allValues.length > 0 ? Math.max(0, Math.floor((Math.min(...allValues) - 5) / 5) * 5) : 0
+  const yMax = allValues.length > 0 ? Math.min(100, Math.ceil((Math.max(...allValues) + 5) / 5) * 5) : 100
   const yRange = yMax - yMin || 1
 
-  // Ticks: step 5 si rango ≤ 30pp, step 10 si es mayor
   const yTicks = useMemo(() => {
     const step = yRange <= 30 ? 5 : 10
     const ticks = []
@@ -162,9 +132,7 @@ const LineChart = ({ sesiones, modosVisibles }) => {
     return ticks
   }, [yMin, yMax, yRange])
 
-  const xOf = (i) => n === 1
-    ? PAD.l + IW / 2
-    : PAD.l + (i / (n - 1)) * IW
+  const xOf = (i) => n === 1 ? PAD.l + IW / 2 : PAD.l + (i / (n - 1)) * IW
   const yOf = (v) => PAD.t + IH - ((v - yMin) / yRange) * IH
 
   if (n === 0) {
@@ -179,104 +147,57 @@ const LineChart = ({ sesiones, modosVisibles }) => {
 
   return (
     <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-full" preserveAspectRatio="xMidYMid meet">
-      {/* Fondos alternados por mes */}
       {grupos.map((g, gi) => {
-        const x1 = gi === 0 ? PAD.l
-          : (xOf(g.inicio) + xOf(grupos[gi - 1].fin)) / 2
-        const x2 = gi === grupos.length - 1 ? PAD.l + IW
-          : (xOf(g.fin) + xOf(grupos[gi + 1]?.inicio ?? g.fin)) / 2
-        return (
-          <rect key={g.mes} x={x1} y={PAD.t} width={x2 - x1} height={IH}
-            fill={gi % 2 === 0 ? "rgba(241,245,249,0.6)" : "transparent"} />
-        )
+        const x1 = gi === 0 ? PAD.l : (xOf(g.inicio) + xOf(grupos[gi - 1].fin)) / 2
+        const x2 = gi === grupos.length - 1 ? PAD.l + IW : (xOf(g.fin) + xOf(grupos[gi + 1]?.inicio ?? g.fin)) / 2
+        return <rect key={g.mes} x={x1} y={PAD.t} width={x2 - x1} height={IH} fill={gi % 2 === 0 ? "rgba(241,245,249,0.6)" : "transparent"} />
       })}
-
-      {/* Separadores verticales entre meses */}
       {grupos.slice(1).map((g) => {
-        const x = n > 1
-          ? (xOf(g.inicio) + xOf(g.inicio - 1)) / 2
-          : xOf(g.inicio)
-        return (
-          <line key={`sep-${g.mes}`}
-            x1={x} y1={PAD.t - 8} x2={x} y2={PAD.t + IH}
-            stroke="#e2e8f0" strokeWidth="1.5" strokeDasharray="4,3" />
-        )
+        const x = n > 1 ? (xOf(g.inicio) + xOf(g.inicio - 1)) / 2 : xOf(g.inicio)
+        return <line key={`sep-${g.mes}`} x1={x} y1={PAD.t - 8} x2={x} y2={PAD.t + IH} stroke="#e2e8f0" strokeWidth="1.5" strokeDasharray="4,3" />
       })}
-
-      {/* Grid horizontal dinámico */}
       {yTicks.map(v => (
         <g key={v}>
           <line x1={PAD.l} y1={yOf(v)} x2={PAD.l + IW} y2={yOf(v)}
             stroke={v === yMin ? "#cbd5e1" : "#e2e8f0"}
             strokeWidth={v === yMin ? 1.5 : 1}
             strokeDasharray={v === yMin ? "none" : "4,4"} />
-          <text x={PAD.l - 12} y={yOf(v) + 4} textAnchor="end" fontSize="12" fill="#94a3b8" fontFamily="inherit">
-            {v}%
-          </text>
+          <text x={PAD.l - 12} y={yOf(v) + 4} textAnchor="end" fontSize="12" fill="#94a3b8" fontFamily="inherit">{v}%</text>
         </g>
       ))}
-
-      {/* Etiquetas semana */}
       {semanas.map((sem) => (
-        <text key={sem.desde} x={xOf(sem.idx)} y={H - PAD.b + 20}
-          textAnchor="middle" fontSize="11" fill="#94a3b8" fontFamily="inherit">
+        <text key={sem.desde} x={xOf(sem.idx)} y={H - PAD.b + 20} textAnchor="middle" fontSize="11" fill="#94a3b8" fontFamily="inherit">
           {sem.label}
         </text>
       ))}
-
-      {/* Etiquetas mes */}
       {grupos.map((g) => {
         const xMid = (xOf(g.inicio) + xOf(g.fin)) / 2
         return (
           <g key={`mes-${g.mes}`}>
-            <line x1={xOf(g.inicio) - 14} y1={H - PAD.b + 30}
-              x2={xOf(g.fin) + 14}    y2={H - PAD.b + 30}
-              stroke="#cbd5e1" strokeWidth="1.5" strokeLinecap="round" />
-            <text x={xMid} y={H - PAD.b + 46}
-              textAnchor="middle" fontSize="11.5" fontWeight="700"
-              fill="#64748b" fontFamily="inherit">
-              {g.mes}
-            </text>
+            <line x1={xOf(g.inicio) - 14} y1={H - PAD.b + 30} x2={xOf(g.fin) + 14} y2={H - PAD.b + 30} stroke="#cbd5e1" strokeWidth="1.5" strokeLinecap="round" />
+            <text x={xMid} y={H - PAD.b + 46} textAnchor="middle" fontSize="11.5" fontWeight="700" fill="#64748b" fontFamily="inherit">{g.mes}</text>
           </g>
         )
       })}
-
-      {/* Líneas y puntos por modo */}
       {MODOS_CHART.filter(m => modosVisibles[m]).map(modo => {
-        const puntos = (chartData[modo] || [])
-          .map((p, i) => ({ ...p, i }))
-          .filter(p => p.total > 0)
+        const puntos = (chartData[modo] || []).map((p, i) => ({ ...p, i })).filter(p => p.total > 0)
         if (!puntos.length) return null
         const c = MODO_COLORS[modo].line
-
         const pathD = puntos.length >= 2
-          ? puntos.map((p, j) =>
-              `${j === 0 ? "M" : "L"}${xOf(p.i).toFixed(1)},${yOf(p.precision).toFixed(1)}`
-            ).join(" ")
+          ? puntos.map((p, j) => `${j === 0 ? "M" : "L"}${xOf(p.i).toFixed(1)},${yOf(p.precision).toFixed(1)}`).join(" ")
           : null
-
         return (
           <g key={modo}>
-            {/* Área — llega hasta yMin, no hasta 0 */}
             {pathD && (() => {
               const first = puntos[0], last = puntos[puntos.length - 1]
               const area = `${pathD} L${xOf(last.i).toFixed(1)},${yOf(yMin).toFixed(1)} L${xOf(first.i).toFixed(1)},${yOf(yMin).toFixed(1)} Z`
               return <path d={area} fill={c} opacity="0.07" />
             })()}
-            {/* Línea */}
-            {pathD && (
-              <path d={pathD} fill="none" stroke={c}
-                strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" opacity="0.9" />
-            )}
-            {/* Puntos + etiquetas */}
+            {pathD && <path d={pathD} fill="none" stroke={c} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" opacity="0.9" />}
             {puntos.map(p => (
               <g key={p.i}>
-                <circle cx={xOf(p.i)} cy={yOf(p.precision)}
-                  r={puntos.length === 1 ? 8 : 5}
-                  fill="white" stroke={c} strokeWidth="2.5" />
-                <text x={xOf(p.i)} y={yOf(p.precision) - 12}
-                  textAnchor="middle" fontSize="11" fill={c}
-                  fontWeight="700" fontFamily="inherit">
+                <circle cx={xOf(p.i)} cy={yOf(p.precision)} r={puntos.length === 1 ? 8 : 5} fill="white" stroke={c} strokeWidth="2.5" />
+                <text x={xOf(p.i)} y={yOf(p.precision) - 12} textAnchor="middle" fontSize="11" fill={c} fontWeight="700" fontFamily="inherit">
                   {p.precision}%
                 </text>
               </g>
@@ -284,15 +205,11 @@ const LineChart = ({ sesiones, modosVisibles }) => {
           </g>
         )
       })}
-
-      {/* Eje X base en yMin */}
-      <line x1={PAD.l} y1={PAD.t + IH} x2={PAD.l + IW} y2={PAD.t + IH}
-        stroke="#cbd5e1" strokeWidth="1.5" />
+      <line x1={PAD.l} y1={PAD.t + IH} x2={PAD.l + IW} y2={PAD.t + IH} stroke="#cbd5e1" strokeWidth="1.5" />
     </svg>
   )
 }
 
-// ─── Paginador ────────────────────────────────────────────────────────────────
 const Paginador = ({ pagina, totalPaginas, onChange, totalItems }) => {
   if (totalPaginas <= 1) return null
   const inicio = (pagina - 1) * POR_PAGINA + 1
@@ -375,25 +292,17 @@ const DateRangePicker = ({ desde, hasta, onDesde, onHasta, onLimpiar }) => (
   </div>
 )
 
-// ─── Toggle de modos para el gráfico ─────────────────────────────────────────
 const ModoToggle = ({ modosVisibles, onToggle }) => (
   <div className="flex items-center gap-2">
     {MODOS_CHART.map(modo => {
       const c = MODO_COLORS[modo]
       const activo = modosVisibles[modo]
       return (
-        <button
-          key={modo}
-          onClick={() => onToggle(modo)}
+        <button key={modo} onClick={() => onToggle(modo)}
           className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
-            activo
-              ? `${c.bg} ${c.text} ${c.border}`
-              : "bg-slate-100 text-slate-400 border-slate-200 opacity-50"
-          }`}
-        >
-          {activo
-            ? <Eye className="w-3 h-3" />
-            : <EyeOff className="w-3 h-3" />}
+            activo ? `${c.bg} ${c.text} ${c.border}` : "bg-slate-100 text-slate-400 border-slate-200 opacity-50"
+          }`}>
+          {activo ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
           <span className="capitalize">{modo}</span>
         </button>
       )
@@ -401,7 +310,6 @@ const ModoToggle = ({ modosVisibles, onToggle }) => (
   </div>
 )
 
-// ═══════════════════════════════════════════════════════════════════════════════
 export default function ResultadosReaccion() {
   const [jugadores, setJugadores]      = useState([])
   const [selectedJugador, setSelected] = useState(null)
@@ -416,10 +324,7 @@ export default function ResultadosReaccion() {
   const [showSidebar, setShowSidebar]  = useState(false)
   const [pagina, setPagina]            = useState(1)
 
-  // Toggle por modo en el gráfico — todos visibles por defecto
-  const [modosVisibles, setModosVisibles] = useState({
-    aleatorio: true, secuencial: true, manual: true,
-  })
+  const [modosVisibles, setModosVisibles] = useState({ aleatorio: true, secuencial: true, manual: true })
 
   const toggleModo = (modo) => {
     setModosVisibles(prev => {
@@ -433,7 +338,6 @@ export default function ResultadosReaccion() {
 
   useEffect(() => { setPagina(1) }, [modoFiltro, desde, hasta, selectedJugador])
 
-  // ─── Cargar jugadores ──────────────────────────────────────────────────────
   useEffect(() => {
     ;(async () => {
       try {
@@ -441,8 +345,7 @@ export default function ResultadosReaccion() {
         const res  = await fetch(`${BASE_URL}/api/cuentas`, { headers: { Authorization: `Bearer ${token()}` } })
         const data = await res.json()
         if (data.success) {
-          const jgs = data.data
-            .filter(c => c.rol === "jugador" && c.jugador)
+          const jgs = data.data.filter(c => c.rol === "jugador" && c.jugador)
             .map(c => ({ ...c.jugador, cuentaId: c.id, path: c.path || "" }))
           setJugadores(jgs)
           if (jgs.length > 0) setSelected(jgs[0])
@@ -459,7 +362,6 @@ export default function ResultadosReaccion() {
     return params
   }, [desde, hasta])
 
-  // ─── Cargar datos — sesiones sin filtro de fecha para el gráfico ──────────
   const cargarDatos = useCallback(async () => {
     if (!selectedJugador) return
     setLoadingD(true); setError("")
@@ -468,7 +370,6 @@ export default function ResultadosReaccion() {
       const [resStats, resSesiones] = await Promise.all([
         fetch(`${BASE_URL}/api/resultados/personal/${selectedJugador.cuentaId}?${params}`,
           { headers: { Authorization: `Bearer ${token()}` } }),
-        // Sin filtro de fecha — TODAS las sesiones para el gráfico dinámico
         fetch(`${BASE_URL}/api/resultados/personal/${selectedJugador.cuentaId}/sesiones?periodo=general`,
           { headers: { Authorization: `Bearer ${token()}` } }),
       ])
@@ -482,35 +383,24 @@ export default function ResultadosReaccion() {
 
   useEffect(() => { cargarDatos() }, [cargarDatos])
 
-  // ─── Sesiones del gráfico: todas (sin filtro de fecha del header) ──────────
   const sesionesParaGrafico = useMemo(() => {
     if (modoFiltro === "todos") return sesiones
     return sesiones.filter(s => s.modo === modoFiltro)
   }, [sesiones, modoFiltro])
 
-  // ─── Sesiones de la tabla: respetan filtro de fecha y modo ────────────────
   const sesionesFiltradas = useMemo(() =>
-    sesiones
-      .filter(s => {
-        if (modoFiltro !== "todos" && s.modo !== modoFiltro) return false
-        if (desde) {
-          const f = s.fecha?.slice(0, 10) ?? ""
-          if (f < desde) return false
-        }
-        if (hasta) {
-          const f = s.fecha?.slice(0, 10) ?? ""
-          if (f > hasta) return false
-        }
-        return true
-      })
-      .sort((a, b) => new Date(b.fecha) - new Date(a.fecha))
+    sesiones.filter(s => {
+      if (modoFiltro !== "todos" && s.modo !== modoFiltro) return false
+      if (desde) { const f = s.fecha?.slice(0, 10) ?? ""; if (f < desde) return false }
+      if (hasta) { const f = s.fecha?.slice(0, 10) ?? ""; if (f > hasta) return false }
+      return true
+    }).sort((a, b) => new Date(b.fecha) - new Date(a.fecha))
   , [sesiones, modoFiltro, desde, hasta])
 
   const totalPaginas   = Math.max(1, Math.ceil(sesionesFiltradas.length / POR_PAGINA))
   const paginaSegura   = Math.min(pagina, totalPaginas)
   const sesionesPagina = sesionesFiltradas.slice((paginaSegura - 1) * POR_PAGINA, paginaSegura * POR_PAGINA)
 
-  // ─── KPIs ─────────────────────────────────────────────────────────────────
   const kpis = useMemo(() => {
     if (!resultados) return null
     const tipos = resultados.por_tipo_reaccion || {}
@@ -521,10 +411,7 @@ export default function ResultadosReaccion() {
       let tendencia = null
       if (ultimas2.length === 2) {
         const calcPrec = (sem) => {
-          const en = sesionesParaGrafico.filter(s => {
-            const f = s.fecha.slice(0, 10)
-            return s.modo === modoFiltro && f >= sem.desde && f <= sem.hasta
-          })
+          const en = sesionesParaGrafico.filter(s => { const f = s.fecha.slice(0, 10); return s.modo === modoFiltro && f >= sem.desde && f <= sem.hasta })
           if (!en.length) return 0
           const tA = en.reduce((a, r) => a + (r.aciertos || 0), 0)
           const tI = en.reduce((a, r) => a + (r.intentos || (r.aciertos || 0) + (r.errores || 0)), 0)
@@ -532,30 +419,19 @@ export default function ResultadosReaccion() {
         }
         tendencia = calcPrec(ultimas2[1]) - calcPrec(ultimas2[0])
       }
-      return {
-        precision: info.precision ?? 0,
-        mejorModo: modoFiltro,
-        mejorPrec: info.precision ?? 0,
-        tendencia,
-        totalReacciones: info.total_realizadas ?? 0,
-      }
+      return { precision: info.precision ?? 0, mejorModo: modoFiltro, mejorPrec: info.precision ?? 0, tendencia, totalReacciones: info.total_realizadas ?? 0 }
     }
     const tg = resultados.totales_generales || {}
     let mejorModo = null, mejorPrec = -1
     Object.entries(tipos).forEach(([modo, info]) => {
-      if ((info.total_realizadas || 0) > 0 && info.precision > mejorPrec) {
-        mejorPrec = info.precision; mejorModo = modo
-      }
+      if ((info.total_realizadas || 0) > 0 && info.precision > mejorPrec) { mejorPrec = info.precision; mejorModo = modo }
     })
     const semanas = agruparEnSemanas(sesiones)
     const ultimas2 = semanas.slice(-2)
     let tendencia = null
     if (ultimas2.length === 2) {
       const calcPrec = (sem) => {
-        const en = sesiones.filter(s => {
-          const f = s.fecha.slice(0, 10)
-          return f >= sem.desde && f <= sem.hasta
-        })
+        const en = sesiones.filter(s => { const f = s.fecha.slice(0, 10); return f >= sem.desde && f <= sem.hasta })
         if (!en.length) return 0
         const tA = en.reduce((a, r) => a + (r.aciertos || 0), 0)
         const tI = en.reduce((a, r) => a + (r.intentos || (r.aciertos || 0) + (r.errores || 0)), 0)
@@ -563,25 +439,15 @@ export default function ResultadosReaccion() {
       }
       tendencia = calcPrec(ultimas2[1]) - calcPrec(ultimas2[0])
     }
-    return {
-      precision: tg.precision ?? 0,
-      mejorModo,
-      mejorPrec,
-      tendencia,
-      totalReacciones: tg.total_reacciones ?? 0,
-    }
+    return { precision: tg.precision ?? 0, mejorModo, mejorPrec, tendencia, totalReacciones: tg.total_reacciones ?? 0 }
   }, [resultados, modoFiltro, sesiones, sesionesParaGrafico])
 
-  // ─── sparklines por modo ───────────────────────────────────────────────────
   const sparkData = useMemo(() => {
     const semanas = agruparEnSemanas(sesiones)
     const result  = {}
     MODOS_CHART.forEach(modo => {
       result[modo] = semanas.map(sem => {
-        const en = sesiones.filter(s => {
-          const f = s.fecha.slice(0, 10)
-          return s.modo === modo && f >= sem.desde && f <= sem.hasta
-        })
+        const en = sesiones.filter(s => { const f = s.fecha.slice(0, 10); return s.modo === modo && f >= sem.desde && f <= sem.hasta })
         if (!en.length) return 0
         const tA = en.reduce((a, r) => a + (r.aciertos || 0), 0)
         const tI = en.reduce((a, r) => a + (r.intentos || (r.aciertos || 0) + (r.errores || 0)), 0)
@@ -591,18 +457,14 @@ export default function ResultadosReaccion() {
     return result
   }, [sesiones])
 
-  // ─── Modos visibles efectivos en el gráfico ───────────────────────────────
   const modosVisiblesEfectivos = useMemo(() => {
-    if (modoFiltro !== "todos") {
-      return { aleatorio: false, secuencial: false, manual: false, [modoFiltro]: true }
-    }
+    if (modoFiltro !== "todos") return { aleatorio: false, secuencial: false, manual: false, [modoFiltro]: true }
     return modosVisibles
   }, [modoFiltro, modosVisibles])
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800" style={{ fontFamily: "'DM Sans', sans-serif" }}>
 
-      {/* Print header */}
       {selectedJugador && (
         <div className="print-only-header" style={{ display: "none" }}>
           <div style={{ display:"flex", alignItems:"center", gap:"10pt", marginBottom:"12pt", borderBottom:"2pt solid #6366f1", paddingBottom:"8pt" }}>
@@ -620,7 +482,6 @@ export default function ResultadosReaccion() {
         </div>
       )}
 
-      {/* Header */}
       <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-sm print-hide-nav">
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
           <div className="flex items-center gap-3 py-3">
@@ -649,21 +510,10 @@ export default function ResultadosReaccion() {
               )}
             </div>
           </div>
-
           <div className="pb-3 flex flex-wrap gap-2 items-center">
-            <DateRangePicker
-              desde={desde} hasta={hasta}
-              onDesde={setDesde} onHasta={setHasta}
-              onLimpiar={() => { setDesde(""); setHasta("") }}
-            />
-            <PillGroup
-              options={MODOS_FILTRO}
-              value={modoFiltro}
-              onChange={setModoFiltro}
-              getLabel={m => m.charAt(0).toUpperCase() + m.slice(1)}
-            />
+            <DateRangePicker desde={desde} hasta={hasta} onDesde={setDesde} onHasta={setHasta} onLimpiar={() => { setDesde(""); setHasta("") }} />
+            <PillGroup options={MODOS_FILTRO} value={modoFiltro} onChange={setModoFiltro} getLabel={m => m.charAt(0).toUpperCase() + m.slice(1)} />
           </div>
-
           {(modoFiltro !== "todos" || desde || hasta) && (
             <div className="pb-2 flex items-center gap-2 flex-wrap">
               <span className="text-[10px] text-slate-400 uppercase tracking-widest">Filtros activos:</span>
@@ -686,7 +536,6 @@ export default function ResultadosReaccion() {
         </div>
       </header>
 
-      {/* Panel jugadoras móvil */}
       <div className={`lg:hidden print-hide-nav overflow-hidden transition-all duration-300 ${showSidebar ? "max-h-[600px]" : "max-h-0"}`}>
         <div className="bg-white border-b border-slate-200 px-4 py-3 space-y-2">
           <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2">Jugadoras</p>
@@ -718,10 +567,7 @@ export default function ResultadosReaccion() {
         </div>
       </div>
 
-      {/* Layout */}
       <div className="max-w-6xl mx-auto px-4 sm:px-6 py-5 flex gap-5">
-
-        {/* Sidebar desktop */}
         <aside className="hidden lg:block w-60 flex-shrink-0">
           <div className="sticky top-[130px] space-y-2">
             <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 px-1 mb-3">Jugadoras</p>
@@ -730,9 +576,7 @@ export default function ResultadosReaccion() {
               : jugadores.map(j => (
                 <button key={j.id} onClick={() => setSelected(j)}
                   className={`w-full text-left rounded-2xl border transition-all p-3 flex items-center gap-3 ${
-                    selectedJugador?.id === j.id
-                      ? "bg-indigo-50 border-indigo-200 shadow-sm shadow-indigo-100"
-                      : "bg-white border-slate-200 hover:border-slate-300 hover:bg-slate-50"
+                    selectedJugador?.id === j.id ? "bg-indigo-50 border-indigo-200 shadow-sm shadow-indigo-100" : "bg-white border-slate-200 hover:border-slate-300 hover:bg-slate-50"
                   }`}>
                   <div className="w-10 h-10 rounded-xl bg-slate-100 flex-shrink-0 overflow-hidden border border-slate-200">
                     {j.path ? <img src={j.path} alt="" className="w-full h-full object-cover" onError={e => e.target.style.display="none"} />
@@ -755,57 +599,37 @@ export default function ResultadosReaccion() {
           </div>
         </aside>
 
-        {/* Main */}
         <main className="flex-1 min-w-0 space-y-4">
           {!selectedJugador ? (
             <div className="h-64 flex items-center justify-center text-slate-400">
-              <div className="text-center">
-                <User className="w-10 h-10 mx-auto mb-2 opacity-30" />
-                <p className="text-sm font-semibold">Selecciona una jugadora</p>
-              </div>
+              <div className="text-center"><User className="w-10 h-10 mx-auto mb-2 opacity-30" /><p className="text-sm font-semibold">Selecciona una jugadora</p></div>
             </div>
           ) : loadingDatos ? (
-            <div className="h-64 flex items-center justify-center">
-              <Loader2 className="w-7 h-7 animate-spin text-indigo-500" />
-            </div>
+            <div className="h-64 flex items-center justify-center"><Loader2 className="w-7 h-7 animate-spin text-indigo-500" /></div>
           ) : (
             <>
               {/* A: Header jugadora */}
               <div className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 flex items-center gap-4 shadow-sm">
                 <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-2xl bg-slate-100 overflow-hidden border-2 border-slate-200 flex-shrink-0">
-                  {selectedJugador.path
-                    ? <img src={selectedJugador.path} alt="" className="w-full h-full object-cover" onError={e => e.target.style.display="none"} />
+                  {selectedJugador.path ? <img src={selectedJugador.path} alt="" className="w-full h-full object-cover" onError={e => e.target.style.display="none"} />
                     : <div className="w-full h-full flex items-center justify-center"><User className="w-6 h-6 text-slate-400" /></div>}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <h2 className="text-base sm:text-xl font-black text-slate-800 tracking-tight truncate">
-                      {selectedJugador.nombres} {selectedJugador.apellidos}
-                    </h2>
+                    <h2 className="text-base sm:text-xl font-black text-slate-800 tracking-tight truncate">{selectedJugador.nombres} {selectedJugador.apellidos}</h2>
                     <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-lg border flex-shrink-0 ${POS_COLORS[selectedJugador.posicion_principal] || "bg-slate-100 text-slate-500 border-slate-200"}`}>
                       {selectedJugador.posicion_principal}
                     </span>
                     {modoFiltro !== "todos" && (
-                      <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-lg border flex-shrink-0 ${MODO_COLORS[modoFiltro]?.bg} ${MODO_COLORS[modoFiltro]?.text} ${MODO_COLORS[modoFiltro]?.border}`}>
-                        {modoFiltro}
-                      </span>
+                      <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-lg border flex-shrink-0 ${MODO_COLORS[modoFiltro]?.bg} ${MODO_COLORS[modoFiltro]?.text} ${MODO_COLORS[modoFiltro]?.border}`}>{modoFiltro}</span>
                     )}
                   </div>
                   <div className="flex items-center gap-3 mt-1.5 flex-wrap">
-                    <span className="flex items-center gap-1 text-xs text-slate-400">
-                      <BarChart2 className="w-3 h-3" />
-                      {sesionesFiltradas.length} sesión{sesionesFiltradas.length !== 1 ? "es" : ""}
-                    </span>
+                    <span className="flex items-center gap-1 text-xs text-slate-400"><BarChart2 className="w-3 h-3" />{sesionesFiltradas.length} sesión{sesionesFiltradas.length !== 1 ? "es" : ""}</span>
                     {sesionesFiltradas.length > 0 && (
-                      <span className="flex items-center gap-1 text-xs text-slate-400">
-                        <Calendar className="w-3 h-3" />
-                        Última: {formatFechaCorta(sesionesFiltradas[0]?.fecha)}
-                      </span>
+                      <span className="flex items-center gap-1 text-xs text-slate-400"><Calendar className="w-3 h-3" />Última: {formatFechaCorta(sesionesFiltradas[0]?.fecha)}</span>
                     )}
-                    <span className="flex items-center gap-1 text-xs text-slate-400">
-                      <Activity className="w-3 h-3" />
-                      {sesiones.length} total histórico
-                    </span>
+                    <span className="flex items-center gap-1 text-xs text-slate-400"><Activity className="w-3 h-3" />{sesiones.length} total histórico</span>
                   </div>
                 </div>
               </div>
@@ -817,32 +641,21 @@ export default function ResultadosReaccion() {
                     <div className="absolute inset-0 bg-gradient-to-br from-indigo-50 to-transparent pointer-events-none" />
                     <div className="relative flex sm:block items-center gap-4">
                       <div className="flex items-center justify-between mb-0 sm:mb-3 flex-1">
-                        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
-                          % Aciertos {modoFiltro !== "todos" ? `(${modoFiltro})` : "general"}
-                        </p>
-                        <div className="w-8 h-8 rounded-lg bg-indigo-100 flex items-center justify-center flex-shrink-0">
-                          <Target className="w-4 h-4 text-indigo-600" />
-                        </div>
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">% Aciertos {modoFiltro !== "todos" ? `(${modoFiltro})` : "general"}</p>
+                        <div className="w-8 h-8 rounded-lg bg-indigo-100 flex items-center justify-center flex-shrink-0"><Target className="w-4 h-4 text-indigo-600" /></div>
                       </div>
                       <div>
-                        <p className={`text-3xl sm:text-4xl font-black tracking-tight ${precisionColor(kpis.precision)}`}>
-                          {kpis.precision.toFixed(1)}<span className="text-xl text-slate-400">%</span>
-                        </p>
+                        <p className={`text-3xl sm:text-4xl font-black tracking-tight ${precisionColor(kpis.precision)}`}>{kpis.precision.toFixed(1)}<span className="text-xl text-slate-400">%</span></p>
                         <p className="text-xs text-slate-400 mt-0.5">{kpis.totalReacciones} sesiones</p>
                       </div>
                     </div>
                   </div>
-
                   <div className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 shadow-sm relative overflow-hidden">
                     <div className="absolute inset-0 bg-gradient-to-br from-emerald-50 to-transparent pointer-events-none" />
                     <div className="relative flex sm:block items-center gap-4">
                       <div className="flex items-center justify-between mb-0 sm:mb-3 flex-1">
-                        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
-                          {modoFiltro !== "todos" ? "Modo seleccionado" : "Mejor modo"}
-                        </p>
-                        <div className="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center flex-shrink-0">
-                          <Zap className="w-4 h-4 text-emerald-600" />
-                        </div>
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">{modoFiltro !== "todos" ? "Modo seleccionado" : "Mejor modo"}</p>
+                        <div className="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center flex-shrink-0"><Zap className="w-4 h-4 text-emerald-600" /></div>
                       </div>
                       {kpis.mejorModo ? (
                         <div>
@@ -855,24 +668,17 @@ export default function ResultadosReaccion() {
                       ) : <p className="text-slate-400 text-sm">Sin datos</p>}
                     </div>
                   </div>
-
                   <div className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 shadow-sm relative overflow-hidden">
                     <div className="absolute inset-0 bg-gradient-to-br from-sky-50 to-transparent pointer-events-none" />
                     <div className="relative flex sm:block items-center gap-4">
                       <div className="flex items-center justify-between mb-0 sm:mb-3 flex-1">
                         <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Tendencia</p>
-                        <div className="w-8 h-8 rounded-lg bg-sky-100 flex items-center justify-center flex-shrink-0">
-                          <TrendingUp className="w-4 h-4 text-sky-600" />
-                        </div>
+                        <div className="w-8 h-8 rounded-lg bg-sky-100 flex items-center justify-center flex-shrink-0"><TrendingUp className="w-4 h-4 text-sky-600" /></div>
                       </div>
                       {kpis.tendencia !== null ? (
                         <div>
                           <div className="flex items-center gap-1.5">
-                            {kpis.tendencia > 0
-                              ? <TrendingUp className="w-5 h-5 text-emerald-500 flex-shrink-0" />
-                              : kpis.tendencia < 0
-                                ? <TrendingDown className="w-5 h-5 text-red-500 flex-shrink-0" />
-                                : <Minus className="w-5 h-5 text-slate-400 flex-shrink-0" />}
+                            {kpis.tendencia > 0 ? <TrendingUp className="w-5 h-5 text-emerald-500 flex-shrink-0" /> : kpis.tendencia < 0 ? <TrendingDown className="w-5 h-5 text-red-500 flex-shrink-0" /> : <Minus className="w-5 h-5 text-slate-400 flex-shrink-0" />}
                             <p className={`text-2xl sm:text-3xl font-black ${kpis.tendencia > 0 ? "text-emerald-600" : kpis.tendencia < 0 ? "text-red-500" : "text-slate-400"}`}>
                               {kpis.tendencia > 0 ? "+" : ""}{kpis.tendencia.toFixed(1)}%
                             </p>
@@ -885,37 +691,25 @@ export default function ResultadosReaccion() {
                 </div>
               )}
 
-              {/* C: Gráfico dinámico con toggle de modos */}
+              {/* C: Gráfico — título actualizado, sin subtextos */}
               <div className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-6 shadow-sm">
                 <div className="flex flex-col gap-3 mb-5">
                   <div className="flex flex-col sm:flex-row sm:items-start gap-2 justify-between">
                     <div>
+                      {/* ── Título actualizado: sin "—", sin subtextos ── */}
                       <h3 className="text-sm font-bold text-slate-800">
-                        Evolución — % aciertos
+                        Evolución de % aciertos
                         {modoFiltro !== "todos" ? ` · ${modoFiltro}` : " por modo"}
                       </h3>
-                      <p className="text-xs text-slate-400 mt-0.5">
-                        Todas las semanas con datos · agrupado por mes · eje Y dinámico
-                      </p>
                     </div>
-                    {/* Toggle modos — solo visible si filtro = todos */}
                     {modoFiltro === "todos" && (
                       <ModoToggle modosVisibles={modosVisibles} onToggle={toggleModo} />
                     )}
                   </div>
-                  <p className="text-[10px] text-slate-400">
-                    {agruparEnSemanas(sesionesParaGrafico).length} semana{agruparEnSemanas(sesionesParaGrafico).length !== 1 ? "s" : ""} con datos
-                    {sesiones.length > sesionesFiltradas.length && desde
-                      ? " · el gráfico muestra el historial completo, la tabla respeta el filtro de fechas"
-                      : ""}
-                  </p>
+                  {/* Subtextos eliminados */}
                 </div>
-
                 <div className="h-[22rem] sm:h-[28rem]">
-                  <LineChart
-                    sesiones={sesionesParaGrafico}
-                    modosVisibles={modosVisiblesEfectivos}
-                  />
+                  <LineChart sesiones={sesionesParaGrafico} modosVisibles={modosVisiblesEfectivos} />
                 </div>
               </div>
 
@@ -923,15 +717,9 @@ export default function ResultadosReaccion() {
               <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
                 <div className="px-4 sm:px-6 py-4 border-b border-slate-100 flex items-center gap-3">
                   <List className="w-4 h-4 text-slate-400 flex-shrink-0" />
-                  <h3 className="text-sm font-bold text-slate-800">
-                    Historial{modoFiltro !== "todos" ? ` · ${modoFiltro}` : ""}
-                    {(desde || hasta) ? " · filtrado" : ""}
-                  </h3>
-                  <span className="ml-auto text-xs text-slate-400 flex-shrink-0">
-                    {sesionesFiltradas.length} registro{sesionesFiltradas.length !== 1 ? "s" : ""}
-                  </span>
+                  <h3 className="text-sm font-bold text-slate-800">Historial{modoFiltro !== "todos" ? ` · ${modoFiltro}` : ""}{(desde || hasta) ? " · filtrado" : ""}</h3>
+                  <span className="ml-auto text-xs text-slate-400 flex-shrink-0">{sesionesFiltradas.length} registro{sesionesFiltradas.length !== 1 ? "s" : ""}</span>
                 </div>
-
                 {sesionesPagina.length > 0 ? (
                   <>
                     <div className="hidden md:block overflow-x-auto">
@@ -945,17 +733,12 @@ export default function ResultadosReaccion() {
                         </thead>
                         <tbody>
                           {sesionesPagina.map((s, i) => {
-                            const prec = s.precision ?? (
-                              (s.aciertos || 0) + (s.errores || 0) > 0
-                                ? ((s.aciertos || 0) / ((s.aciertos || 0) + (s.errores || 0))) * 100 : 0
-                            )
+                            const prec = s.precision ?? ((s.aciertos || 0) + (s.errores || 0) > 0 ? ((s.aciertos || 0) / ((s.aciertos || 0) + (s.errores || 0))) * 100 : 0)
                             const d = new Date(s.fecha)
                             const c = MODO_COLORS[s.modo]
                             return (
                               <tr key={s.id ?? i} className="border-b border-slate-50 hover:bg-slate-50/70 transition-colors">
-                                <td className="px-5 py-3.5 text-slate-400 text-xs whitespace-nowrap">
-                                  Sem {Math.ceil(d.getDate() / 7)} {d.toLocaleString("es-BO", { month: "short" })}
-                                </td>
+                                <td className="px-5 py-3.5 text-slate-400 text-xs whitespace-nowrap">Sem {Math.ceil(d.getDate() / 7)} {d.toLocaleString("es-BO", { month: "short" })}</td>
                                 <td className="px-5 py-3.5 text-slate-400 text-xs">{d.getDate()}</td>
                                 <td className="px-5 py-3.5 text-slate-600 text-xs font-medium whitespace-nowrap">{formatFecha(s.fecha)}</td>
                                 <td className="px-5 py-3.5">
@@ -966,11 +749,7 @@ export default function ResultadosReaccion() {
                                 <td className="px-5 py-3.5 text-slate-600 text-xs font-mono">{s.intentos ?? (s.aciertos || 0) + (s.errores || 0)}</td>
                                 <td className="px-5 py-3.5 text-emerald-600 text-xs font-mono font-bold">{s.aciertos || 0}</td>
                                 <td className="px-5 py-3.5 text-red-500 text-xs font-mono">{s.errores || 0}</td>
-                                <td className="px-5 py-3.5">
-                                  <span className={`text-xs font-black px-2.5 py-1 rounded-lg border ${precisionBg(prec)}`}>
-                                    {prec.toFixed(1)}%
-                                  </span>
-                                </td>
+                                <td className="px-5 py-3.5"><span className={`text-xs font-black px-2.5 py-1 rounded-lg border ${precisionBg(prec)}`}>{prec.toFixed(1)}%</span></td>
                               </tr>
                             )
                           })}
@@ -979,10 +758,7 @@ export default function ResultadosReaccion() {
                     </div>
                     <div className="md:hidden divide-y divide-slate-100">
                       {sesionesPagina.map((s, i) => {
-                        const prec = s.precision ?? (
-                          (s.aciertos || 0) + (s.errores || 0) > 0
-                            ? ((s.aciertos || 0) / ((s.aciertos || 0) + (s.errores || 0))) * 100 : 0
-                        )
+                        const prec = s.precision ?? ((s.aciertos || 0) + (s.errores || 0) > 0 ? ((s.aciertos || 0) / ((s.aciertos || 0) + (s.errores || 0))) * 100 : 0)
                         const c = MODO_COLORS[s.modo]
                         return (
                           <div key={s.id ?? i} className="px-4 py-3.5 flex items-center gap-3">
@@ -993,16 +769,12 @@ export default function ResultadosReaccion() {
                                 <span className="text-[10px] text-slate-400 ml-auto">{formatFechaCorta(s.fecha)}</span>
                               </div>
                               <div className="flex items-center gap-2 text-xs text-slate-400">
-                                <span className="text-emerald-600 font-bold">{s.aciertos || 0}</span>
-                                <span>aciertos</span>
+                                <span className="text-emerald-600 font-bold">{s.aciertos || 0}</span><span>aciertos</span>
                                 <span className="text-slate-300">·</span>
-                                <span className="text-red-500">{s.errores || 0}</span>
-                                <span>fallos</span>
+                                <span className="text-red-500">{s.errores || 0}</span><span>fallos</span>
                               </div>
                             </div>
-                            <span className={`text-sm font-black px-2.5 py-1 rounded-xl border flex-shrink-0 ${precisionBg(prec)}`}>
-                              {prec.toFixed(1)}%
-                            </span>
+                            <span className={`text-sm font-black px-2.5 py-1 rounded-xl border flex-shrink-0 ${precisionBg(prec)}`}>{prec.toFixed(1)}%</span>
                           </div>
                         )
                       })}
@@ -1014,7 +786,6 @@ export default function ResultadosReaccion() {
                     <p className="text-sm">No hay sesiones para este período{modoFiltro !== "todos" ? ` en modo ${modoFiltro}` : ""}</p>
                   </div>
                 )}
-
                 <Paginador pagina={paginaSegura} totalPaginas={totalPaginas} totalItems={sesionesFiltradas.length} onChange={setPagina} />
               </div>
 
@@ -1062,7 +833,6 @@ export default function ResultadosReaccion() {
               )}
             </>
           )}
-
           {error && (
             <div className="flex items-center gap-3 bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-xl text-sm">
               <AlertCircle className="w-4 h-4 flex-shrink-0" /> {error}
@@ -1076,7 +846,6 @@ export default function ResultadosReaccion() {
         .scrollbar-none { scrollbar-width: none; -ms-overflow-style: none; }
         .scrollbar-none::-webkit-scrollbar { display: none; }
         input[type="date"]::-webkit-calendar-picker-indicator { opacity: 0.4; cursor: pointer; }
-
         @media print {
           @page { size: A4 portrait; margin: 14mm 12mm 14mm 12mm; }
           * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
@@ -1093,11 +862,7 @@ export default function ResultadosReaccion() {
           main { width: 100% !important; min-width: 0 !important; }
           .py-5 { padding-top: 0 !important; padding-bottom: 0 !important; }
           .space-y-4 > * + * { margin-top: 8pt !important; }
-          .rounded-2xl {
-            break-inside: avoid !important; page-break-inside: avoid !important;
-            border: 1px solid #e2e8f0 !important; box-shadow: none !important;
-            margin-bottom: 8pt !important; background: white !important;
-          }
+          .rounded-2xl { break-inside: avoid !important; page-break-inside: avoid !important; border: 1px solid #e2e8f0 !important; box-shadow: none !important; margin-bottom: 8pt !important; background: white !important; }
           .absolute.inset-0 { display: none !important; }
           .shadow-sm { box-shadow: none !important; }
           .grid { display: grid !important; }
