@@ -195,7 +195,7 @@ function Carrusel({ images, alt }) {
   )
 }
 
-// ── TOAST ──────────────────────────────────────────────────────────────────
+// ── TOAST ─────────────────────────────────────���────────────────────────────
 function Toast({ notification, onClose }) {
   if (!notification) return null
   const isOk = notification.type === "success"
@@ -1112,7 +1112,11 @@ export default function SistemaUnificadoPage() {
               </div>
             </div>
 
-            <BatteryPanel battery={espBattery} espConnected={espConnected} />
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 12, padding: "10px", background: "#f8fafc", borderRadius: 12, border: "1px solid #e2e8f0" }}>
+              <BatteryIcon nivel={espBattery?.nivel} porcentaje={espBattery?.porcentaje} voltaje={espBattery?.voltaje} />
+              <div style={{ width: 1, height: 24, background: "#e2e8f0" }} />
+              <StatusIndicator espConnected={espConnected} />
+            </div>
           </div>
 
           {/* ── Controles según tab ── */}
