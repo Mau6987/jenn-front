@@ -80,120 +80,58 @@ function initializePusher(subscribeToESP) {
   subscribeToESP(pusher)
 }
 
-// ── BATTERY PANEL: componente destacado ───────────────────────────────────
-function BatteryPanel({ battery, espConnected }) {
-  if (!battery && !espConnected) return null
-
-  const cfg = {
-    normal:  { bar: "#10b981", bg: "#ecfdf5", border: "#a7f3d0", text: "#065f46", label: "Normal",   icon: "🔋" },
-    alerta:  { bar: "#f59e0b", bg: "#fffbeb", border: "#fde68a", text: "#78350f", label: "Bajo",     icon: "⚠️" },
-    critico: { bar: "#f43f5e", bg: "#fff1f2", border: "#fecaca", text: "#7f1d1d", label: "Crítico",  icon: "🪫" },
-    null:    { bar: "#d1d5db", bg: "#f9fafb", border: "#e5e7eb", text: "#9ca3af", label: "Sin datos", icon: "🔋" },
-  }
-
-  const nivel = battery?.nivel ?? null
-  const c     = cfg[nivel] || cfg.null
-  const pct   = battery?.porcentaje ?? null
-  const volt  = battery?.voltaje    ?? null
-
+// ── STATUS INDICATOR: Muestra si ESP está conectado ────────────────────────
+function StatusIndicator({ espConnected }) {
   return (
-    <div style={{
-      background: c.bg,
-      border: `1.5px solid ${c.border}`,
-      borderRadius: 16,
-      padding: "14px 18px",
-      display: "flex",
-      flexDirection: "column",
-      gap: 10,
-      transition: "all 0.4s",
-      animation: nivel === "critico" ? "battCritPulse 1.2s ease-in-out infinite alternate" : "none",
-    }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 1 }}>
-            <div style={{
-              width: 28, height: 14, border: `2px solid ${c.bar}`,
-              borderRadius: 4, padding: "2px 3px",
-              display: "flex", alignItems: "center", gap: 2, background: "#fff",
-            }}>
-              {[0,1,2].map(i => {
-                const filled =
-                  nivel === "normal"  ? true :
-                  nivel === "alerta"  ? i < 2 :
-                  nivel === "critico" ? i < 1 : false
-                return (
-                  <div key={i} style={{
-                    flex: 1, height: "100%", borderRadius: 2,
-                    background: filled ? c.bar : "#e5e7eb",
-                    transition: "background 0.4s",
-                  }} />
-                )
-              })}
-            </div>
-            <div style={{ width: 3, height: 8, background: c.bar, borderRadius: "0 2px 2px 0" }} />
-          </div>
-          <span style={{ fontSize: 11, fontWeight: 700, color: c.text, letterSpacing: "0.06em", textTransform: "uppercase" }}>
-            Batería ESP-6
-          </span>
-        </div>
-        <span style={{
-          fontSize: 10, fontWeight: 700, color: c.text,
-          background: "#ffffff88", borderRadius: 99,
-          padding: "2px 10px", border: `1px solid ${c.border}`,
-          textTransform: "uppercase", letterSpacing: "0.08em",
-        }}>
-          {c.label}
-        </span>
-      </div>
-
-      <div style={{ height: 10, background: "#ffffff60", borderRadius: 99, overflow: "hidden", border: `1px solid ${c.border}` }}>
-        <div style={{
-          height: "100%",
-          width: pct != null ? `${pct}%` : "0%",
-          background: `linear-gradient(90deg, ${c.bar}cc, ${c.bar})`,
-          borderRadius: 99,
-          transition: "width 0.8s ease",
-        }} />
-      </div>
-
-      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between" }}>
-        <span style={{
-          fontFamily: "monospace", fontSize: 28, fontWeight: 700, color: c.text, lineHeight: 1,
-        }}>
-          {pct != null ? `${pct}%` : "—"}
-        </span>
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 2 }}>
-          {volt != null && (
-            <span style={{ fontFamily: "monospace", fontSize: 13, fontWeight: 600, color: c.text, opacity: 0.8 }}>
-              {volt.toFixed(2)} V
-            </span>
-          )}
-          {!battery && (
-            <span style={{ fontSize: 11, color: "#9ca3af", fontStyle: "italic" }}>
-              Esperando datos…
-            </span>
-          )}
-        </div>
-      </div>
+    <div
+      title={espConnected ? "ESP conectado" : "ESP desconectado"}
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 6,
+        cursor: "default",
+      }}
+    >
+      <div
+        style={{
+          width: 8,
+          height: 8,
+          borderRadius: "50%",
+          background: espConnected ? "#10b981" : "#d1d5db",
+          boxShadow: espConnected ? "0 0 4px rgba(16,185,129,0.5)" : "none",
+          transition: "all 0.3s",
+        }}
+      />
+      <span
+        style={{
+          fontSize: 10,
+          fontWeight: 700,
+          color: espConnected ? "#10b981" : "#9ca3af",
+          letterSpacing: "0.06em",
+          textTransform: "uppercase",
+          fontFamily: "monospace",
+        }}
+      >
+        {espConnected ? "OK" : "—"}
+      </span>
     </div>
   )
 }
 
 // ── BATTERY ICON con TOOLTIP ───────────────────────────────────────────────
 function BatteryIcon({ nivel, porcentaje, voltaje }) {
-  const [showTooltip, setShowTooltip] = useState(false)
-  
   const barColors = {
     normal:  ["#10b981", "#10b981", "#10b981"],
     alerta:  ["#f59e0b", "#f59e0b", "#e5e7eb"],
     critico: ["#f43f5e", "#e5e7eb", "#e5e7eb"],
+    critica: ["#f43f5e", "#e5e7eb", "#e5e7eb"],
     null:    ["#e5e7eb", "#e5e7eb", "#e5e7eb"],
   }
   const colors = barColors[nivel] || barColors.null
   const labelColor =
     nivel === "normal"  ? "#10b981" :
     nivel === "alerta"  ? "#f59e0b" :
-    nivel === "critico" ? "#f43f5e" : "#9ca3af"
+    (nivel === "critico" || nivel === "critica") ? "#f43f5e" : "#9ca3af"
   const batteryLabel = 
     nivel === "normal" ? "OK" :
     nivel === "alerta" ? "LOW" :
@@ -201,9 +139,8 @@ function BatteryIcon({ nivel, porcentaje, voltaje }) {
 
   return (
     <div
-      style={{ position: "relative", display: "flex", flexDirection: "column", alignItems: "center", gap: 2, cursor: "default" }}
-      onMouseEnter={() => setShowTooltip(true)}
-      onMouseLeave={() => setShowTooltip(false)}
+      title={voltaje != null ? `${typeof voltaje === "number" ? voltaje.toFixed(2) : voltaje}V · ${porcentaje}%` : "Sin datos de batería"}
+      style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2, cursor: "default" }}
     >
       <div style={{ display: "flex", alignItems: "center", gap: 1 }}>
         <div style={{
@@ -228,30 +165,6 @@ function BatteryIcon({ nivel, porcentaje, voltaje }) {
       }}>
         {porcentaje !== null ? `${porcentaje}%` : batteryLabel}
       </span>
-      
-      {/* Tooltip al pasar el mouse */}
-      {showTooltip && (
-        <div style={{
-          position: "absolute", bottom: "calc(100% + 8px)", left: "50%", transform: "translateX(-50%)",
-          background: "#fff", border: "1px solid #d1d5db",
-          borderRadius: 6, padding: 8, boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
-          whiteSpace: "nowrap", zIndex: 1000,
-        }}>
-          <div style={{ fontSize: 11, fontWeight: 600, color: "#111", marginBottom: 4 }}>
-            {porcentaje !== null ? `${porcentaje}%` : batteryLabel}
-          </div>
-          {voltaje != null && (
-            <div style={{ fontSize: 10, color: "#6b7280" }}>
-              {voltaje.toFixed(2)}V
-            </div>
-          )}
-          {!nivel && (
-            <div style={{ fontSize: 10, color: "#9ca3af", fontStyle: "italic" }}>
-              Sin datos
-            </div>
-          )}
-        </div>
-      )}
     </div>
   )
 }
@@ -507,9 +420,27 @@ export default function SistemaUnificadoPage() {
   useEffect(() => { jugadorRef.current   = jugadorSeleccionado }, [jugadorSeleccionado])
   useEffect(() => { tipoSaltoRef.current = tipoSalto },          [tipoSalto])
 
+  // Función para enviar estado del ESP periódicamente (verificar conexión)
+  const sendStateCheck = async () => {
+    try {
+      await fetch(`${BACKEND_URL}/api/pusher/send-command`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ deviceId: DEVICE_ID, command: "health", channel: `private-device-${DEVICE_ID}` }),
+      })
+    } catch (e) { console.error("State check error:", e) }
+  }
+
   useEffect(() => {
     cargarCuentas(setCuentas, setJugadoresDisponibles)
     loadPusher(subscribeToESP)
+
+    // Enviar comando "health" cada 10 segundos para verificar conexión del ESP
+    const stateCheckInterval = setInterval(() => {
+      sendStateCheck()
+    }, 10000)
+
+    return () => clearInterval(stateCheckInterval)
   }, [])
 
   useEffect(() => {
@@ -1568,7 +1499,11 @@ export default function SistemaUnificadoPage() {
                 <div className="p-6 flex flex-col gap-4" style={card}>
                   <p className="text-[10px] uppercase tracking-widest font-bold text-slate-400 text-center">Estado del Dispositivo</p>
 
-                  <BatteryPanel battery={espBattery} espConnected={espConnected} />
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 12 }}>
+                    <BatteryIcon nivel={espBattery?.nivel} porcentaje={espBattery?.porcentaje} voltaje={espBattery?.voltaje} />
+                    <div style={{ width: 1, height: 24, background: "#e2e8f0" }} />
+                    <StatusIndicator espConnected={espConnected} />
+                  </div>
 
                   {(saltoRTActual || resultadoFinal) && (
                     <div style={{
