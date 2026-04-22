@@ -80,12 +80,13 @@ function initializePusher(subscribeToESP) {
   subscribeToESP(pusher)
 }
 
+// ── CAMBIO 1: StatusIndicator ahora dice "ONLINE" en vez de "OK" ──────────
 function StatusIndicator({ espConnected }) {
   return (
     <div title={espConnected ? "ESP conectado" : "ESP desconectado"} style={{ display: "flex", alignItems: "center", gap: 3, cursor: "default" }}>
       <div style={{ width: 6, height: 6, borderRadius: "50%", background: espConnected ? "#10b981" : "#d1d5db", boxShadow: espConnected ? "0 0 3px rgba(16,185,129,0.5)" : "none", transition: "all 0.3s" }} />
       <span style={{ fontSize: 7, fontWeight: 700, color: espConnected ? "#10b981" : "#9ca3af", letterSpacing: "0.06em", textTransform: "uppercase", fontFamily: "monospace", lineHeight: 1 }}>
-        {espConnected ? "OK" : "—"}
+        {espConnected ? "ONLINE" : "—"}
       </span>
     </div>
   )
@@ -113,6 +114,34 @@ function BatteryIcon({ nivel, porcentaje, voltaje }) {
       </div>
       <span style={{ fontSize: 7, fontWeight: 700, letterSpacing: "0.06em", color: labelColor, fontFamily: "monospace", lineHeight: 1 }}>
         {porcentaje !== null ? `${porcentaje}%` : batteryLabel}
+      </span>
+    </div>
+  )
+}
+
+// ── CAMBIO 2: DeviceStatusRow — bloque reutilizable para batería + estado ──
+// Cuando conectado: icono batería real + separador + "ONLINE"
+// Cuando desconectado: icono batería plomo (sin datos) + "DESCONECTADO — Conecte el dispositivo para continuar"
+function DeviceStatusRow({ espConnected, espBattery }) {
+  if (espConnected) {
+    return (
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-start", gap: 8 }}>
+        <div style={{ display: "flex", alignItems: "center", padding: "8px 10px", background: "#f8fafc", borderRadius: 10, border: "1px solid #e2e8f0" }}>
+          <BatteryIcon nivel={espBattery?.nivel} porcentaje={espBattery?.porcentaje} voltaje={espBattery?.voltaje} />
+        </div>
+        <div style={{ width: 1, height: 14, background: "#e2e8f0" }} />
+        <StatusIndicator espConnected={espConnected} />
+      </div>
+    )
+  }
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+      <div style={{ display: "flex", alignItems: "center", padding: "8px 10px", background: "#f8fafc", borderRadius: 10, border: "1px solid #e2e8f0" }}>
+        {/* Batería ploma sin datos cuando está desconectado */}
+        <BatteryIcon nivel={null} porcentaje={null} voltaje={null} />
+      </div>
+      <span style={{ fontSize: 10, fontWeight: 600, color: "#94a3b8", letterSpacing: "0.02em" }}>
+        DESCONECTADO — Conecte el dispositivo para continuar
       </span>
     </div>
   )
@@ -655,9 +684,6 @@ export default function SistemaUnificadoPage() {
   const getPruebasCarrusel = () => tipoSalto === "salto conos" ? SALTO_CONOS_IMAGES : SALTO_SIMPLE_IMAGES
   const batteryBorderColor = espBattery?.nivel === "normal" ? "#10b981" : espBattery?.nivel === "alerta" ? "#f59e0b" : espBattery?.nivel === "critico" ? "#ef4444" : "#e2e8f0"
 
-  // ── Condiciones de deshabilitado con lógica ESP ──────────────────────────
-  // Calibrar: disabled si no hay jugador, si está saltando, O si ESP offline
-  // Iniciar:  disabled si ESP offline (salvo que ya esté en curso —Detener siempre activo—)
   const calibrarAlcanceDisabled = !cuentaSeleccionada || faseAlcance === "jumping" || !espConnected
   const iniciarAlcanceDisabled  = !espConnected
   const calibrarPruebaDisabled  = !cuentaSeleccionada || ejercicioEnCurso || !espConnected
@@ -707,12 +733,7 @@ export default function SistemaUnificadoPage() {
                   </select>
                   <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
                 </div>
-                <div className="flex items-center gap-2 mt-1">
-                  <span className={`w-2 h-2 rounded-full shrink-0 ${espConnected ? "animate-pulse" : ""}`} style={{ background: espConnected ? "#10b981" : "#cbd5e1" }} />
-                  <span className="text-[9px] font-semibold uppercase tracking-widest" style={{ color: espConnected ? "#10b981" : "#94a3b8" }}>
-                    {espConnected ? "ESP Online" : "ESP Offline"}
-                  </span>
-                </div>
+                {/* CAMBIO 2: eliminado el bloque "ESP Online / ESP Offline" que estaba aquí */}
               </div>
               <div className="w-px self-stretch bg-slate-100 shrink-0" />
               <div className="flex items-center gap-3 min-w-0">
@@ -735,13 +756,9 @@ export default function SistemaUnificadoPage() {
                 </div>
               </div>
             </div>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-start", gap: 8 }}>
-              <div style={{ display: "flex", alignItems: "center", padding: "8px 10px", background: "#f8fafc", borderRadius: 10, border: "1px solid #e2e8f0" }}>
-                <BatteryIcon nivel={espBattery?.nivel} porcentaje={espBattery?.porcentaje} voltaje={espBattery?.voltaje} />
-              </div>
-              <div style={{ width: 1, height: 14, background: "#e2e8f0" }} />
-              <StatusIndicator espConnected={espConnected} />
-            </div>
+
+            {/* CAMBIO 3: DeviceStatusRow reemplaza los dos bloques separados de batería + StatusIndicator */}
+            <DeviceStatusRow espConnected={espConnected} espBattery={espBattery} />
           </div>
 
           {/* ── Controles ── */}
@@ -750,7 +767,6 @@ export default function SistemaUnificadoPage() {
               <>
                 <span className="text-[9px] uppercase tracking-widest font-bold text-slate-400 block mb-3">Test de Alcance</span>
                 <div className="flex gap-2.5 mb-3">
-                  {/* ── Calibrar: deshabilitado si ESP offline ── */}
                   <button
                     onClick={() => handleCalibrar("alcance")}
                     disabled={calibrarAlcanceDisabled}
@@ -767,7 +783,6 @@ export default function SistemaUnificadoPage() {
                     {faseAlcance === "calibrating" && calibrationStatus === "calibrating" ? "Calibrando…" : alcanceCalibracionDone ? "✓ Recalibrar" : "Calibrar"}
                   </button>
 
-                  {/* ── Iniciar/Detener: Iniciar deshabilitado si ESP offline ── */}
                   {faseAlcance !== "jumping" ? (
                     <button
                       onClick={handleIniciarSalto}
@@ -805,7 +820,6 @@ export default function SistemaUnificadoPage() {
                   </div>
                 )}
 
-                {/* Aviso si ESP offline */}
                 {!espConnected && (
                   <p className="text-[10px] text-amber-600 font-semibold mt-2 flex items-center gap-1">
                     <span>⚠️</span> ESP-6 desconectado — conecta el dispositivo para continuar
@@ -832,7 +846,6 @@ export default function SistemaUnificadoPage() {
                     className="w-20 text-sm text-center focus:outline-none focus:ring-2 focus:ring-slate-200"
                     style={{ background: "#f8fafc", border: "1.5px solid #e2e8f0", borderRadius: 12, padding: "7px 10px", opacity: ejercicioEnCurso ? .45 : 1 }} />
                   <div className="flex gap-2 ml-auto">
-                    {/* ── Calibrar pruebas: deshabilitado si ESP offline ── */}
                     <button onClick={() => handleCalibrar("pruebas")} disabled={calibrarPruebaDisabled}
                       className="pill-btn py-2 px-4 text-sm font-semibold"
                       style={
@@ -844,7 +857,6 @@ export default function SistemaUnificadoPage() {
                       {pruebaCalibracionDone ? "✓ Calibrado" : "Calibrar"}
                     </button>
 
-                    {/* ── Iniciar prueba: deshabilitado si ESP offline ── */}
                     {!ejercicioEnCurso ? (
                       <button onClick={iniciarPrueba} disabled={iniciarPruebaDisabled}
                         className="pill-btn py-2 px-4 text-sm font-semibold"
@@ -867,7 +879,6 @@ export default function SistemaUnificadoPage() {
                   </div>
                 </div>
 
-                {/* Aviso si ESP offline */}
                 {!espConnected && (
                   <p className="text-[10px] text-amber-600 font-semibold mt-2 flex items-center gap-1">
                     <span>⚠️</span> ESP-6 desconectado — conecta el dispositivo para continuar
@@ -1019,57 +1030,34 @@ export default function SistemaUnificadoPage() {
               </div>
             </div>
 
+            {/* CAMBIO 4: tab Pruebas — solo queda el card de Resultados (se eliminó la columna "Estado del Dispositivo") */}
             <div className="flex justify-center">
-              <div className="w-full max-w-2xl grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="p-6" style={card}>
-                  <p className="text-[10px] uppercase tracking-widest font-bold text-slate-400 text-center mb-5">Resultados</p>
-                  <div className="space-y-3">
-                    {[
-                      { label: "Saltos detectados", value: resultadoFinal ? `${resultadoFinal.saltos_validos}` : saltoRTActual ? `${saltoRTActual.num}` : "", isLive: !!saltoRTActual && !resultadoFinal },
-                      { label: "Fuerza máxima", value: resultadoFinal ? `Izq: ${resultadoFinal.pico_izq_kg}  Der: ${resultadoFinal.pico_der_kg} kgf` : saltoRTActual ? `Izq: ${saltoRTActual.pico_izq.toFixed(2)}  Der: ${saltoRTActual.pico_der.toFixed(2)} kgf` : "", isLive: !!saltoRTActual && !resultadoFinal },
-                      { label: "Altura máxima", value: resultadoFinal ? `${resultadoFinal.alt_max_cm} cm` : saltoRTActual ? `${saltoRTActual.altura_cm} cm` : "", isLive: !!saltoRTActual && !resultadoFinal },
-                      { label: "Altura promedio", value: resultadoFinal ? `${resultadoFinal.alt_promedio_cm} cm` : "", isLive: false },
-                    ].map(({ label, value, isLive }) => (
-                      <div key={label} className="flex flex-col gap-1">
-                        <span className="text-[9px] uppercase tracking-wide font-semibold text-slate-500">{label}</span>
-                        <div className="relative">
-                          <input readOnly value={value} placeholder="—"
-                            className={`w-full text-xs text-center font-bold focus:outline-none ${isLive && value ? "field-live" : ""}`}
-                            style={{ padding: "8px 14px", borderRadius: 12, background: isLive && value ? "#ecfdf5" : "#f8fafc", border: `1.5px solid ${isLive && value ? "#6ee7b7" : "#e2e8f0"}`, color: isLive && value ? "#059669" : "#475569" }} />
-                          {isLive && value && <span className="absolute right-2.5 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />}
-                        </div>
+              <div className="w-full max-w-md p-6" style={card}>
+                <p className="text-[10px] uppercase tracking-widest font-bold text-slate-400 text-center mb-5">Resultados</p>
+                <div className="space-y-3">
+                  {[
+                    { label: "Saltos detectados", value: resultadoFinal ? `${resultadoFinal.saltos_validos}` : saltoRTActual ? `${saltoRTActual.num}` : "", isLive: !!saltoRTActual && !resultadoFinal },
+                    { label: "Fuerza máxima", value: resultadoFinal ? `Izq: ${resultadoFinal.pico_izq_kg}  Der: ${resultadoFinal.pico_der_kg} kgf` : saltoRTActual ? `Izq: ${saltoRTActual.pico_izq.toFixed(2)}  Der: ${saltoRTActual.pico_der.toFixed(2)} kgf` : "", isLive: !!saltoRTActual && !resultadoFinal },
+                    { label: "Altura máxima", value: resultadoFinal ? `${resultadoFinal.alt_max_cm} cm` : saltoRTActual ? `${saltoRTActual.altura_cm} cm` : "", isLive: !!saltoRTActual && !resultadoFinal },
+                    { label: "Altura promedio", value: resultadoFinal ? `${resultadoFinal.alt_promedio_cm} cm` : "", isLive: false },
+                  ].map(({ label, value, isLive }) => (
+                    <div key={label} className="flex flex-col gap-1">
+                      <span className="text-[9px] uppercase tracking-wide font-semibold text-slate-500">{label}</span>
+                      <div className="relative">
+                        <input readOnly value={value} placeholder="—"
+                          className={`w-full text-xs text-center font-bold focus:outline-none ${isLive && value ? "field-live" : ""}`}
+                          style={{ padding: "8px 14px", borderRadius: 12, background: isLive && value ? "#ecfdf5" : "#f8fafc", border: `1.5px solid ${isLive && value ? "#6ee7b7" : "#e2e8f0"}`, color: isLive && value ? "#059669" : "#475569" }} />
+                        {isLive && value && <span className="absolute right-2.5 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />}
                       </div>
-                    ))}
-                  </div>
-                  <div className="flex justify-center mt-6">
-                    <button onClick={finalizarPrueba} disabled={!resultadoFinal || !pruebaId}
-                      className="pill-btn px-10 py-2.5 text-sm font-bold"
-                      style={pillBtn(!!resultadoFinal && !!pruebaId, !resultadoFinal || !pruebaId)}>
-                      Guardar
-                    </button>
-                  </div>
+                    </div>
+                  ))}
                 </div>
-
-                <div className="p-6 flex flex-col gap-4" style={card}>
-                  <p className="text-[10px] uppercase tracking-widest font-bold text-slate-400 text-center">Estado del Dispositivo</p>
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-start", gap: 8 }}>
-                    <div style={{ display: "flex", alignItems: "center", padding: "8px 10px", background: "#f8fafc", borderRadius: 10, border: "1px solid #e2e8f0" }}>
-                      <BatteryIcon nivel={espBattery?.nivel} porcentaje={espBattery?.porcentaje} voltaje={espBattery?.voltaje} />
-                    </div>
-                    <div style={{ width: 1, height: 16, background: "#e2e8f0" }} />
-                    <StatusIndicator espConnected={espConnected} />
-                  </div>
-                  {(saltoRTActual || resultadoFinal) && (
-                    <div style={{ background: "linear-gradient(135deg,#1e293b,#334155)", borderRadius: 14, padding: "16px 20px", display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
-                      <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", color: "rgba(255,255,255,0.5)" }}>Altura máxima</span>
-                      <span style={{ fontFamily: "monospace", fontSize: 32, fontWeight: 700, color: "#fff", lineHeight: 1 }}>
-                        {resultadoFinal ? `${resultadoFinal.alt_max_cm} cm` : saltoRTActual ? `${saltoRTActual.altura_cm} cm` : "—"}
-                      </span>
-                      {saltoConosContadorRef.current > 0 && (
-                        <span style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", fontFamily: "monospace" }}>{saltoConosContadorRef.current} saltos registrados</span>
-                      )}
-                    </div>
-                  )}
+                <div className="flex justify-center mt-6">
+                  <button onClick={finalizarPrueba} disabled={!resultadoFinal || !pruebaId}
+                    className="pill-btn px-10 py-2.5 text-sm font-bold"
+                    style={pillBtn(!!resultadoFinal && !!pruebaId, !resultadoFinal || !pruebaId)}>
+                    Guardar
+                  </button>
                 </div>
               </div>
             </div>
