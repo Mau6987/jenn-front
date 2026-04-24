@@ -251,8 +251,7 @@ function CalibrationModal({ isOpen, calibrationStatus, onClose, onCancel }) {
         {isCalibrationSuccess && (
           <>
             <div className="w-48 h-48 mx-auto mb-5"><img src="/calibrarbien.png" alt="Calibrado correctamente" className="w-full h-full object-contain" /></div>
-            <h3 className="text-xl font-bold text-green-700 mb-1">¡Sensor listo!</h3>
-            <p className="text-sm text-gray-600">Sensores listos</p>
+            <h3 className="text-xl font-bold text-green-700 mb-1">Inicializado</h3>
           </>
         )}
         {isCalibrationFailed && (
