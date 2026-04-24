@@ -80,7 +80,6 @@ function initializePusher(subscribeToESP) {
   subscribeToESP(pusher)
 }
 
-// ── CAMBIO 1: StatusIndicator ahora dice "ONLINE" en vez de "OK" ──────────
 function StatusIndicator({ espConnected }) {
   return (
     <div title={espConnected ? "ESP conectado" : "ESP desconectado"} style={{ display: "flex", alignItems: "center", gap: 3, cursor: "default" }}>
@@ -119,9 +118,6 @@ function BatteryIcon({ nivel, porcentaje, voltaje }) {
   )
 }
 
-// ── CAMBIO 2: DeviceStatusRow — bloque reutilizable para batería + estado ──
-// Cuando conectado: icono batería real + separador + "ONLINE"
-// Cuando desconectado: icono batería plomo (sin datos) + "DESCONECTADO — Conecte el dispositivo para continuar"
 function DeviceStatusRow({ espConnected, espBattery }) {
   if (espConnected) {
     return (
@@ -137,7 +133,6 @@ function DeviceStatusRow({ espConnected, espBattery }) {
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
       <div style={{ display: "flex", alignItems: "center", padding: "8px 10px", background: "#f8fafc", borderRadius: 10, border: "1px solid #e2e8f0" }}>
-        {/* Batería ploma sin datos cuando está desconectado */}
         <BatteryIcon nivel={null} porcentaje={null} voltaje={null} />
       </div>
       <span style={{ fontSize: 10, fontWeight: 600, color: "#94a3b8", letterSpacing: "0.02em" }}>
@@ -242,7 +237,7 @@ function CalibrationModal({ isOpen, calibrationStatus, onClose, onCancel }) {
         {isCalibrating && (
           <>
             <div className="w-48 h-48 mx-auto mb-5"><img src="/calibrar1.png" alt="Calibrando" className="w-full h-full object-contain" /></div>
-            <h3 className="text-xl font-bold text-gray-900 mb-4">Calibrando...</h3>
+            <h3 className="text-xl font-bold text-gray-900 mb-4">Inicializando sensor...</h3>
             <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 mb-6">
               <p className="text-sm font-semibold text-amber-800 leading-snug">
                 JUGADOR DEBE PERMANECER QUIETO Y DE PIE DURANTE{" "}
@@ -250,25 +245,25 @@ function CalibrationModal({ isOpen, calibrationStatus, onClose, onCancel }) {
                 segundos
               </p>
             </div>
-            <button onClick={onCancel} className="w-full py-3 rounded-lg bg-red-50 text-red-700 border border-red-200 text-sm font-semibold hover:bg-red-100 transition-colors">Cancelar calibración</button>
+            <button onClick={onCancel} className="w-full py-3 rounded-lg bg-red-50 text-red-700 border border-red-200 text-sm font-semibold hover:bg-red-100 transition-colors">Cancelar inicialización</button>
           </>
         )}
         {isCalibrationSuccess && (
           <>
             <div className="w-48 h-48 mx-auto mb-5"><img src="/calibrarbien.png" alt="Calibrado correctamente" className="w-full h-full object-contain" /></div>
-            <h3 className="text-xl font-bold text-green-700 mb-1">¡Calibrado!</h3>
+            <h3 className="text-xl font-bold text-green-700 mb-1">¡Sensor listo!</h3>
             <p className="text-sm text-gray-600">Sensores listos</p>
           </>
         )}
         {isCalibrationFailed && (
           <>
             <div className="w-48 h-48 mx-auto mb-5"><img src="/calibrarmal.png" alt="Error en calibración" className="w-full h-full object-contain" /></div>
-            <h3 className="text-xl font-bold text-red-700 mb-1">Error de calibración</h3>
+            <h3 className="text-xl font-bold text-red-700 mb-1">Error al inicializar</h3>
             <p className="text-sm text-gray-600 mb-2">Asegúrate que el jugador esté quieto y de pie sobre las celdas</p>
             <p className="text-xs text-gray-400 mb-4 font-mono">Cerrando en <span className="font-bold text-red-400">{errorCountdown}s</span>...</p>
             <button onClick={() => { if (errorCountdownRef.current) { clearInterval(errorCountdownRef.current); errorCountdownRef.current = null } onCancel() }}
               className="w-full py-3 rounded-lg bg-red-50 text-red-700 border border-red-200 text-sm font-semibold hover:bg-red-100 transition-colors">
-              Volver a calibrar
+              Volver a inicializar
             </button>
           </>
         )}
@@ -379,7 +374,7 @@ export default function SistemaUnificadoPage() {
     setCalibrationModalOpen(true)
     if (calibrationAutoCloseRef.current) clearTimeout(calibrationAutoCloseRef.current)
     calibrationAutoCloseRef.current = setTimeout(() => { calibrationAutoCloseRef.current = null; setCalibrationModalOpen(false) }, 5000)
-    notify("success", "¡Calibrado! — listo para iniciar")
+    notify("success", "¡Sensor listo! — listo para iniciar")
   }
 
   const triggerCalibrationFailed = () => {
@@ -390,7 +385,7 @@ export default function SistemaUnificadoPage() {
     if (calibracionOrigen === "alcance") { setIsCalibrated(false); setFaseAlcance("idle"); setAlcanceCalibracionDone(false) }
     else if (calibracionOrigen === "pruebas") { setPruebaCalibrada(false); setPruebaCalibracionDone(false) }
     setCalibrationModalOpen(true)
-    notify("error", "Error de calibración — intenta nuevamente")
+    notify("error", "Error al inicializar sensor — intenta nuevamente")
   }
 
   const subscribeToESP = (pusher) => {
@@ -429,7 +424,7 @@ export default function SistemaUnificadoPage() {
         else {
           if (calibracionOrigen === "alcance") { setFaseAlcance("idle"); setIsCalibrated(false); setAlcanceCalibracionDone(false) }
           else if (calibracionOrigen === "pruebas") { setPruebaCalibrada(false); setPruebaCalibracionDone(false) }
-          setCalibrationModalOpen(false); setCalibrationStatus("calibrating"); notify("error", "Calibración cancelada")
+          setCalibrationModalOpen(false); setCalibrationStatus("calibrating"); notify("error", "Inicialización cancelada")
         }
         return
       }
@@ -503,14 +498,14 @@ export default function SistemaUnificadoPage() {
     })
 
     channel.bind("client-status", (data) => {
-      if (data?.status === "connected") { setEspConnected(true); notify("success", "ESP-6 conectado"); addMessage(DEVICE_ID, "ESP online", "success", setMessages) }
+      if (data?.status === "connected") { setEspConnected(true); notify("success", "Dispositivo conectado"); addMessage(DEVICE_ID, "ESP online", "success", setMessages) }
       else if (data?.status === "disconnected") { setEspConnected(false); addMessage(DEVICE_ID, "ESP offline", "error", setMessages) }
     })
   }
 
   const handleCalibrar = async (origen = "alcance") => {
     if (!jugadorSeleccionado) { notify("error", "Selecciona un jugador primero"); return }
-    if (!espConnected) { notify("error", "El ESP-6 no está conectado"); return }
+    if (!espConnected) { notify("error", "El dispositivo no está conectado"); return }
     if (calibrandoRef.current) return
     if (calibrationTimerRef.current) { clearTimeout(calibrationTimerRef.current); calibrationTimerRef.current = null }
     if (calibrationAutoCloseRef.current) { clearTimeout(calibrationAutoCloseRef.current); calibrationAutoCloseRef.current = null }
@@ -532,7 +527,7 @@ export default function SistemaUnificadoPage() {
     else if (calibracionOrigen === "pruebas") { setPruebaCalibrada(false); setPruebaCalibracionDone(false) }
     setCalibrationStatus("calibrating")
     await sendCommand(CMD.CANCELAR, setMessages)
-    notify("error", "Cancelación enviada al ESP")
+    notify("error", "Cancelación enviada al dispositivo")
   }
 
   const handleCerrarModalCalibracion = () => {
@@ -542,7 +537,7 @@ export default function SistemaUnificadoPage() {
   }
 
   const handleIniciarSalto = async () => {
-    if (!espConnected) { notify("error", "El ESP-6 no está conectado"); return }
+    if (!espConnected) { notify("error", "El dispositivo no está conectado"); return }
     setSaltoRTActual(null); setResultadoFinal(null); setIncrementoAnterior(""); setAlcanceSegundos(0)
     saltoConosContadorRef.current = 0; resetSesion()
     setFaseAlcance("jumping"); setEjercicioEnCurso(true)
@@ -590,7 +585,7 @@ export default function SistemaUnificadoPage() {
 
   const iniciarPrueba = async () => {
     if (!cuentaSeleccionada)  { notify("error", "Selecciona un jugador primero"); return }
-    if (!espConnected) { notify("error", "El ESP-6 no está conectado"); return }
+    if (!espConnected) { notify("error", "El dispositivo no está conectado"); return }
     const duracion = Math.round(Number.parseFloat(tiempoPrueba))
     if (!tiempoPrueba || duracion <= 0) { notify("error", "Ingresa un tiempo válido"); return }
     try {
@@ -613,7 +608,7 @@ export default function SistemaUnificadoPage() {
         return next
       })
     }, 1000)
-    notify("success", `Prueba de ${duracion}s iniciada`)
+    notify("success", `Test de ${duracion}s iniciado`)
   }
 
   const detenerPrueba = async () => {
@@ -733,7 +728,6 @@ export default function SistemaUnificadoPage() {
                   </select>
                   <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
                 </div>
-                {/* CAMBIO 2: eliminado el bloque "ESP Online / ESP Offline" que estaba aquí */}
               </div>
               <div className="w-px self-stretch bg-slate-100 shrink-0" />
               <div className="flex items-center gap-3 min-w-0">
@@ -757,7 +751,6 @@ export default function SistemaUnificadoPage() {
               </div>
             </div>
 
-            {/* CAMBIO 3: DeviceStatusRow reemplaza los dos bloques separados de batería + StatusIndicator */}
             <DeviceStatusRow espConnected={espConnected} espBattery={espBattery} />
           </div>
 
@@ -778,9 +771,13 @@ export default function SistemaUnificadoPage() {
                         ? { borderRadius: 50, background: "linear-gradient(135deg,#059669,#10b981)", color: "#fff", boxShadow: "0 4px 14px rgba(5,150,105,.25)" }
                         : pillBtn(!calibrarAlcanceDisabled, calibrarAlcanceDisabled)
                     }
-                    title={!espConnected ? "ESP-6 desconectado" : undefined}
+                    title={!espConnected ? "Dispositivo desconectado" : undefined}
                   >
-                    {faseAlcance === "calibrating" && calibrationStatus === "calibrating" ? "Calibrando…" : alcanceCalibracionDone ? "✓ Recalibrar" : "Calibrar"}
+                    {faseAlcance === "calibrating" && calibrationStatus === "calibrating"
+                      ? "Inicializando…"
+                      : alcanceCalibracionDone
+                      ? "✓ Reinicializar"
+                      : "Inicializar sensor"}
                   </button>
 
                   {faseAlcance !== "jumping" ? (
@@ -789,9 +786,9 @@ export default function SistemaUnificadoPage() {
                       disabled={iniciarAlcanceDisabled}
                       className="pill-btn flex-1 py-2.5 px-5 text-sm font-semibold"
                       style={pillBtn(!iniciarAlcanceDisabled, iniciarAlcanceDisabled)}
-                      title={!espConnected ? "ESP-6 desconectado" : undefined}
+                      title={!espConnected ? "Dispositivo desconectado" : undefined}
                     >
-                      Iniciar
+                      Iniciar test
                     </button>
                   ) : (
                     <button
@@ -822,7 +819,7 @@ export default function SistemaUnificadoPage() {
 
                 {!espConnected && (
                   <p className="text-[10px] text-amber-600 font-semibold mt-2 flex items-center gap-1">
-                    <span>⚠️</span> ESP-6 desconectado — conecta el dispositivo para continuar
+                    <span>⚠️</span> Dispositivo desconectado — conecta el dispositivo para continuar
                   </p>
                 )}
               </>
@@ -853,16 +850,16 @@ export default function SistemaUnificadoPage() {
                           ? { borderRadius: 50, background: "linear-gradient(135deg,#059669,#10b981)", color: "#fff", boxShadow: "0 4px 14px rgba(5,150,105,.25)" }
                           : pillBtn(!calibrarPruebaDisabled, calibrarPruebaDisabled)
                       }
-                      title={!espConnected ? "ESP-6 desconectado" : undefined}>
-                      {pruebaCalibracionDone ? "✓ Calibrado" : "Calibrar"}
+                      title={!espConnected ? "Dispositivo desconectado" : undefined}>
+                      {pruebaCalibracionDone ? "✓ Sensor listo" : "Inicializar sensor"}
                     </button>
 
                     {!ejercicioEnCurso ? (
                       <button onClick={iniciarPrueba} disabled={iniciarPruebaDisabled}
                         className="pill-btn py-2 px-4 text-sm font-semibold"
                         style={pillBtn(!iniciarPruebaDisabled, iniciarPruebaDisabled)}
-                        title={!espConnected ? "ESP-6 desconectado" : undefined}>
-                        Iniciar
+                        title={!espConnected ? "Dispositivo desconectado" : undefined}>
+                        Iniciar test
                       </button>
                     ) : (
                       <>
@@ -881,7 +878,7 @@ export default function SistemaUnificadoPage() {
 
                 {!espConnected && (
                   <p className="text-[10px] text-amber-600 font-semibold mt-2 flex items-center gap-1">
-                    <span>⚠️</span> ESP-6 desconectado — conecta el dispositivo para continuar
+                    <span>⚠️</span> Dispositivo desconectado — conecta el dispositivo para continuar
                   </p>
                 )}
               </>
@@ -914,10 +911,10 @@ export default function SistemaUnificadoPage() {
                   const lc     = s === "done" ? "#059669" : s === "active" ? "#4f46e5" : "#94a3b8"
                   return (
                     <div className="flex flex-col gap-2" style={{ width: 280 }}>
-                      <p className="text-[9px] font-bold uppercase tracking-widest text-center" style={{ color: lc }}>Calibración</p>
+                      <p className="text-[9px] font-bold uppercase tracking-widest text-center" style={{ color: lc }}>Inicialización</p>
                       <div className="step-card bg-white overflow-hidden" style={{ borderRadius: 18, border: `2px solid ${border}`, boxShadow: shadow }}>
                         <div className="overflow-hidden relative" style={{ height: 360 }}>
-                          <img src="/calibraAlcance2.png" alt="Calibración" className="w-full h-full object-contain" style={{ background: "linear-gradient(160deg,#f8fafc,#fff)" }} />
+                          <img src="/calibraAlcance2.png" alt="Inicialización" className="w-full h-full object-contain" style={{ background: "linear-gradient(160deg,#f8fafc,#fff)" }} />
                         </div>
                       </div>
                     </div>
@@ -989,10 +986,10 @@ export default function SistemaUnificadoPage() {
                   const lc     = s === "done" ? "#059669" : "#94a3b8"
                   return (
                     <div className="flex flex-col gap-2" style={{ width: 280 }}>
-                      <p className="text-[9px] font-bold uppercase tracking-widest text-center" style={{ color: lc }}>Calibración</p>
+                      <p className="text-[9px] font-bold uppercase tracking-widest text-center" style={{ color: lc }}>Inicialización</p>
                       <div className="step-card bg-white overflow-hidden" style={{ borderRadius: 18, border: `2px solid ${border}`, boxShadow: shadow }}>
                         <div className="overflow-hidden relative" style={{ height: 360 }}>
-                          <img src="/calibraAlcance2.png" alt="Calibración" className="w-full h-full object-contain" style={{ background: "linear-gradient(160deg,#f8fafc,#fff)" }} />
+                          <img src="/calibraAlcance2.png" alt="Inicialización" className="w-full h-full object-contain" style={{ background: "linear-gradient(160deg,#f8fafc,#fff)" }} />
                         </div>
                       </div>
                     </div>
@@ -1030,7 +1027,6 @@ export default function SistemaUnificadoPage() {
               </div>
             </div>
 
-            {/* CAMBIO 4: tab Pruebas — solo queda el card de Resultados (se eliminó la columna "Estado del Dispositivo") */}
             <div className="flex justify-center">
               <div className="w-full max-w-md p-6" style={card}>
                 <p className="text-[10px] uppercase tracking-widest font-bold text-slate-400 text-center mb-5">Resultados</p>
