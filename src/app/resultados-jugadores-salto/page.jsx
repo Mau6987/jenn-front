@@ -482,7 +482,6 @@ export default function ResultadosSalto() {
         mejorTipo: tipoFiltro,
         mejorAltura: getAlturaPromedio(tipoFiltro),
         tendencia,
-        // ── FOTO 1: removed totalSaltos ──
         totalSesiones: info.cantidad ?? 0,
       }
     }
@@ -519,7 +518,6 @@ export default function ResultadosSalto() {
       mejorTipo,
       mejorAltura: mejorAltura > 0 ? mejorAltura : 0,
       tendencia,
-      // ── FOTO 1: removed totalSaltos ──
       totalSesiones: tg.cantidad ?? 0,
     }
   }, [resultados, tipoFiltro, sesiones, sesionesParaGrafico])
@@ -766,7 +764,6 @@ export default function ResultadosSalto() {
                         <p className={`text-3xl sm:text-4xl font-black tracking-tight ${alturaColor(kpis.altura)}`}>
                           {kpis.altura.toFixed(2)}<span className="text-xl text-slate-400">m</span>
                         </p>
-                        {/* ── FOTO 1: solo sesiones, sin saltos ── */}
                         <p className="text-xs text-slate-400 mt-0.5">{kpis.totalSesiones} sesiones</p>
                       </div>
                     </div>
@@ -824,12 +821,11 @@ export default function ResultadosSalto() {
                 </div>
               )}
 
-              {/* C: Gráfico de ALCANCE promedio — FOTO 2 changes */}
+              {/* C: Gráfico de ALCANCE promedio */}
               <div className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-6 shadow-sm">
                 <div className="flex flex-col gap-3 mb-5">
                   <div className="flex flex-col sm:flex-row sm:items-start gap-2 justify-between">
                     <div>
-                      {/* ── FOTO 2: título actualizado, sin subtexto ── */}
                       <h3 className="text-sm font-bold text-slate-800">
                         Evolución de alcance promedio
                         {tipoFiltro !== "todos" ? ` · ${tipoFiltro}` : " por tipo"}
@@ -839,19 +835,17 @@ export default function ResultadosSalto() {
                       <TipoToggle tiposVisibles={tiposVisibles} onToggle={toggleTipo} />
                     )}
                   </div>
-                  {/* ── FOTO 2: sin texto "X semanas con datos" ── */}
                 </div>
                 <div className="h-[22rem] sm:h-[28rem]">
                   <LineChart sesiones={sesionesParaGrafico} tiposVisibles={tiposVisiblesEfectivos} />
                 </div>
               </div>
 
-              {/* C2: Gráfico de FUERZA promedio — FOTO 3 changes */}
+              {/* C2: Gráfico de FUERZA promedio */}
               <div className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-6 shadow-sm">
                 <div className="flex flex-col gap-3 mb-5">
                   <div className="flex flex-col sm:flex-row sm:items-start gap-2 justify-between">
                     <div>
-                      {/* ── FOTO 3: título actualizado, sin subtexto ── */}
                       <h3 className="text-sm font-bold text-slate-800">
                         Evolución de fuerza promedio
                         {tipoFiltro !== "todos" ? ` · ${tipoFiltro}` : " por tipo"}
@@ -861,14 +855,13 @@ export default function ResultadosSalto() {
                       <TipoToggle tiposVisibles={tiposVisibles} onToggle={toggleTipo} />
                     )}
                   </div>
-                  {/* ── FOTO 3: sin texto "X semanas con datos" ── */}
                 </div>
                 <div className="h-[22rem] sm:h-[28rem]">
                   <FuerzaChart sesiones={sesionesParaGrafico} tiposVisibles={tiposVisiblesEfectivos} />
                 </div>
               </div>
 
-              {/* D: Historial — FOTO 4: sin columna Potencia, Fuerza en kg */}
+              {/* D: Historial — sin columna Índice Fatiga */}
               <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
                 <div className="px-4 sm:px-6 py-4 border-b border-slate-100 flex items-center gap-3">
                   <List className="w-4 h-4 text-slate-400 flex-shrink-0" />
@@ -887,8 +880,7 @@ export default function ResultadosSalto() {
                       <table className="w-full text-sm">
                         <thead>
                           <tr className="border-b border-slate-100 bg-slate-50">
-                            {/* ── FOTO 4: quitada columna Potencia ── */}
-                            {["Fecha", "Tipo", "Altura prom.", "Fuerza máx.", "Cant. saltos", "Índice fatiga"].map(h => (
+                            {["Fecha", "Tipo", "Altura prom.", "Fuerza máx.", "Cant. saltos"].map(h => (
                               <th key={h} className="px-5 py-3 text-left text-[10px] font-bold uppercase tracking-widest text-slate-400 whitespace-nowrap">{h}</th>
                             ))}
                           </tr>
@@ -897,7 +889,6 @@ export default function ResultadosSalto() {
                           {sesionesPagina.map((s, i) => {
                             const c = TIPO_COLORS[s.tipo]
                             const fuerzaMaxN  = Math.max(s.fuerzaizquierda || 0, s.fuerzaderecha || 0)
-                            // ── FOTO 4: conversión N → kg ──
                             const fuerzaMaxKg = fuerzaMaxN > 0 ? nToKg(fuerzaMaxN) : 0
                             return (
                               <tr key={s.id ?? i} className="border-b border-slate-50 hover:bg-slate-50/70 transition-colors">
@@ -912,11 +903,8 @@ export default function ResultadosSalto() {
                                     {(s.altura_promedio || 0).toFixed(2)}m
                                   </span>
                                 </td>
-                                {/* ── FOTO 4: kg en lugar de N ── */}
                                 <td className="px-5 py-3.5 text-slate-600 text-xs font-mono">{fuerzaMaxKg.toFixed(2)} kg</td>
                                 <td className="px-5 py-3.5 text-indigo-600 text-xs font-mono font-bold">{s.cantidad_saltos || 0}</td>
-                                <td className="px-5 py-3.5 text-slate-500 text-xs font-mono">{(s.indice_fatiga || 0).toFixed(2)}</td>
-                                {/* ── FOTO 4: columna Potencia eliminada ── */}
                               </tr>
                             )
                           })}
@@ -937,9 +925,6 @@ export default function ResultadosSalto() {
                               <div className="flex items-center gap-2 text-xs text-slate-400">
                                 <span className="text-indigo-600 font-bold">{s.cantidad_saltos || 0}</span>
                                 <span>saltos</span>
-                                <span className="text-slate-300">·</span>
-                                <span className="text-slate-600">{(s.indice_fatiga || 0).toFixed(2)}</span>
-                                <span>fatiga</span>
                               </div>
                             </div>
                             <span className={`text-sm font-black px-2.5 py-1 rounded-xl border flex-shrink-0 ${alturaBg(s.altura_promedio || 0)}`}>
@@ -960,13 +945,12 @@ export default function ResultadosSalto() {
                 <Paginador pagina={paginaSegura} totalPaginas={totalPaginas} totalItems={sesionesFiltradas.length} onChange={setPagina} />
               </div>
 
-              {/* E: Detalle por tipo — FOTO 5: Fuerza máx. en kg */}
+              {/* E: Detalle por tipo — sin Índice Fatiga */}
               {resultados?.por_tipo && (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                   {(tipoFiltro !== "todos" ? [tipoFiltro] : TIPOS_CHART).map(tipo => {
                     const info = resultados.por_tipo[tipo] || {}
                     const c    = TIPO_COLORS[tipo]
-                    // ── FOTO 5: conversión N → kg ──
                     const fuerzaMaxKg = info.fuerza_max_promedio != null
                       ? nToKg(info.fuerza_max_promedio)
                       : 0
@@ -984,9 +968,7 @@ export default function ResultadosSalto() {
                             { label: "Sesiones",     val: info.cantidad ?? 0,                                cls: "text-slate-800" },
                             { label: "Altura prom.", val: `${(info.altura_promedio ?? 0).toFixed(2)}m`,      cls: alturaColor(info.altura_promedio ?? 0) },
                             { label: "Total saltos", val: info.total_saltos ?? 0,                            cls: "text-indigo-600" },
-                            // ── FOTO 5: kg en lugar de N ──
                             { label: "Fuerza máx.",  val: `${fuerzaMaxKg.toFixed(2)} kg`,                   cls: "text-slate-700" },
-                            { label: "Índ. fatiga",  val: (info.indice_fatiga_promedio ?? 0).toFixed(2),     cls: "text-amber-600" },
                           ].map(({ label, val, cls }) => (
                             <div key={label} className="bg-slate-50 rounded-xl p-3 border border-slate-100">
                               <p className="text-[10px] text-slate-400 mb-1 leading-tight">{label}</p>
