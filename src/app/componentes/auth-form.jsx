@@ -189,13 +189,13 @@ export default function LoginPage() {
                 </Link>
 
                 <Link
-                  href="https://www.univalle.edu/"
+                  href="https://enlace.univalle.edu/san/webform/PSede.aspx"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="hover:scale-110 ease-in-out duration-300 p-2 sm:p-3 rounded-xl hover:rotate-6 transition-all bg-white/10 hover:bg-white/20 backdrop-blur-sm shadow-lg"
                 >
                   <Image
-                    src="/logo.png"
+                    src="/logoLogin.png"
                     alt="Univalle Logo"
                     width={35}
                     height={35}

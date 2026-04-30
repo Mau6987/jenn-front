@@ -158,6 +158,8 @@ export default function PruebasPage() {
 
   const pusherChannelsRef = useRef({})
   const connectedESPsRef = useRef(new Set())
+  const disabledCapsulesRef = useRef(new Set())
+  const healthCheckIntervalRef = useRef(null)
 
   const capsuleSelectionInitializedRef = useRef(false)
 
@@ -285,6 +287,11 @@ export default function PruebasPage() {
 
         if (message === "ok" || message === "health_ok" || message.includes("vivo")) {
           connectedESPsRef.current.add(espId)
+          // Si la cápsula estaba deshabilitada y responde al health check, rehabilitarla
+          if (message === "health_ok" && disabledCapsulesRef.current.has(espId)) {
+            disabledCapsulesRef.current.delete(espId)
+            showNotification("success", `Cápsula ${espId} rehabilitada`)
+          }
           setMicroControllers((prev) => prev.map((mc) =>
             mc.id === espId ? { ...mc, connected: true, lastSeen: new Date(), status: "" } : mc
           ))
@@ -454,6 +461,14 @@ export default function PruebasPage() {
       const data = await res.json()
       if (data.success) {
         localStorage.setItem("prueba_secuencial_id", data.data.id.toString())
+        // Limpiar cápsulas deshabilitadas e iniciar health checks periódicos
+        disabledCapsulesRef.current.clear()
+        if (healthCheckIntervalRef.current) clearInterval(healthCheckIntervalRef.current)
+        healthCheckIntervalRef.current = setInterval(() => {
+          disabledCapsulesRef.current.forEach((espId) => {
+            sendHealthCheck(espId)
+          })
+        }, 3000)
         setPruebaActualSequential(data.data); setTestActiveSequential(true); setModoActual("secuencial")
         setCurrentRound(1); setCurrentSequence(1)
         const initStats = { intentos: 0, aciertos: 0, errores: 0 }
@@ -468,8 +483,23 @@ export default function PruebasPage() {
 
   const activateNextMicrocontrollerSequential = (espId) => {
     const allESPs = selectedESPsRef.current
+    // Si la cápsula está deshabilitada, saltar a la siguiente disponible
+    if (disabledCapsulesRef.current.has(espId)) {
+      const idx = allESPs.indexOf(espId)
+      let nextESP = null
+      for (let i = idx + 1; i < allESPs.length; i++) {
+        if (!disabledCapsulesRef.current.has(allESPs[i])) {
+          nextESP = allESPs[i]
+          break
+        }
+      }
+      if (nextESP === null) {
+        showNotification("error", "No hay cápsulas habilitadas disponibles"); finalizarPruebaSecuencial(); return
+      }
+      activateNextMicrocontrollerSequential(nextESP); return
+    }
     if (!allESPs.includes(espId)) {
-      const fallback = allESPs[0]
+      const fallback = allESPs.find((e) => !disabledCapsulesRef.current.has(e))
       if (!fallback) { showNotification("error", "No hay cápsulas seleccionadas"); finalizarPruebaSecuencial(); return }
       activateNextMicrocontrollerSequential(fallback); return
     }
@@ -478,7 +508,9 @@ export default function PruebasPage() {
     setMicroControllers((prev) => prev.map((mc) => ({ ...mc, active: mc.id === espId, status: mc.id === espId ? "Esperando respuesta" : mc.status })))
     sendCommandToESP(espId, { command: "ON" })
     responseTimeoutSequentialRef.current = setTimeout(() => {
-      showNotification("error", `Cápsula ${espId} sin respuesta, contando como fallo`)
+      // Deshabilitar cápsula cuando se agota el tiempo de espera
+      disabledCapsulesRef.current.add(espId)
+      showNotification("error", `Cápsula ${espId} deshabilitada (sin respuesta a tiempo)`)
       if (processingResponseSequentialRef.current) return
       processingResponseSequentialRef.current = true
       handleSequentialResponse(espId, "error")

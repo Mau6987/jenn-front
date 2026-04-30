@@ -340,6 +340,13 @@ export default function SistemaUnificadoPage() {
   useEffect(() => {
     cargarCuentas(setCuentas, setJugadoresDisponibles)
     loadPusher(subscribeToESP)
+    // Recuperar estado de calibración guardado en localStorage
+    if (typeof window !== "undefined") {
+      const calibradoGuardado = localStorage.getItem("prueba_calibrada")
+      if (calibradoGuardado === "true") {
+        setPruebaCalibracionDone(true)
+      }
+    }
     const stateCheckInterval = setInterval(() => { sendStateCheck() }, 10000)
     return () => clearInterval(stateCheckInterval)
   }, [])
@@ -370,7 +377,14 @@ export default function SistemaUnificadoPage() {
     calibrandoRef.current = false
     setCalibrationStatus("success")
     if (calibracionOrigen === "alcance") { setIsCalibrated(true); setFaseAlcance("calibrated"); setAlcanceCalibracionDone(true) }
-    else if (calibracionOrigen === "pruebas") { setPruebaCalibrada(true); setPruebaCalibracionDone(true) }
+    else if (calibracionOrigen === "pruebas") { 
+      setPruebaCalibrada(true)
+      setPruebaCalibracionDone(true)
+      // Guardar estado de calibración en localStorage
+      if (typeof window !== "undefined") {
+        localStorage.setItem("prueba_calibrada", "true")
+      }
+    }
     setCalibrationModalOpen(true)
     if (calibrationAutoCloseRef.current) clearTimeout(calibrationAutoCloseRef.current)
     calibrationAutoCloseRef.current = setTimeout(() => { calibrationAutoCloseRef.current = null; setCalibrationModalOpen(false) }, 5000)
@@ -383,7 +397,14 @@ export default function SistemaUnificadoPage() {
     calibrandoRef.current = false
     setCalibrationStatus("failed")
     if (calibracionOrigen === "alcance") { setIsCalibrated(false); setFaseAlcance("idle"); setAlcanceCalibracionDone(false) }
-    else if (calibracionOrigen === "pruebas") { setPruebaCalibrada(false); setPruebaCalibracionDone(false) }
+    else if (calibracionOrigen === "pruebas") { 
+      setPruebaCalibrada(false)
+      setPruebaCalibracionDone(false)
+      // Limpiar estado de calibración del localStorage
+      if (typeof window !== "undefined") {
+        localStorage.removeItem("prueba_calibrada")
+      }
+    }
     setCalibrationModalOpen(true)
     notify("error", "Error al inicializar sensor — intenta nuevamente")
   }
@@ -524,7 +545,14 @@ export default function SistemaUnificadoPage() {
     calibrandoRef.current = false
     setCalibrationModalOpen(false)
     if (calibracionOrigen === "alcance") { setIsCalibrated(false); setFaseAlcance("idle"); setAlcanceCalibracionDone(false) }
-    else if (calibracionOrigen === "pruebas") { setPruebaCalibrada(false); setPruebaCalibracionDone(false) }
+    else if (calibracionOrigen === "pruebas") { 
+      setPruebaCalibrada(false)
+      setPruebaCalibracionDone(false)
+      // Limpiar estado de calibración del localStorage
+      if (typeof window !== "undefined") {
+        localStorage.removeItem("prueba_calibrada")
+      }
+    }
     setCalibrationStatus("calibrating")
     await sendCommand(CMD.CANCELAR, setMessages)
     notify("error", "Cancelación enviada al dispositivo")
@@ -682,7 +710,7 @@ export default function SistemaUnificadoPage() {
   const calibrarAlcanceDisabled = !cuentaSeleccionada || faseAlcance === "jumping" || !espConnected
   const iniciarAlcanceDisabled  = !espConnected
   const calibrarPruebaDisabled  = !cuentaSeleccionada || ejercicioEnCurso || !espConnected
-  const iniciarPruebaDisabled   = !espConnected
+  const iniciarPruebaDisabled   = !espConnected || !pruebaCalibracionDone
 
   return (
     <div className="min-h-screen" style={{ background: "linear-gradient(160deg,#f8fafc 0%,#f0f4f8 60%,#e8eef5 100%)", fontFamily: "'DM Sans', sans-serif" }}>
@@ -862,16 +890,10 @@ export default function SistemaUnificadoPage() {
                         Iniciar test
                       </button>
                     ) : (
-                      <>
-                        <button onClick={detenerPrueba} className="pill-btn py-2 px-4 text-sm font-semibold animate-pulse"
-                          style={{ borderRadius: 50, background: "linear-gradient(135deg,#dc2626,#ef4444)", color: "#fff", boxShadow: "0 4px 14px rgba(220,38,38,.25)" }}>
-                          Detener
-                        </button>
-                        <button onClick={cancelarPrueba} className="pill-btn py-2 px-4 text-sm font-semibold"
-                          style={{ borderRadius: 50, background: "#fee2e2", color: "#991b1b", border: "1.5px solid #fecaca", cursor: "pointer" }}>
-                          Cancelar
-                        </button>
-                      </>
+                      <button onClick={detenerPrueba} className="pill-btn py-2 px-4 text-sm font-semibold animate-pulse"
+                        style={{ borderRadius: 50, background: "linear-gradient(135deg,#dc2626,#ef4444)", color: "#fff", boxShadow: "0 4px 14px rgba(220,38,38,.25)" }}>
+                        Detener
+                      </button>
                     )}
                   </div>
                 </div>
