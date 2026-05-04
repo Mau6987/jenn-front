@@ -1211,7 +1211,7 @@ export default function PruebasPage() {
                 </div>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
                   {[
-                    { label: "Jugador", value: summaryData.jugador ? `${summaryData.jugador.nombres} ${summaryData.jugador.apellidos}` : "—", sub: summaryData.jugador?.posicion ? getPositionName(summaryData.jugador.posicion) : null },
+                    { label: "Jugador", value: summaryData.jugador && (summaryData.jugador.nombres || summaryData.jugador.apellidos) ? `${summaryData.jugador.nombres || ""} ${summaryData.jugador.apellidos || ""}`.trim() : "—", sub: summaryData.jugador?.posicion ? getPositionName(summaryData.jugador.posicion) : null },
                     { label: "Duración", value: formatTime(summaryData.tiempo_transcurrido || 0), sub: "tiempo total" },
                     { label: "Modalidad", value: summaryData.tipo, sub: null },
                     { label: "Cápsulas", value: summaryData.esp_seleccionadas?.join(", ") || "Todas", sub: null },
