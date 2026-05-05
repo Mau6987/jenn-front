@@ -46,7 +46,7 @@ export default function PlayerHome() {
 
   const rankingOptions = [
     { label: "Ranking Salto", href: "/rankings3" },
-    { label: "Ranking Reacción", href: "/rankings" },
+    { label: "Ranking Reacción", href: "/ranking" },
   ];
 
   return (
