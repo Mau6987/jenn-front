@@ -42,13 +42,12 @@ const styles = {
   },
 }
 
-// ── FIX: barColors incluye alias "critica" (string que manda el ESP)
 function BatteryIcon({ nivel, porcentaje, voltaje }) {
   const barColors = {
     normal:  ["#1A7A5E", "#1A7A5E", "#1A7A5E"],
     alerta:  ["#C2620A", "#C2620A", "#E8E8E8"],
     critico: ["#B03030", "#E8E8E8", "#E8E8E8"],
-    critica: ["#B03030", "#E8E8E8", "#E8E8E8"], // alias para el valor que manda el ESP
+    critica: ["#B03030", "#E8E8E8", "#E8E8E8"],
     null:    ["#E8E8E8", "#E8E8E8", "#E8E8E8"],
   }
   const colors = barColors[nivel] || barColors[null]
@@ -129,6 +128,8 @@ export default function PruebasPage() {
 
   const [pusherConnected, setPusherConnected] = useState(false)
   const [selectedPlayer, setSelectedPlayer] = useState(null)
+  // ── FIX: ref para capturar selectedPlayer en closures/timeouts ──
+  const selectedPlayerRef = useRef(null)
   const [jugadores, setJugadores] = useState([])
 
   const testActiveSequentialRef = useRef(false)
@@ -163,6 +164,7 @@ export default function PruebasPage() {
 
   const capsuleSelectionInitializedRef = useRef(false)
 
+  // ── FIX: selectedPlayerRef se sincroniza junto con las demás refs ──
   useEffect(() => {
     testActiveSequentialRef.current = testActiveSequential
     currentActiveESPSequentialRef.current = currentActiveESPSequential
@@ -176,10 +178,12 @@ export default function PruebasPage() {
     currentActiveESPManualRef.current = currentActiveESPManual
     waitingForResponseManualRef.current = waitingForResponseManual
     selectedESPsRef.current = selectedESPs
+    selectedPlayerRef.current = selectedPlayer  // ← FIX
   }, [
     testActiveSequential, currentActiveESPSequential, waitingForResponseSequential, currentRound, totalRounds,
     testActiveRandom, currentActiveESPRandom, waitingForResponseRandom,
     testActiveManual, currentActiveESPManual, waitingForResponseManual, selectedESPs,
+    selectedPlayer,  // ← FIX
   ])
 
   useEffect(() => {
@@ -287,7 +291,6 @@ export default function PruebasPage() {
 
         if (message === "ok" || message === "health_ok" || message.includes("vivo")) {
           connectedESPsRef.current.add(espId)
-          // Si la cápsula estaba deshabilitada y responde al health check, rehabilitarla
           if (message === "health_ok" && disabledCapsulesRef.current.has(espId)) {
             disabledCapsulesRef.current.delete(espId)
             showNotification("success", `Cápsula ${espId} rehabilitada`)
@@ -318,11 +321,9 @@ export default function PruebasPage() {
         }
       })
 
-      // ── FIX PRINCIPAL: parsing correcto del evento de batería del ESP ──
       channel.bind("client-bateria_estado", (data) => {
         const espId = i
 
-        // El ESP puede mandar data como string JSON o como objeto directo
         let payload = data
         if (typeof data.data === "string") {
           try { payload = JSON.parse(data.data) } catch { payload = data }
@@ -330,11 +331,10 @@ export default function PruebasPage() {
           payload = data.data
         }
 
-        // El ESP manda "estado" (no "nivel"), y voltaje como string "7.85"
         const nivel      = payload.estado     ?? payload.nivel     ?? null
         const porcentaje = payload.porcentaje  ?? null
         const voltaje    = payload.voltaje != null
-                             ? parseFloat(payload.voltaje)  // viene como string del ESP
+                             ? parseFloat(payload.voltaje)
                              : null
 
         if (nivel) {
@@ -342,7 +342,7 @@ export default function PruebasPage() {
             mc.id === espId
               ? {
                   ...mc,
-                  connected: true,       // si manda batería, está viva
+                  connected: true,
                   lastSeen: new Date(),
                   battery: { nivel, porcentaje, voltaje },
                 }
@@ -433,6 +433,7 @@ export default function PruebasPage() {
     } finally { setIsSaving(false) }
   }
 
+  // ── FIX: usa selectedPlayerRef.current en lugar de selectedPlayer (closure stale) ──
   const abrirResumen = (tipo, stats, jugadorSnapshot, capsulasSnapshot) => {
     setSummaryData({
       tipo,
@@ -461,7 +462,6 @@ export default function PruebasPage() {
       const data = await res.json()
       if (data.success) {
         localStorage.setItem("prueba_secuencial_id", data.data.id.toString())
-        // Limpiar cápsulas deshabilitadas e iniciar health checks periódicos
         disabledCapsulesRef.current.clear()
         if (healthCheckIntervalRef.current) clearInterval(healthCheckIntervalRef.current)
         healthCheckIntervalRef.current = setInterval(() => {
@@ -483,7 +483,6 @@ export default function PruebasPage() {
 
   const activateNextMicrocontrollerSequential = (espId) => {
     const allESPs = selectedESPsRef.current
-    // Si la cápsula está deshabilitada, saltar a la siguiente disponible
     if (disabledCapsulesRef.current.has(espId)) {
       const idx = allESPs.indexOf(espId)
       let nextESP = null
@@ -508,7 +507,6 @@ export default function PruebasPage() {
     setMicroControllers((prev) => prev.map((mc) => ({ ...mc, active: mc.id === espId, status: mc.id === espId ? "Esperando respuesta" : mc.status })))
     sendCommandToESP(espId, { command: "ON" })
     responseTimeoutSequentialRef.current = setTimeout(() => {
-      // Deshabilitar cápsula cuando se agota el tiempo de espera
       disabledCapsulesRef.current.add(espId)
       showNotification("error", `Cápsula ${espId} deshabilitada (sin respuesta a tiempo)`)
       if (processingResponseSequentialRef.current) return
@@ -553,7 +551,8 @@ export default function PruebasPage() {
   const finalizarPruebaSecuencial = async () => {
     detenerCronometroGeneral()
     const stats = { ...estadisticasSequentialRef.current }
-    const jugadorSnap = selectedPlayer
+    // ── FIX: usar ref para evitar stale closure ──
+    const jugadorSnap = selectedPlayerRef.current
     const capsulasSnap = [...selectedESPsRef.current]
     const pruebaId = localStorage.getItem("prueba_secuencial_id")
     if (pruebaId) {
@@ -643,7 +642,8 @@ export default function PruebasPage() {
     detenerCronometroGeneral()
     if (timerInterval) { clearInterval(timerInterval); setTimerInterval(null) }
     const stats = { ...estadisticasRandomRef.current }
-    const jugadorSnap = selectedPlayer
+    // ── FIX: usar ref para evitar stale closure ──
+    const jugadorSnap = selectedPlayerRef.current
     const capsulasSnap = [...selectedESPsRef.current]
     const pruebaId = localStorage.getItem("prueba_aleatoria_id")
     if (pruebaId) {
@@ -724,7 +724,8 @@ export default function PruebasPage() {
     detenerCronometroGeneral()
     if (timerInterval) { clearInterval(timerInterval); setTimerInterval(null) }
     const stats = { ...estadisticasManualRef.current }
-    const jugadorSnap = selectedPlayer
+    // ── FIX: usar ref para evitar stale closure ──
+    const jugadorSnap = selectedPlayerRef.current
     const capsulasSnap = [...selectedESPsRef.current]
     const pruebaId = localStorage.getItem("prueba_manual_id")
     if (pruebaId) {
