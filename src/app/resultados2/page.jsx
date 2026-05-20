@@ -26,6 +26,12 @@ const TIPOS = [
   { key: "manual",     label: "Manual",     color: "#d97706" },
 ]
 
+const PERIODO_OPTIONS = [
+  { key: "general", label: "General" },
+  { key: "mensual", label: "Mensual" },
+  { key: "semanal", label: "Semanal" },
+]
+
 // ─── Animated number ──────────────────────────────────────────────────────────
 function AnimatedNumber({ value = 0, duration = 550 }) {
   const ref = useRef(null)
@@ -65,8 +71,6 @@ function MiniBar({ aciertos = 0, errores = 0 }) {
 
 // ─── Session card ─────────────────────────────────────────────────────────────
 function SessionCard({ title, data, delay = 0 }) {
-  const intentos = data?.intentos ?? ((data?.aciertos || 0) + (data?.errores || 0))
-
   const rows = [
     { label: "Aciertos", val: data?.aciertos || 0, color: T.aciertos, icon: "✓" },
     { label: "Fallos",   val: data?.errores  || 0, color: T.errores,  icon: "✗" },
@@ -120,114 +124,6 @@ function SessionCard({ title, data, delay = 0 }) {
   )
 }
 
-// ─── Date range filter ────────────────────────────────────────────────────────
-function DateRangeFilter({ desde, hasta, onChange }) {
-  const [open,   setOpen]   = useState(false)
-  const [localD, setLocalD] = useState(desde || "")
-  const [localH, setLocalH] = useState(hasta || "")
-
-  function off(days) {
-    const d = new Date(); d.setDate(d.getDate() + days)
-    return d.toISOString().split("T")[0]
-  }
-
-  const presets = [
-    { label: "Todos los tiempos", d: "",       h: "" },
-    { label: "Última semana",     d: off(-7),  h: "" },
-    { label: "Último mes",        d: off(-30), h: "" },
-    { label: "Últimos 3 meses",   d: off(-90), h: "" },
-  ]
-
-  const label = () => {
-    if (!localD && !localH) return "Filtrar por fecha"
-    const fmt = (s) => s
-      ? new Date(s + "T00:00:00").toLocaleDateString("es-ES", { day: "2-digit", month: "short" })
-      : "hoy"
-    return `${fmt(localD)} – ${fmt(localH)}`
-  }
-
-  return (
-    <div className="relative" style={{ userSelect: "none" }}>
-      <button
-        onClick={() => setOpen(!open)}
-        className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm transition-colors"
-        style={{
-          border: `1.5px solid ${T.border}`,
-          background: T.bg,
-          color: T.muted,
-          boxShadow: T.shadowSm,
-          minWidth: 190,
-        }}
-      >
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-          strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <rect x="3" y="4" width="18" height="18" rx="2"/>
-          <line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/>
-          <line x1="3" y1="10" x2="21" y2="10"/>
-        </svg>
-        <span className="flex-1 text-left text-[13px]">{label()}</span>
-        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-          strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-          <polyline points="6 9 12 15 18 9"/>
-        </svg>
-      </button>
-
-      <AnimatePresence>
-        {open && (
-          <motion.div
-            initial={{ opacity: 0, y: 6, scale: 0.97 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 4, scale: 0.97 }}
-            transition={{ duration: 0.16 }}
-            className="absolute z-50 top-full mt-2 left-0 rounded-2xl overflow-hidden"
-            style={{
-              background: T.bg,
-              border: `1.5px solid ${T.border}`,
-              boxShadow: "0 12px 36px rgba(15,23,42,0.12)",
-              minWidth: 270,
-            }}
-          >
-            <div className="py-1.5">
-              {presets.map((p) => (
-                <button key={p.label}
-                  onClick={() => { setLocalD(p.d); setLocalH(p.h); onChange(p.d, p.h); setOpen(false) }}
-                  className="w-full text-left px-4 py-2.5 text-sm transition-colors hover:bg-slate-50"
-                  style={{ color: T.text }}>
-                  {p.label}
-                </button>
-              ))}
-            </div>
-
-            <div className="border-t px-4 py-4 space-y-3" style={{ borderColor: T.border }}>
-              <p className="text-[11px] font-bold uppercase tracking-widest" style={{ color: T.mutedSoft }}>
-                Rango personalizado
-              </p>
-              <div className="flex gap-3">
-                {[
-                  { label: "Desde", val: localD, set: setLocalD },
-                  { label: "Hasta", val: localH, set: setLocalH },
-                ].map(({ label, val, set }) => (
-                  <div key={label} className="flex-1">
-                    <p className="text-[11px] mb-1" style={{ color: T.mutedSoft }}>{label}</p>
-                    <input type="date" value={val} onChange={(e) => set(e.target.value)}
-                      className="w-full rounded-xl px-3 py-1.5 text-[13px] outline-none"
-                      style={{ border: `1.5px solid ${T.border}`, color: T.text }} />
-                  </div>
-                ))}
-              </div>
-              <button onClick={() => { onChange(localD, localH); setOpen(false) }}
-                className="w-full rounded-xl py-2 text-sm font-semibold text-white"
-                style={{ background: T.accent }}>
-                Aplicar
-              </button>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
-  )
-}
-
 // ─── Tabs + 3 cards ───────────────────────────────────────────────────────────
 function TiposPanel({ tiposData }) {
   const [activo, setActivo] = useState("aleatorio")
@@ -260,7 +156,6 @@ function TiposPanel({ tiposData }) {
           initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
           transition={{ duration: 0.15 }}
           className="flex gap-4 flex-col sm:flex-row">
-          {/* ✅ FIX: ultima_sesion, mejor_reaccion, peor_reaccion */}
           <SessionCard title="Última Sesión" data={stats.ultima_sesion}  delay={0}    />
           <SessionCard title="Mejor Prueba"  data={stats.mejor_reaccion} delay={0.07} />
           <SessionCard title="Peor Prueba"   data={stats.peor_reaccion}  delay={0.14} />
@@ -276,10 +171,9 @@ export default function ResultadosPersonalPage() {
   const [rankingData, setRankingData] = useState(null)
   const [rankingPos,  setRankingPos]  = useState(null)
   const [loading,     setLoading]     = useState(true)
-  const [desde,       setDesde]       = useState("")
-  const [hasta,       setHasta]       = useState("")
+  const [periodo,     setPeriodo]     = useState("general")
 
-  useEffect(() => { cargarDatos() }, [desde, hasta])
+  useEffect(() => { cargarDatos() }, [periodo])
 
   const cargarDatos = async () => {
     setLoading(true)
@@ -287,15 +181,10 @@ export default function ResultadosPersonalPage() {
       const userId = typeof window !== "undefined" ? localStorage.getItem("idUser") : null
       if (!userId) return
 
-      const qs = new URLSearchParams()
-      if (desde) qs.set("desde", desde)
-      if (hasta) qs.set("hasta", hasta)
-      const q = qs.toString() ? `?${qs}` : ""
-
       const [cR, rR, pR] = await Promise.all([
         fetch(`${BACKEND_URL}/api/cuentas/${userId}`),
-        fetch(`${BACKEND_URL}/api/ranking/personal/${userId}${q}`),
-        fetch(`${BACKEND_URL}/api/ranking/posicion/${userId}${q}`),
+        fetch(`${BACKEND_URL}/api/ranking/personal/${userId}?periodo=${periodo}`),
+        fetch(`${BACKEND_URL}/api/ranking/posicion/${userId}?periodo=${periodo}`),
       ])
       const [cD, rD, pD] = await Promise.all([cR.json(), rR.json(), pR.json()])
       if (cD.success) setJugadorData(cD.data)
@@ -378,8 +267,25 @@ export default function ResultadosPersonalPage() {
 
             {/* Top bar */}
             <div className="relative px-6 pt-6 pb-5 flex items-center justify-between gap-4">
-              <DateRangeFilter desde={desde} hasta={hasta}
-                onChange={(d, h) => { setDesde(d); setHasta(h) }} />
+
+              {/* Selector de periodo */}
+              <div className="inline-flex rounded-xl overflow-hidden"
+                style={{ border: `1.5px solid ${T.border}`, background: T.bg, boxShadow: T.shadowSm }}>
+                {PERIODO_OPTIONS.map(({ key, label }) => {
+                  const active = periodo === key
+                  return (
+                    <button key={key} onClick={() => setPeriodo(key)}
+                      className="px-5 py-2 text-sm font-semibold transition-all"
+                      style={{
+                        background: active ? T.accent : "transparent",
+                        color: active ? "#fff" : T.muted,
+                        boxShadow: active ? "0 2px 8px rgba(29,78,216,0.2)" : "none",
+                      }}>
+                      {label}
+                    </button>
+                  )
+                })}
+              </div>
 
               {/* Título centrado absolute */}
               <div className="absolute inset-x-0 top-6 flex justify-center pointer-events-none">
@@ -396,7 +302,6 @@ export default function ResultadosPersonalPage() {
             <div className="mx-6" style={{ height: 1, background: T.border }} />
 
             <div className="px-6 pt-5 pb-6">
-              {/* ✅ FIX: por_tipo_reaccion */}
               <TiposPanel tiposData={rankingData.por_tipo_reaccion} />
             </div>
 

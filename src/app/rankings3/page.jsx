@@ -120,7 +120,6 @@ function Podium({ players, onPlayerClick }) {
               <span className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black text-white shadow-md"
                 style={{ background: mc.ring }}>{pos}</span>
             </div>
-            {/* Badge — ahora muestra mejor altura */}
             <div className="text-[9px] font-bold uppercase tracking-wide px-2.5 py-0.5 rounded-full mb-2"
               style={{ background: mc.bg, color: mc.text, border: `1px solid ${mc.ring}` }}>
               {player.mejor_altura ?? "—"} cm
@@ -160,7 +159,6 @@ function RankRow({ player, delay = 0, onPlayerClick }) {
           {getPositionName(player.jugador?.posicion_principal) || "Jugadora"}
         </p>
       </div>
-      {/* Valor principal: mejor altura */}
       <div className="text-right shrink-0">
         <p className="text-sm font-extrabold tabular-nums" style={{ color: T.accent }}>
           {player.mejor_altura ?? "—"} cm
@@ -173,10 +171,9 @@ function RankRow({ player, delay = 0, onPlayerClick }) {
   )
 }
 
-function PlayerModal({ player, tipoSalto, onClose }) {
+function PlayerModal({ player, onClose }) {
   if (!player) return null
-  const posIcon  = getPositionIcon(player.jugador?.posicion_principal)
-  const isSimple = tipoSalto === "salto simple"
+  const posIcon = getPositionIcon(player.jugador?.posicion_principal)
   return (
     <AnimatePresence>
       <motion.div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4"
@@ -215,15 +212,11 @@ function PlayerModal({ player, tipoSalto, onClose }) {
                   #{player.posicion}</span>
             }
           </div>
-          <div className="px-5 py-5 grid grid-cols-2 gap-3">
+          <div className="px-5 py-5 grid grid-cols-3 gap-3">
             {[
-              { label: "Altura",   value: `${player.mejor_altura       ?? "—"} cm`, color: T.accent  },
-              { label: "Saltos",   value: `${player.mejor_cantidad     ?? "—"}`,     color: "#7c3aed" },
-              { label: "Fuerza",   value: `${player.mejor_fuerza_total ?? "—"} kg`, color: "#0891b2" },
-              ...(isSimple
-                ? [{ label: "Potencia", value: `${player.mejor_potencia ?? "—"} W`, color: "#d97706" }]
-                : []
-              ),
+              { label: "Altura", value: `${player.mejor_altura       ?? "—"} cm`, color: T.accent  },
+              { label: "Saltos", value: `${player.mejor_cantidad     ?? "—"}`,     color: "#7c3aed" },
+              { label: "Fuerza", value: `${player.mejor_fuerza_total ?? "—"} kg`, color: "#0891b2" },
             ].map(({ label, value, color }) => (
               <div key={label} className="rounded-xl p-3 text-center"
                 style={{ background: T.pageBg, border: `1.5px solid ${T.border}` }}>
@@ -259,7 +252,6 @@ export default function RankingPage() {
   async function cargarRanking() {
     try {
       setLoading(true)
-      // CAMBIO: Endpoint actualizado de /pliometria a /salto
       let url = `${BACKEND_URL}/api/ranking/salto?limit=10`
       if (periodo   !== "general") url += `&periodo=${periodo}`
       if (tipoSalto !== "todos")  url += `&tipo=${encodeURIComponent(tipoSalto)}`
@@ -273,7 +265,6 @@ export default function RankingPage() {
           mejor_fuerza_total: item.mejor_fuerza_total,
           mejor_altura:       item.mejor_altura,
           mejor_cantidad:     item.mejor_cantidad,
-          mejor_potencia:     item.mejor_potencia,
           posicion:           i + 1,
           jugador:            item.jugador,
         })))
@@ -348,7 +339,7 @@ export default function RankingPage() {
         </motion.div>
       </div>
       {selectedPlayer && (
-        <PlayerModal player={selectedPlayer} tipoSalto={tipoSalto} onClose={() => setSelectedPlayer(null)} />
+        <PlayerModal player={selectedPlayer} onClose={() => setSelectedPlayer(null)} />
       )}
     </div>
   )
