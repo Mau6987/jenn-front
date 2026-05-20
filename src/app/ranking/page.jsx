@@ -37,22 +37,30 @@ const PERIODO_OPTIONS = [
 
 // ─── Avatar ───────────────────────────────────────────────────────────────────
 function PlayerAvatar({ jugador, size = 56 }) {
-  const icon  = getPositionIcon(jugador?.posicion_principal)
+  const icon = getPositionIcon(jugador?.posicion_principal)
   return (
-    <div className="rounded-full grid place-items-center overflow-hidden shrink-0"
+    <div
+      className="rounded-full overflow-hidden grid place-items-center shrink-0"
       style={{
-        width: size, height: size,
-        background: icon ? "transparent" : "#e2e8f0",
+        width: size,
+        height: size,
+        background: "#e2e8f0",
         border: `2px solid ${T.border}`,
-      }}>
-      {icon
-        ? <img src={icon} alt="" style={{ width: size * 0.6, height: size * 0.6, objectFit: "contain" }} />
-        : <svg width={size * 0.55} height={size * 0.55} viewBox="0 0 24 24" fill="none"
-            stroke="#94a3b8" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
-            <circle cx="12" cy="7" r="4"/>
-          </svg>
-      }
+      }}
+    >
+      {icon ? (
+        <img
+          src={icon}
+          alt=""
+          style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: "50%" }}
+        />
+      ) : (
+        <svg width={size * 0.55} height={size * 0.55} viewBox="0 0 24 24" fill="none"
+          stroke="#94a3b8" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+          <circle cx="12" cy="7" r="4"/>
+        </svg>
+      )}
     </div>
   )
 }
@@ -99,23 +107,32 @@ function PodiumCard({ player, position, delay = 0, onClick }) {
 
       <motion.div className="my-3 relative"
         whileHover={{ scale: 1.07 }} transition={{ type: "spring", stiffness: 300 }}>
-        <div className="absolute inset-0 rounded-full blur-xl" style={{ background: mc.glow, transform: "scale(1.3)" }} />
-        <div className="relative rounded-full overflow-hidden grid place-items-center"
+        <div className="absolute inset-0 rounded-full blur-xl"
+          style={{ background: mc.glow, transform: "scale(1.3)" }} />
+        <div
+          className="relative rounded-full overflow-hidden grid place-items-center"
           style={{
             width: avatarSizes[position],
             height: avatarSizes[position],
             background: "#e2e8f0",
             border: `3px solid ${mc.border}`,
             boxShadow: `0 0 0 3px #fff`,
-          }}>
-          {getPositionIcon(player.jugador.posicion_principal)
-            ? <img src={getPositionIcon(player.jugador.posicion_principal)} alt=""
-                style={{ width: avatarSizes[position] * 0.58, height: avatarSizes[position] * 0.58, objectFit: "contain" }} />
-            : <svg width={avatarSizes[position] * 0.55} height={avatarSizes[position] * 0.55} viewBox="0 0 24 24"
-                fill="none" stroke="#94a3b8" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
-              </svg>
-          }
+          }}
+        >
+          {getPositionIcon(player.jugador.posicion_principal) ? (
+            <img
+              src={getPositionIcon(player.jugador.posicion_principal)}
+              alt=""
+              style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: "50%" }}
+            />
+          ) : (
+            <svg width={avatarSizes[position] * 0.55} height={avatarSizes[position] * 0.55}
+              viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="1.5"
+              strokeLinecap="round" strokeLinejoin="round">
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+              <circle cx="12" cy="7" r="4"/>
+            </svg>
+          )}
         </div>
       </motion.div>
 
@@ -158,8 +175,10 @@ function RankingRow({ player, position, delay = 0, onClick, isCurrentUser = fals
       <div className="flex-1 min-w-0">
         <p className="text-sm font-bold truncate" style={{ color: T.text }}>
           {player.jugador.nombres} {player.jugador.apellidos}
-          {isCurrentUser && <span className="ml-2 text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full"
-            style={{ background: T.accent, color: "#fff" }}>Tú</span>}
+          {isCurrentUser && (
+            <span className="ml-2 text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full"
+              style={{ background: T.accent, color: "#fff" }}>Tú</span>
+          )}
         </p>
         <p className="text-[12px] truncate" style={{ color: T.mutedSoft }}>
           {player.jugador.posicion_principal ? getPositionName(player.jugador.posicion_principal) : ""}
@@ -212,10 +231,11 @@ function PlayerDetailModal({ player, onClose }) {
               </p>
               <PrecisionBadge value={player.totales_generales.precision} size="md" />
             </div>
-            <button onClick={onClose} className="shrink-0 rounded-full p-1.5 transition-colors hover:bg-slate-100"
+            <button onClick={onClose}
+              className="shrink-0 rounded-full p-1.5 transition-colors hover:bg-slate-100"
               style={{ color: T.mutedSoft }}>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
-                strokeLinecap="round" strokeLinejoin="round">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
               </svg>
             </button>
@@ -227,7 +247,6 @@ function PlayerDetailModal({ player, onClose }) {
               Rendimiento por tipo
             </p>
             {tipos.map(({ key, label, color, bg }) => {
-              {/* ✅ FIX: por_tipo_reaccion en lugar de por_tipo_prueba */}
               const d = player.por_tipo_reaccion?.[key]
               if (!d || d.total_realizadas === 0) return null
               const total = (d.total_aciertos + d.total_errores) || 1
@@ -247,8 +266,10 @@ function PlayerDetailModal({ player, onClose }) {
                     <span>{d.total_realizadas} pruebas</span>
                   </div>
                   <div className="relative h-1.5 rounded-full overflow-hidden" style={{ background: "#e2e8f0" }}>
-                    <div className="absolute left-0 top-0 h-full rounded-full" style={{ width: `${aPct}%`, background: T.aciertos }} />
-                    <div className="absolute right-0 top-0 h-full rounded-full" style={{ width: `${ePct}%`, background: T.errores }} />
+                    <div className="absolute left-0 top-0 h-full rounded-full"
+                      style={{ width: `${aPct}%`, background: T.aciertos }} />
+                    <div className="absolute right-0 top-0 h-full rounded-full"
+                      style={{ width: `${ePct}%`, background: T.errores }} />
                   </div>
                 </div>
               )

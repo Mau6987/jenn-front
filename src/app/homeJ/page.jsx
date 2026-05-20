@@ -40,7 +40,7 @@ export default function PlayerHome() {
   ];
 
   const resultadoOptions = [
-    { label: "Resultados Salto", href: "/rankings3" },
+    { label: "Resultados Salto", href: "/rankings2" },
     { label: "Resultados Reacción", href: "/resultados2" },
   ];
 
