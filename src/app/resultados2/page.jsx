@@ -268,23 +268,28 @@ export default function ResultadosPersonalPage() {
             {/* Top bar */}
             <div className="relative px-6 pt-6 pb-5 flex items-center justify-between gap-4">
 
-              {/* Selector de periodo */}
-              <div className="inline-flex rounded-xl overflow-hidden"
+              {/* Selector de periodo - Dropdown */}
+              <div className="inline-flex items-center rounded-xl px-4 py-2 gap-3"
                 style={{ border: `1.5px solid ${T.border}`, background: T.bg, boxShadow: T.shadowSm }}>
-                {PERIODO_OPTIONS.map(({ key, label }) => {
-                  const active = periodo === key
-                  return (
-                    <button key={key} onClick={() => setPeriodo(key)}
-                      className="px-5 py-2 text-sm font-semibold transition-all"
-                      style={{
-                        background: active ? T.accent : "transparent",
-                        color: active ? "#fff" : T.muted,
-                        boxShadow: active ? "0 2px 8px rgba(29,78,216,0.2)" : "none",
-                      }}>
+                <label className="text-xs font-semibold uppercase tracking-widest" style={{ color: T.mutedSoft }}>
+                  Filtrar por fecha
+                </label>
+                <select
+                  value={periodo}
+                  onChange={(e) => setPeriodo(e.target.value)}
+                  className="text-sm font-semibold outline-none cursor-pointer"
+                  style={{
+                    background: "transparent",
+                    color: T.text,
+                    border: "none",
+                    padding: "0",
+                  }}>
+                  {PERIODO_OPTIONS.map(({ key, label }) => (
+                    <option key={key} value={key}>
                       {label}
-                    </button>
-                  )
-                })}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               {/* Título centrado absolute */}
