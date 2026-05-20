@@ -1,19 +1,19 @@
 export const getPositionIcon = (position: string | null | undefined): string => {
-  if (!position) return "/images/posiciones/oso.png"
+  if (!position) return "/oso.png"
 
   const normalizedPosition = position.toLowerCase().trim()
 
   const positionMap: Record<string, string> = {
-    central:  "/images/posiciones/oso.png",
-    armador:  "/images/posiciones/delfin.png",
-    libero:   "/images/posiciones/zorro.png",
-    líbero:   "/images/posiciones/zorro.png",
-    opuesto:  "/images/posiciones/tigre.png",
-    punta:    "/images/posiciones/puma.png",
-    receptor: "/images/posiciones/puma.png",
+    central:  "/oso.png",
+    armador:  "/delfin.png",
+    libero:   "/zorro.png",
+    líbero:   "/zorro.png",
+    opuesto:  "/tigre.png",
+    punta:    "/puma.png",
+    receptor: "nes/puma.png",
   }
 
-  return positionMap[normalizedPosition] || "/images/posiciones/oso.png"
+  return positionMap[normalizedPosition] || "/oso.png"
 }
 
 export const getPositionName = (position: string | null | undefined): string => {
