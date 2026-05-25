@@ -691,12 +691,11 @@ export default function ResultadosReaccion() {
                 </div>
               )}
 
-              {/* C: Gráfico — título actualizado, sin subtextos */}
+              {/* C: Gráfico */}
               <div className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-6 shadow-sm">
                 <div className="flex flex-col gap-3 mb-5">
                   <div className="flex flex-col sm:flex-row sm:items-start gap-2 justify-between">
                     <div>
-                      {/* ── Título actualizado: sin "—", sin subtextos ── */}
                       <h3 className="text-sm font-bold text-slate-800">
                         Evolución de % aciertos
                         {modoFiltro !== "todos" ? ` · ${modoFiltro}` : " por modo"}
@@ -706,7 +705,6 @@ export default function ResultadosReaccion() {
                       <ModoToggle modosVisibles={modosVisibles} onToggle={toggleModo} />
                     )}
                   </div>
-                  {/* Subtextos eliminados */}
                 </div>
                 <div className="h-[22rem] sm:h-[28rem]">
                   <LineChart sesiones={sesionesParaGrafico} modosVisibles={modosVisiblesEfectivos} />
@@ -817,12 +815,12 @@ export default function ResultadosReaccion() {
                             </div>
                           ))}
                         </div>
+                        {/* Mejor sesión: solo fecha, sin porcentaje */}
                         {info.mejor_reaccion && (
                           <div className="mt-3 pt-3 border-t border-slate-100">
                             <p className="text-[10px] text-slate-400 uppercase tracking-widest mb-1">Mejor sesión</p>
-                            <div className="flex items-center justify-between">
+                            <div className="flex items-center">
                               <span className="text-xs text-slate-500">{formatFechaCorta(info.mejor_reaccion?.fecha)}</span>
-                              <span className="text-xs font-black text-emerald-600">{(info.mejor_reaccion?.precision ?? 0).toFixed(1)}%</span>
                             </div>
                           </div>
                         )}

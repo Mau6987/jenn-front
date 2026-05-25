@@ -32,7 +32,6 @@ const PERIODO_OPTIONS = [
   { key: "semanal", label: "Semanal" },
 ]
 
-// ─── Animated number ──────────────────────────────────────────────────────────
 function AnimatedNumber({ value = 0, duration = 550 }) {
   const ref = useRef(null)
   useEffect(() => {
@@ -49,7 +48,6 @@ function AnimatedNumber({ value = 0, duration = 550 }) {
   return <span ref={ref}>0</span>
 }
 
-// ─── Mini progress bar ────────────────────────────────────────────────────────
 function MiniBar({ aciertos = 0, errores = 0 }) {
   const total = (aciertos + errores) || 1
   const aPct  = (aciertos / total) * 100
@@ -69,7 +67,6 @@ function MiniBar({ aciertos = 0, errores = 0 }) {
   )
 }
 
-// ─── Session card ─────────────────────────────────────────────────────────────
 function SessionCard({ title, data, delay = 0 }) {
   const rows = [
     { label: "Aciertos", val: data?.aciertos || 0, color: T.aciertos, icon: "✓" },
@@ -124,7 +121,6 @@ function SessionCard({ title, data, delay = 0 }) {
   )
 }
 
-// ─── Tabs + 3 cards ───────────────────────────────────────────────────────────
 function TiposPanel({ tiposData }) {
   const [activo, setActivo] = useState("aleatorio")
   const stats = tiposData?.[activo] || {}
@@ -165,7 +161,6 @@ function TiposPanel({ tiposData }) {
   )
 }
 
-// ─── Main page ────────────────────────────────────────────────────────────────
 export default function ResultadosPersonalPage() {
   const [jugadorData, setJugadorData] = useState(null)
   const [rankingData, setRankingData] = useState(null)
@@ -222,16 +217,28 @@ export default function ResultadosPersonalPage() {
           initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}>
           <div className="flex items-center gap-5">
-            <div className="h-[72px] w-[72px] shrink-0 rounded-full grid place-items-center overflow-hidden"
-              style={{ background: "#e2e8f0", boxShadow: "0 0 0 4px #fff, 0 0 0 6px #e2e8f0" }}>
-              {posIcon
-                ? <img src={posIcon} alt="" className="w-10 h-10 object-contain" />
-                : <svg width="32" height="32" viewBox="0 0 24 24" fill="none"
+            <div
+              className="h-[72px] w-[72px] shrink-0 rounded-full overflow-hidden"
+              style={{
+                boxShadow: "0 0 0 4px #fff, 0 0 0 6px #e2e8f0",
+                background: "#e2e8f0",
+              }}
+            >
+              {posIcon ? (
+                <img
+                  src={posIcon}
+                  alt=""
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <div className="w-full h-full grid place-items-center">
+                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none"
                     stroke="#94a3b8" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
                     <circle cx="12" cy="7" r="4"/>
                   </svg>
-              }
+                </div>
+              )}
             </div>
 
             <div className="min-w-0">
@@ -265,10 +272,7 @@ export default function ResultadosPersonalPage() {
               boxShadow: T.shadow,
             }}>
 
-            {/* Top bar */}
             <div className="relative px-6 pt-6 pb-5 flex items-center justify-between gap-4">
-
-              {/* Selector de periodo - Dropdown */}
               <div className="inline-flex items-center rounded-xl px-4 py-2 gap-3"
                 style={{ border: `1.5px solid ${T.border}`, background: T.bg, boxShadow: T.shadowSm }}>
                 <label className="text-xs font-semibold uppercase tracking-widest" style={{ color: T.mutedSoft }}>
@@ -278,21 +282,13 @@ export default function ResultadosPersonalPage() {
                   value={periodo}
                   onChange={(e) => setPeriodo(e.target.value)}
                   className="text-sm font-semibold outline-none cursor-pointer"
-                  style={{
-                    background: "transparent",
-                    color: T.text,
-                    border: "none",
-                    padding: "0",
-                  }}>
+                  style={{ background: "transparent", color: T.text, border: "none", padding: "0" }}>
                   {PERIODO_OPTIONS.map(({ key, label }) => (
-                    <option key={key} value={key}>
-                      {label}
-                    </option>
+                    <option key={key} value={key}>{label}</option>
                   ))}
                 </select>
               </div>
 
-              {/* Título centrado absolute */}
               <div className="absolute inset-x-0 top-6 flex justify-center pointer-events-none">
                 <span className="inline-flex items-center px-6 py-2 rounded-full text-[12px] font-bold uppercase tracking-widest text-white"
                   style={{ background: "#334155", boxShadow: "0 2px 8px rgba(15,23,42,0.15)" }}>
@@ -300,7 +296,6 @@ export default function ResultadosPersonalPage() {
                 </span>
               </div>
 
-              {/* Mirror spacer */}
               <div style={{ minWidth: 190, visibility: "hidden" }} aria-hidden />
             </div>
 
