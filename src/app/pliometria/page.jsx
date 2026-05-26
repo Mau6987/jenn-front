@@ -682,25 +682,12 @@ export default function SistemaUnificadoPage() {
   })
 
   const getPruebasCarrusel = () => tipoSalto === "salto conos" ? SALTO_CONOS_IMAGES : SALTO_SIMPLE_IMAGES
-
-  const handleTabChange = (tab) => {
-    setActiveTab(tab)
-    // Resetear sensor cuando se cambia de tab
-    setIsCalibrated(false)
-    setAlcanceCalibracionDone(false)
-    setPruebaCalibrada(false)
-    setPruebaCalibracionDone(false)
-    setFaseAlcance("idle")
-    setEjercicioEnCurso(false)
-    setSaltoRTActual(null)
-    setResultadoFinal(null)
-  }
   const batteryBorderColor = espBattery?.nivel === "normal" ? "#10b981" : espBattery?.nivel === "alerta" ? "#f59e0b" : espBattery?.nivel === "critico" ? "#ef4444" : "#e2e8f0"
 
   const calibrarAlcanceDisabled = !cuentaSeleccionada || faseAlcance === "jumping" || !espConnected
-  const iniciarAlcanceDisabled  = !espConnected || !alcanceCalibracionDone
+  const iniciarAlcanceDisabled  = !espConnected
   const calibrarPruebaDisabled  = !cuentaSeleccionada || ejercicioEnCurso || !espConnected
-  const iniciarPruebaDisabled   = !espConnected || !pruebaCalibracionDone
+  const iniciarPruebaDisabled   = !espConnected
 
   return (
     <div className="min-h-screen" style={{ background: "linear-gradient(160deg,#f8fafc 0%,#f0f4f8 60%,#e8eef5 100%)", fontFamily: "'DM Sans', sans-serif" }}>
@@ -804,7 +791,7 @@ export default function SistemaUnificadoPage() {
                       disabled={iniciarAlcanceDisabled}
                       className="pill-btn flex-1 py-2.5 px-5 text-sm font-semibold"
                       style={pillBtn(!iniciarAlcanceDisabled, iniciarAlcanceDisabled)}
-                      title={!espConnected ? "Dispositivo desconectado" : !alcanceCalibracionDone ? "Primero debe inicializar el sensor" : undefined}
+                      title={!espConnected ? "Dispositivo desconectado" : undefined}
                     >
                       Iniciar test
                     </button>
@@ -876,7 +863,7 @@ export default function SistemaUnificadoPage() {
                       <button onClick={iniciarPrueba} disabled={iniciarPruebaDisabled}
                         className="pill-btn py-2 px-4 text-sm font-semibold"
                         style={pillBtn(!iniciarPruebaDisabled, iniciarPruebaDisabled)}
-                        title={!espConnected ? "Dispositivo desconectado" : !pruebaCalibracionDone ? "Primero debe inicializar el sensor" : undefined}>
+                        title={!espConnected ? "Dispositivo desconectado" : undefined}>
                         Iniciar test
                       </button>
                     ) : (
@@ -902,7 +889,7 @@ export default function SistemaUnificadoPage() {
         <div className="flex justify-center">
           <div className="flex p-1 gap-1" style={{ background: "rgba(255,255,255,.9)", border: "1px solid rgba(148,163,184,.2)", borderRadius: 50, boxShadow: "0 2px 12px rgba(148,163,184,.1)" }}>
             {[["alcance", "Test Alcance"], ["pruebas", "Prueba Salto"]].map(([key, label]) => (
-              <button key={key} onClick={() => handleTabChange(key)} className="pill-btn px-8 py-2 text-sm font-semibold"
+              <button key={key} onClick={() => setActiveTab(key)} className="pill-btn px-8 py-2 text-sm font-semibold"
                 style={{ borderRadius: 50, background: activeTab === key ? "#1e293b" : "transparent", color: activeTab === key ? "#fff" : "#94a3b8", boxShadow: activeTab === key ? "0 2px 10px rgba(30,41,59,.2)" : "none" }}>
                 {label}
               </button>
