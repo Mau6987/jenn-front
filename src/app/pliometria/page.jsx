@@ -473,9 +473,14 @@ export default function SistemaUnificadoPage() {
           const picoIzq = parseFloat(json.fuerza_max_izq_kgf ?? json.fuerza_izq ?? json.pico_izq_kg ?? json.pico_izq ?? 0)
           const picoDer = parseFloat(json.fuerza_max_der_kgf ?? json.fuerza_der ?? json.pico_der_kg ?? json.pico_der ?? 0)
           const numSaltos = json.saltos ?? json.saltos_validos ?? saltoConosContadorRef.current
-          const altPromedio = alturasSesion.length > 0
-            ? (alturasSesion.reduce((a, b) => a + b, 0) / alturasSesion.length).toFixed(1)
-            : altMax.toFixed(1)
+
+          // ── FIX: usar alt_prom_cm del ESP; fallback al array cliente ──
+          const altPromedio = json.alt_prom_cm != null
+            ? parseFloat(json.alt_prom_cm).toFixed(1)
+            : alturasSesion.length > 0
+              ? (alturasSesion.reduce((a, b) => a + b, 0) / alturasSesion.length).toFixed(1)
+              : altMax.toFixed(1)
+
           const resultado = {
             _tipo: json.modo ?? (currentTipo === "salto conos" ? "cono" : "vertical"),
             saltos_validos: numSaltos, alt_max_cm: altMax.toFixed(1), alt_promedio_cm: altPromedio,
