@@ -259,10 +259,8 @@ const IconZap = () => (
   </svg>
 )
 
-// ── COMPONENTE DE BATERÍA CON TOOLTIP ─────────────────────────────────────
 function BatteryIcon({ nivel, porcentaje, voltaje }) {
   const [showTooltip, setShowTooltip] = useState(false)
-  
   const barColors = {
     normal:  ["#10b981", "#10b981", "#10b981"],
     alerta:  ["#f59e0b", "#f59e0b", "#e8e8e8"],
@@ -271,10 +269,7 @@ function BatteryIcon({ nivel, porcentaje, voltaje }) {
   }
   const colors = barColors[nivel] || barColors.null
   const labelColor = nivel === "normal" ? "#10b981" : nivel === "alerta" ? "#f59e0b" : nivel === "critico" ? "#ef4444" : "#9ca3af"
-  const batteryLabel = 
-    nivel === "normal" ? "OK" :
-    nivel === "alerta" ? "LOW" :
-    nivel === "critico" ? "CRIT" : "—"
+  const batteryLabel = nivel === "normal" ? "OK" : nivel === "alerta" ? "LOW" : nivel === "critico" ? "CRIT" : "—"
 
   return (
     <div
@@ -297,8 +292,6 @@ function BatteryIcon({ nivel, porcentaje, voltaje }) {
       <span style={{ fontSize: 9, fontWeight: 700, color: labelColor, fontFamily: "'DM Mono', monospace", lineHeight: 1 }}>
         {porcentaje !== null ? `${porcentaje}%` : batteryLabel}
       </span>
-      
-      {/* Tooltip al pasar el mouse */}
       {showTooltip && (
         <div style={{
           position: "absolute", bottom: "calc(100% + 8px)", left: "50%", transform: "translateX(-50%)",
@@ -310,14 +303,10 @@ function BatteryIcon({ nivel, porcentaje, voltaje }) {
             {porcentaje !== null ? `${porcentaje}%` : batteryLabel}
           </div>
           {voltaje != null && (
-            <div style={{ fontSize: 10, color: "#6b7280" }}>
-              {voltaje.toFixed(2)}V
-            </div>
+            <div style={{ fontSize: 10, color: "#6b7280" }}>{voltaje.toFixed(2)}V</div>
           )}
           {!nivel && (
-            <div style={{ fontSize: 10, color: "#9ca3af", fontStyle: "italic" }}>
-              Sin datos
-            </div>
+            <div style={{ fontSize: 10, color: "#9ca3af", fontStyle: "italic" }}>Sin datos</div>
           )}
         </div>
       )}
@@ -409,7 +398,6 @@ function ConexionTab({ espStates, pusherConnected, onTestESP, serverStatus, onTe
 
   return (
     <div className="conexion-grid">
-      {/* ESP32 connections */}
       <div>
         <span className="conn-section-title">Estado de Conexión ESP32</span>
         {Object.entries(espStates).map(([id, state]) => (
@@ -424,7 +412,6 @@ function ConexionTab({ espStates, pusherConnected, onTestESP, serverStatus, onTe
               </div>
             </div>
             <div className="esp-row-right">
-              {/* Icono de batería al lado del botón */}
               {state.battery && (
                 <BatteryIcon
                   nivel={state.battery.nivel}
@@ -447,7 +434,6 @@ function ConexionTab({ espStates, pusherConnected, onTestESP, serverStatus, onTe
         ))}
       </div>
 
-      {/* Server + DB status */}
       <div>
         <span className="conn-section-title">Estado del Servidor</span>
         <div className="server-box">
@@ -455,9 +441,7 @@ function ConexionTab({ espStates, pusherConnected, onTestESP, serverStatus, onTe
 
           <div className="server-section">
             <div className="server-section-row">
-              <div className="server-icon-label">
-                <IconServer /> API Backend
-              </div>
+              <div className="server-icon-label"><IconServer /> API Backend</div>
               <div style={{ display:"flex", alignItems:"center", gap:"0.5rem" }}>
                 <span style={{ display:"flex", alignItems:"center", gap:"0.4rem", fontSize:"0.72rem", fontWeight:600, color: statusTextColor(serverStatus.api) }}>
                   <StatusDot color={statusColor(serverStatus.api)} pulse={serverStatus.api === "testing"} />
@@ -600,7 +584,6 @@ export default function ESP6Monitor() {
       addLog("status", `ESP-6 conectado · IP: ${data?.ip || "—"}`, "success")
     })
 
-    // ── RECEPCIÓN DE DATOS DE BATERÍA ─────────────────────────────────────
     channel.bind("client-bateria_estado", (data) => {
       let payload = data
       if (typeof data.data === "string") {
@@ -652,12 +635,16 @@ export default function ESP6Monitor() {
       const msgLower = msg.toLowerCase()
       addLog("response", msg, msgLower.includes("error") ? "error" : "success")
 
-      if (msgLower === "ok" || msgLower.includes("con_vida") || msgLower.includes("vivo")) {
+      // FIX: el firmware responde exactamente "ok" (minúsculas) al comando HEALTH
+      if (msgLower === "ok") {
         setEspStates(prev => ({ 
           ...prev, 
           6: { ...prev[6], status: "online", lastSeen: Date.now() } 
         }))
-        if (connTimeouts.current[6]) { clearTimeout(connTimeouts.current[6]); delete connTimeouts.current[6] }
+        if (connTimeouts.current[6]) {
+          clearTimeout(connTimeouts.current[6])
+          delete connTimeouts.current[6]
+        }
       }
 
       if (msg.includes("CELL1_STOP") || msg.includes("STREAM_CELL1_OFF"))
@@ -699,16 +686,17 @@ export default function ESP6Monitor() {
       ...prev, 
       [id]: { ...prev[id], status: "testing" } 
     }))
+    // FIX: "HEALTH" es el comando correcto — el firmware responde "ok" + client-bateria_estado
     const tid = setTimeout(() => {
       setEspStates(prev => ({ 
         ...prev, 
         [id]: { ...prev[id], status: "failed" } 
       }))
-      addLog("error", `ESP-${id}: sin respuesta al STATE (5s)`, "error")
+      addLog("error", `ESP-${id}: sin respuesta al HEALTH (5s)`, "error")
       delete connTimeouts.current[id]
     }, 5000)
     connTimeouts.current[id] = tid
-    sendCommand("STATE")
+    sendCommand("HEALTH")
   }
 
   const handleTestServer = async () => {
