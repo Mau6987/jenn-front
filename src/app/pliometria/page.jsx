@@ -1032,7 +1032,7 @@ export default function SistemaUnificadoPage() {
                 <div className="space-y-3">
                   {[
                     { label: "Saltos detectados", value: resultadoFinal ? `${resultadoFinal.saltos_validos}` : saltoRTActual ? `${saltoRTActual.num}` : "", isLive: !!saltoRTActual && !resultadoFinal },
-                    { label: "Fuerza máxima", value: resultadoFinal ? `Izq: ${resultadoFinal.pico_izq_kg}  Der: ${resultadoFinal.pico_der_kg} kgf` : saltoRTActual ? `Izq: ${saltoRTActual.pico_izq.toFixed(2)}  Der: ${saltoRTActual.pico_der.toFixed(2)} kgf` : "", isLive: !!saltoRTActual && !resultadoFinal },
+                    { label: "Fuerza máxima", value: resultadoFinal ? `Izq: ${resultadoFinal.pico_izq_kg}  Der: ${resultadoFinal.pico_der_kg} kg` : saltoRTActual ? `Izq: ${saltoRTActual.pico_izq.toFixed(2)}  Der: ${saltoRTActual.pico_der.toFixed(2)} kg` : "", isLive: !!saltoRTActual && !resultadoFinal },
                     { label: "Altura máxima", value: resultadoFinal ? `${resultadoFinal.alt_max_cm} cm` : saltoRTActual ? `${saltoRTActual.altura_cm} cm` : "", isLive: !!saltoRTActual && !resultadoFinal },
                     { label: "Altura promedio", value: resultadoFinal ? `${resultadoFinal.alt_promedio_cm} cm` : "", isLive: false },
                   ].map(({ label, value, isLive }) => (
